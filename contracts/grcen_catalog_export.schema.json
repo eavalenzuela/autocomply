@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grcen/contracts/catalog-export/v1",
+  "title": "GRCen controls-catalog export",
+  "description": "Controls catalog projected from autocomply (system-of-record) into GRCen. See GRCEN_CATALOG_EXPORT.md.",
+  "type": "object",
+  "required": ["frameworks"],
+  "additionalProperties": true,
+  "properties": {
+    "catalog_version": {
+      "type": "string",
+      "description": "Contract version. '1' for this schema."
+    },
+    "source": {
+      "type": "string",
+      "description": "Informational provenance label (e.g. 'autocomply'). GRCen's --source flag controls the stored provenance tag."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional, informational export timestamp."
+    },
+    "frameworks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/framework" }
+    },
+    "controls": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/control" }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Stable identifier. Never recycle or renumber; GRCen upserts on it."
+    },
+    "framework": {
+      "type": "object",
+      "required": ["ref", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": { "$ref": "#/$defs/ref", "description": "Stable, unique among frameworks (e.g. 'soc2')." },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "description": { "type": "string" },
+        "metadata": {
+          "type": "object",
+          "description": "Stored verbatim on the framework asset. Suggested keys: version, governing_body, scope, applicability.",
+          "additionalProperties": true
+        },
+        "requirements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requirement" }
+        }
+      }
+    },
+    "requirement": {
+      "type": "object",
+      "required": ["ref", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": { "$ref": "#/$defs/ref", "description": "Stable, unique across ALL requirements in the file. Namespace with the framework ref, e.g. 'soc2:CC6.1'." },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "reference_id": { "type": "string", "description": "Bare requirement code → requirement.metadata.reference_id." },
+        "category": { "type": "string", "description": "→ requirement.metadata.category." },
+        "description": { "type": "string" },
+        "metadata": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "control": {
+      "type": "object",
+      "required": ["ref", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": { "$ref": "#/$defs/ref", "description": "Stable, unique among controls. Use the CCF code, e.g. '01.a'." },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "description": { "type": "string" },
+        "metadata": {
+          "type": "object",
+          "description": "Stored verbatim on the control asset. Suggested keys: control_type, framework_ref, automation_level.",
+          "additionalProperties": true
+        },
+        "satisfies": {
+          "type": "array",
+          "description": "Requirement refs this control satisfies. Each MUST match a requirement.ref in the same document, or GRCen rejects the whole catalog.",
+          "items": { "$ref": "#/$defs/ref" }
+        }
+      }
+    }
+  }
+}
