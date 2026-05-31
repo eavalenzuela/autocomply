@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16
+    container_name: autocomply-db
+    environment:
+      POSTGRES_USER: autocomply
+      POSTGRES_PASSWORD: autocomply
+      POSTGRES_DB: autocomply
+    ports:
+      - "5433:5432"
+    volumes:
+      - autocomply_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autocomply"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  autocomply_pg:

@@ -1,0 +1,149 @@
+# ISO/IEC 27001:2022
+# ----------------------------------------------------------------------------
+# TWO mappable surfaces:
+#   (a) clauses 4-10  — the management-system (ISMS) requirements (mandatory)
+#   (b) annex_a       — 93 controls in 4 themes (governed by the SoA)
+# `kind` distinguishes them on the Requirement entity.
+#
+# Titles are control/clause identifiers + our paraphrase. ISO standard text is
+# copyrighted — identifiers and short titles are referenceable; normative text
+# is NOT reproduced here.
+#
+# new_2022: true marks the 11 Annex A controls with no ISO 27002:2013/2005
+# ancestor → they require fresh hand-mapping (the lineage chain can't derive them).
+meta:
+  framework: ISO/IEC 27001
+  version: "2022"
+  annexa_themes: { organizational: 37, people: 8, physical: 14, technological: 34 }
+  annexa_total: 93
+
+clauses:        # kind: iso-clause
+  - { code: "4.1",   title: "Understanding the organization and its context" }
+  - { code: "4.2",   title: "Understanding needs and expectations of interested parties" }
+  - { code: "4.3",   title: "Determining the scope of the ISMS" }
+  - { code: "4.4",   title: "Information security management system" }
+  - { code: "5.1",   title: "Leadership and commitment" }
+  - { code: "5.2",   title: "Policy" }
+  - { code: "5.3",   title: "Organizational roles, responsibilities and authorities" }
+  - { code: "6.1.1", title: "Planning - general (risks and opportunities)" }
+  - { code: "6.1.2", title: "Information security risk assessment" }
+  - { code: "6.1.3", title: "Information security risk treatment" }
+  - { code: "6.2",   title: "Information security objectives and planning to achieve them" }
+  - { code: "6.3",   title: "Planning of changes" }
+  - { code: "7.1",   title: "Resources" }
+  - { code: "7.2",   title: "Competence" }
+  - { code: "7.3",   title: "Awareness" }
+  - { code: "7.4",   title: "Communication" }
+  - { code: "7.5.1", title: "Documented information - general" }
+  - { code: "7.5.2", title: "Creating and updating documented information" }
+  - { code: "7.5.3", title: "Control of documented information" }
+  - { code: "8.1",   title: "Operational planning and control" }
+  - { code: "8.2",   title: "Information security risk assessment (operational)" }
+  - { code: "8.3",   title: "Information security risk treatment (operational)" }
+  - { code: "9.1",   title: "Monitoring, measurement, analysis and evaluation" }
+  - { code: "9.2.1", title: "Internal audit - general" }
+  - { code: "9.2.2", title: "Internal audit programme" }
+  - { code: "9.3.1", title: "Management review - general" }
+  - { code: "9.3.2", title: "Management review inputs" }
+  - { code: "9.3.3", title: "Management review results" }
+  - { code: "10.1",  title: "Continual improvement" }
+  - { code: "10.2",  title: "Nonconformity and corrective action" }
+
+annex_a:        # kind: iso-annexa
+  # A.5 Organizational (37)
+  - { code: A.5.1,  theme: organizational, title: "Policies for information security" }
+  - { code: A.5.2,  theme: organizational, title: "Information security roles and responsibilities" }
+  - { code: A.5.3,  theme: organizational, title: "Segregation of duties" }
+  - { code: A.5.4,  theme: organizational, title: "Management responsibilities" }
+  - { code: A.5.5,  theme: organizational, title: "Contact with authorities" }
+  - { code: A.5.6,  theme: organizational, title: "Contact with special interest groups" }
+  - { code: A.5.7,  theme: organizational, title: "Threat intelligence", new_2022: true }
+  - { code: A.5.8,  theme: organizational, title: "Information security in project management" }
+  - { code: A.5.9,  theme: organizational, title: "Inventory of information and other associated assets" }
+  - { code: A.5.10, theme: organizational, title: "Acceptable use of information and other associated assets" }
+  - { code: A.5.11, theme: organizational, title: "Return of assets" }
+  - { code: A.5.12, theme: organizational, title: "Classification of information" }
+  - { code: A.5.13, theme: organizational, title: "Labelling of information" }
+  - { code: A.5.14, theme: organizational, title: "Information transfer" }
+  - { code: A.5.15, theme: organizational, title: "Access control" }
+  - { code: A.5.16, theme: organizational, title: "Identity management" }
+  - { code: A.5.17, theme: organizational, title: "Authentication information" }
+  - { code: A.5.18, theme: organizational, title: "Access rights" }
+  - { code: A.5.19, theme: organizational, title: "Information security in supplier relationships" }
+  - { code: A.5.20, theme: organizational, title: "Addressing information security within supplier agreements" }
+  - { code: A.5.21, theme: organizational, title: "Managing information security in the ICT supply chain" }
+  - { code: A.5.22, theme: organizational, title: "Monitoring, review and change management of supplier services" }
+  - { code: A.5.23, theme: organizational, title: "Information security for use of cloud services", new_2022: true }
+  - { code: A.5.24, theme: organizational, title: "Information security incident management planning and preparation" }
+  - { code: A.5.25, theme: organizational, title: "Assessment and decision on information security events" }
+  - { code: A.5.26, theme: organizational, title: "Response to information security incidents" }
+  - { code: A.5.27, theme: organizational, title: "Learning from information security incidents" }
+  - { code: A.5.28, theme: organizational, title: "Collection of evidence" }
+  - { code: A.5.29, theme: organizational, title: "Information security during disruption" }
+  - { code: A.5.30, theme: organizational, title: "ICT readiness for business continuity", new_2022: true }
+  - { code: A.5.31, theme: organizational, title: "Legal, statutory, regulatory and contractual requirements" }
+  - { code: A.5.32, theme: organizational, title: "Intellectual property rights" }
+  - { code: A.5.33, theme: organizational, title: "Protection of records" }
+  - { code: A.5.34, theme: organizational, title: "Privacy and protection of PII" }
+  - { code: A.5.35, theme: organizational, title: "Independent review of information security" }
+  - { code: A.5.36, theme: organizational, title: "Compliance with policies, rules and standards for information security" }
+  - { code: A.5.37, theme: organizational, title: "Documented operating procedures" }
+  # A.6 People (8)
+  - { code: A.6.1,  theme: people, title: "Screening" }
+  - { code: A.6.2,  theme: people, title: "Terms and conditions of employment" }
+  - { code: A.6.3,  theme: people, title: "Information security awareness, education and training" }
+  - { code: A.6.4,  theme: people, title: "Disciplinary process" }
+  - { code: A.6.5,  theme: people, title: "Responsibilities after termination or change of employment" }
+  - { code: A.6.6,  theme: people, title: "Confidentiality or non-disclosure agreements" }
+  - { code: A.6.7,  theme: people, title: "Remote working" }
+  - { code: A.6.8,  theme: people, title: "Information security event reporting" }
+  # A.7 Physical (14)
+  - { code: A.7.1,  theme: physical, title: "Physical security perimeters" }
+  - { code: A.7.2,  theme: physical, title: "Physical entry" }
+  - { code: A.7.3,  theme: physical, title: "Securing offices, rooms and facilities" }
+  - { code: A.7.4,  theme: physical, title: "Physical security monitoring", new_2022: true }
+  - { code: A.7.5,  theme: physical, title: "Protecting against physical and environmental threats" }
+  - { code: A.7.6,  theme: physical, title: "Working in secure areas" }
+  - { code: A.7.7,  theme: physical, title: "Clear desk and clear screen" }
+  - { code: A.7.8,  theme: physical, title: "Equipment siting and protection" }
+  - { code: A.7.9,  theme: physical, title: "Security of assets off-premises" }
+  - { code: A.7.10, theme: physical, title: "Storage media" }
+  - { code: A.7.11, theme: physical, title: "Supporting utilities" }
+  - { code: A.7.12, theme: physical, title: "Cabling security" }
+  - { code: A.7.13, theme: physical, title: "Equipment maintenance" }
+  - { code: A.7.14, theme: physical, title: "Secure disposal or re-use of equipment" }
+  # A.8 Technological (34)
+  - { code: A.8.1,  theme: technological, title: "User endpoint devices" }
+  - { code: A.8.2,  theme: technological, title: "Privileged access rights" }
+  - { code: A.8.3,  theme: technological, title: "Information access restriction" }
+  - { code: A.8.4,  theme: technological, title: "Access to source code" }
+  - { code: A.8.5,  theme: technological, title: "Secure authentication" }
+  - { code: A.8.6,  theme: technological, title: "Capacity management" }
+  - { code: A.8.7,  theme: technological, title: "Protection against malware" }
+  - { code: A.8.8,  theme: technological, title: "Management of technical vulnerabilities" }
+  - { code: A.8.9,  theme: technological, title: "Configuration management", new_2022: true }
+  - { code: A.8.10, theme: technological, title: "Information deletion", new_2022: true }
+  - { code: A.8.11, theme: technological, title: "Data masking", new_2022: true }
+  - { code: A.8.12, theme: technological, title: "Data leakage prevention", new_2022: true }
+  - { code: A.8.13, theme: technological, title: "Information backup" }
+  - { code: A.8.14, theme: technological, title: "Redundancy of information processing facilities" }
+  - { code: A.8.15, theme: technological, title: "Logging" }
+  - { code: A.8.16, theme: technological, title: "Monitoring activities", new_2022: true }
+  - { code: A.8.17, theme: technological, title: "Clock synchronization" }
+  - { code: A.8.18, theme: technological, title: "Use of privileged utility programs" }
+  - { code: A.8.19, theme: technological, title: "Installation of software on operational systems" }
+  - { code: A.8.20, theme: technological, title: "Networks security" }
+  - { code: A.8.21, theme: technological, title: "Security of network services" }
+  - { code: A.8.22, theme: technological, title: "Segregation of networks" }
+  - { code: A.8.23, theme: technological, title: "Web filtering", new_2022: true }
+  - { code: A.8.24, theme: technological, title: "Use of cryptography" }
+  - { code: A.8.25, theme: technological, title: "Secure development life cycle" }
+  - { code: A.8.26, theme: technological, title: "Application security requirements" }
+  - { code: A.8.27, theme: technological, title: "Secure system architecture and engineering principles" }
+  - { code: A.8.28, theme: technological, title: "Secure coding", new_2022: true }
+  - { code: A.8.29, theme: technological, title: "Security testing in development and acceptance" }
+  - { code: A.8.30, theme: technological, title: "Outsourced development" }
+  - { code: A.8.31, theme: technological, title: "Separation of development, test and production environments" }
+  - { code: A.8.32, theme: technological, title: "Change management" }
+  - { code: A.8.33, theme: technological, title: "Test information" }
+  - { code: A.8.34, theme: technological, title: "Protection of information systems during audit testing" }

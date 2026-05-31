@@ -1,0 +1,92 @@
+# SOC 2 — Trust Services Criteria (2017 TSC, incl. 2022 points-of-focus revision)
+# ----------------------------------------------------------------------------
+# The mappable unit is the CRITERION (e.g. CC6.1). "Points of focus" are
+# illustrative sub-guidance, NOT separately mapped — kept out of this file.
+# Descriptions are our paraphrased intent (AICPA TSC text is copyrighted;
+# identifiers + intent are referenceable).
+#
+# Security / Common Criteria (CC1-CC9) are always in scope. Availability,
+# Confidentiality, Processing Integrity, and Privacy are opt-in categories
+# (selected per AssessmentPeriod.tsc_categories).
+meta:
+  framework: SOC 2
+  version: TSC 2017 (rev. 2022)
+  mappable_unit: criterion
+  counts: { common_criteria: 33, availability: 3, confidentiality: 2, processing_integrity: 5, privacy: 18 }
+
+criteria:
+  # --- CC1 Control Environment (COSO) ---
+  - { code: CC1.1, category: security, title: "Commitment to integrity and ethical values" }
+  - { code: CC1.2, category: security, title: "Board independence and oversight" }
+  - { code: CC1.3, category: security, title: "Management structures, reporting lines, authority" }
+  - { code: CC1.4, category: security, title: "Commitment to competence" }
+  - { code: CC1.5, category: security, title: "Accountability for internal control responsibilities" }
+  # --- CC2 Communication and Information ---
+  - { code: CC2.1, category: security, title: "Quality information to support internal control" }
+  - { code: CC2.2, category: security, title: "Internal communication of objectives and responsibilities" }
+  - { code: CC2.3, category: security, title: "External communication of relevant matters" }
+  # --- CC3 Risk Assessment ---
+  - { code: CC3.1, category: security, title: "Objectives specified to enable risk identification" }
+  - { code: CC3.2, category: security, title: "Identification and analysis of risk" }
+  - { code: CC3.3, category: security, title: "Consideration of fraud risk" }
+  - { code: CC3.4, category: security, title: "Identification and assessment of change" }
+  # --- CC4 Monitoring Activities ---
+  - { code: CC4.1, category: security, title: "Ongoing and separate evaluations" }
+  - { code: CC4.2, category: security, title: "Evaluation and communication of deficiencies" }
+  # --- CC5 Control Activities ---
+  - { code: CC5.1, category: security, title: "Control activities that mitigate risk" }
+  - { code: CC5.2, category: security, title: "Control activities over technology" }
+  - { code: CC5.3, category: security, title: "Deployment through policies and procedures" }
+  # --- CC6 Logical and Physical Access Controls ---
+  - { code: CC6.1, category: security, title: "Logical access security software and infrastructure" }
+  - { code: CC6.2, category: security, title: "User registration and authorization" }
+  - { code: CC6.3, category: security, title: "Role-based access and least privilege" }
+  - { code: CC6.4, category: security, title: "Physical access restriction" }
+  - { code: CC6.5, category: security, title: "Logical and physical protections on asset disposal" }
+  - { code: CC6.6, category: security, title: "Protection against external threats" }
+  - { code: CC6.7, category: security, title: "Restriction of information transmission and movement" }
+  - { code: CC6.8, category: security, title: "Prevention/detection of unauthorized/malicious software" }
+  # --- CC7 System Operations ---
+  - { code: CC7.1, category: security, title: "Detection of configuration changes and vulnerabilities" }
+  - { code: CC7.2, category: security, title: "Monitoring for anomalies and security events" }
+  - { code: CC7.3, category: security, title: "Evaluation of security events / incident determination" }
+  - { code: CC7.4, category: security, title: "Incident response program" }
+  - { code: CC7.5, category: security, title: "Recovery from identified incidents" }
+  # --- CC8 Change Management ---
+  - { code: CC8.1, category: security, title: "Change management over infrastructure, data, software" }
+  # --- CC9 Risk Mitigation ---
+  - { code: CC9.1, category: security, title: "Risk mitigation activities for business disruptions" }
+  - { code: CC9.2, category: security, title: "Vendor and business partner risk management" }
+
+  # --- Availability (opt-in) ---
+  - { code: A1.1, category: availability, title: "Capacity management" }
+  - { code: A1.2, category: availability, title: "Environmental protections, backup, recovery infrastructure" }
+  - { code: A1.3, category: availability, title: "Recovery plan testing" }
+  # --- Confidentiality (opt-in) ---
+  - { code: C1.1, category: confidentiality, title: "Identification and maintenance of confidential information" }
+  - { code: C1.2, category: confidentiality, title: "Disposal of confidential information" }
+  # --- Processing Integrity (opt-in) ---
+  - { code: PI1.1, category: processing_integrity, title: "Quality information about processing objectives" }
+  - { code: PI1.2, category: processing_integrity, title: "Completeness/accuracy of inputs" }
+  - { code: PI1.3, category: processing_integrity, title: "Completeness/accuracy of processing" }
+  - { code: PI1.4, category: processing_integrity, title: "Completeness/accuracy of outputs" }
+  - { code: PI1.5, category: processing_integrity, title: "Storage of inputs/outputs integrity" }
+  # --- Privacy (opt-in) ---
+  - { code: P1.1, category: privacy, title: "Notice of privacy practices" }
+  - { code: P2.1, category: privacy, title: "Choice and consent" }
+  - { code: P3.1, category: privacy, title: "Collection consistent with objectives" }
+  - { code: P3.2, category: privacy, title: "Explicit consent for sensitive information" }
+  - { code: P4.1, category: privacy, title: "Use limited to identified purposes" }
+  - { code: P4.2, category: privacy, title: "Retention of personal information" }
+  - { code: P4.3, category: privacy, title: "Disposal of personal information" }
+  - { code: P5.1, category: privacy, title: "Access to personal information by individuals" }
+  - { code: P5.2, category: privacy, title: "Correction/amendment of personal information" }
+  - { code: P6.1, category: privacy, title: "Disclosure consistent with consent" }
+  - { code: P6.2, category: privacy, title: "Record of authorized disclosures" }
+  - { code: P6.3, category: privacy, title: "Record of unauthorized disclosures" }
+  - { code: P6.4, category: privacy, title: "Third-party compliance with privacy commitments" }
+  - { code: P6.5, category: privacy, title: "Notification of unauthorized disclosures by third parties" }
+  - { code: P6.6, category: privacy, title: "Breach notification" }
+  - { code: P6.7, category: privacy, title: "Accounting of disclosures to individuals" }
+  - { code: P7.1, category: privacy, title: "Data quality / accuracy of personal information" }
+  - { code: P8.1, category: privacy, title: "Privacy complaint management and enforcement" }

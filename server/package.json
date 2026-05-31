@@ -1,0 +1,33 @@
+{
+  "name": "autocomply-server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/seed.ts",
+    "db:collect": "tsx src/collectors/simulate.ts",
+    "db:docs": "tsx src/collectors/simulate-docs.ts",
+    "db:monitor": "tsx src/collectors/monitor.ts",
+    "loader:check": "tsx src/loader-check.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^9.3.1",
+    "@fastify/cors": "^9.0.1",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.33.0",
+    "fastify": "^4.28.1",
+    "pg": "^8.12.0",
+    "yaml": "^2.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/pg": "^8.11.6",
+    "drizzle-kit": "^0.24.2",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
+  }
+}
