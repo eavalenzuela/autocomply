@@ -1,0 +1,57 @@
+{
+  "catalog_version": "1",
+  "source": "autocomply",
+  "generated_at": "2026-05-31T00:00:00Z",
+  "frameworks": [
+    {
+      "ref": "soc2",
+      "name": "SOC 2",
+      "description": "AICPA Trust Services Criteria",
+      "metadata": { "version": "2017 (rev. 2022)", "governing_body": "AICPA" },
+      "requirements": [
+        {
+          "ref": "soc2:CC6.1",
+          "name": "CC6.1 — Logical and physical access controls",
+          "reference_id": "CC6.1",
+          "category": "Common Criteria"
+        },
+        {
+          "ref": "soc2:CC7.2",
+          "name": "CC7.2 — System monitoring",
+          "reference_id": "CC7.2",
+          "category": "Common Criteria"
+        }
+      ]
+    },
+    {
+      "ref": "iso27001",
+      "name": "ISO/IEC 27001:2022",
+      "description": "Information security management",
+      "metadata": { "version": "2022", "governing_body": "ISO/IEC" },
+      "requirements": [
+        {
+          "ref": "iso27001:A.8.1",
+          "name": "A.8.1 — User endpoint devices",
+          "reference_id": "A.8.1",
+          "category": "Annex A — Technological"
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "ref": "01.a",
+      "name": "Access Control Policy",
+      "description": "Documented, approved access-control policy reviewed annually.",
+      "metadata": { "control_type": "preventive" },
+      "satisfies": ["soc2:CC6.1", "iso27001:A.8.1"]
+    },
+    {
+      "ref": "07.b",
+      "name": "Security Monitoring",
+      "description": "Centralized log collection and alerting.",
+      "metadata": { "control_type": "detective" },
+      "satisfies": ["soc2:CC7.2"]
+    }
+  ]
+}
