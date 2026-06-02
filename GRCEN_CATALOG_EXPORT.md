@@ -16,11 +16,16 @@ importer that reads it (`grcen.services.catalog_sync` + `grcen sync-catalog`); i
 is idempotent and keyed on the stable `ref` values you put here, so re-exporting
 and re-syncing updates in place rather than duplicating.
 
-**The job on the autocomply side:** add an export that serializes the CCF
+**The job on the autocomply side — built.** The export serializes the CCF
 controls, the loaded framework requirements, and the crosswalk mappings into a
-single JSON document matching `contracts/grcen_catalog_export.schema.json`. A
-read-only `GET /api/catalog` endpoint is the natural home; a CLI/file dump works
-too. See "Producing it from autocomply's schema" below for the table mapping.
+single JSON document matching `contracts/grcen_catalog_export.schema.json`. The
+producer lives in `server/src/catalog.ts` (`buildCatalog()`), exposed two ways:
+
+- **`GET /api/catalog`** — read-only endpoint (in `server/src/app.ts`), the live projection.
+- **CLI dump** — `npm --prefix server run catalog:dump --silent > catalog.json`
+  (`server/src/catalog-dump.ts`); pass `--silent` so npm's banner stays out of stdout.
+
+See "Producing it from autocomply's schema" below for the table mapping.
 
 ## The shape
 

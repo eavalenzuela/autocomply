@@ -17,6 +17,7 @@ import {
   SESSION_COOKIE,
 } from "./auth";
 import { registerOAuth } from "./oauth";
+import { buildCatalog } from "./catalog";
 
 const RATINGS: Rating[] = ["nc", "sc", "pc", "mc", "fc"];
 
@@ -471,6 +472,15 @@ export async function buildApp() {
         iso27001: xw.get(c.code)?.iso27001 ?? 0,
       })),
     };
+  });
+
+  // ---- GRCen catalog export (read-only projection; see GRCEN_CATALOG_EXPORT.md) ----
+  app.get("/api/catalog", async () => {
+    const { catalog, droppedSatisfies } = await buildCatalog(new Date().toISOString());
+    if (droppedSatisfies > 0) {
+      app.log.warn(`catalog export dropped ${droppedSatisfies} mapping(s) to unknown requirements`);
+    }
+    return catalog;
   });
 
   // ---- assessment periods ----
