@@ -105,6 +105,7 @@ export const sessions = pgTable("sessions", {
     .references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  steppedUpAt: timestamp("stepped_up_at", { withTimezone: true }), // last step-up re-auth; gates sensitive actions
 });
 
 export const controlAssignments = pgTable("control_assignments", {

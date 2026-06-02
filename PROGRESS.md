@@ -154,10 +154,25 @@ neighbor project's Postgres on :5432.)
   - Verified here (with fake env): providers gating + correct authorize redirect. The live
     token-exchange/JIT round-trip is for the operator to test with a real app + browser.
 
+## Step-up re-auth (added this session)
+- **Sensitive actions require a fresh password re-verify**: attest, approve/reject an
+  exception, and export the evidence package now demand a step-up within a 5-min window.
+  `sessions.stepped_up_at` records the last re-auth; `POST /api/step-up` re-verifies the
+  signed-in user's password (scrypt) and stamps the session; `hasFreshStepUp()` gates the
+  three endpoints (`server/src/auth.ts`). Report **viewing** stays open; only **export**
+  (`/api/report?export=1`) is gated, and is audit-logged (`report-export`); step-ups are
+  audit-logged too. Dev/script callers (`x-user-email`, no session cookie) are exempt.
+- **Frontend**: a step-up password modal (`src/components/StepUp.tsx`) the API layer drives
+  transparently — a `403 {code:"step_up_required"}` prompts, re-auths, and retries the
+  action once (`src/api.ts`); no per-component wiring. Verified end-to-end via curl
+  (challenge → wrong pw 401 → correct pw 200 → action succeeds; export gated; header exempt).
+- *SSO step-up* (IdP re-auth round-trip for non-local accounts) is the remaining piece;
+  password step-up covers all local accounts (incl. every demo account).
+
 ## Still TODO (next increments)
 - **SCIM** directory provisioning/deprovisioning + **IdP group→role mapping** — needs a
   real directory (Workspace/Okta). OAuth SSO + JIT provisioning above covers the basics.
-- **Step-up re-auth** for attest/approve/export (MFA itself is now delegated to the IdP via SSO).
+- **SSO step-up** re-auth (IdP round-trip) for non-local accounts — password step-up done.
 - **MyCSF-blocked**: full per-domain-gate r2 scoring over the 19 assessment domains;
   authoritative requirement statements/crosswalks; scoping factor logic. (ISO SoA detail
   could still be built locally.)
