@@ -12,6 +12,7 @@
     "db:collect": "tsx src/collectors/simulate.ts",
     "db:docs": "tsx src/collectors/simulate-docs.ts",
     "db:monitor": "tsx src/collectors/monitor.ts",
+    "catalog:dump": "tsx src/catalog-dump.ts",
     "loader:check": "tsx src/loader-check.ts"
   },
   "dependencies": {
