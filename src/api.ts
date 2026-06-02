@@ -70,7 +70,7 @@ async function post(path: string, body?: unknown) {
 }
 
 export type Role = "admin" | "compliance_manager" | "control_owner" | "auditor" | "viewer";
-export interface CurrentUser { id: number; email: string; name: string; role: Role; }
+export interface CurrentUser { id: number; email: string; name: string; role: Role; authProvider?: string; }
 
 export async function login(email: string, password: string): Promise<CurrentUser> {
   return post("/api/login", { email, password });

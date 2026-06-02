@@ -8,7 +8,7 @@ import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
-import { createSession, setSessionCookie, type Role } from "./auth";
+import { createSession, setSessionCookie, currentUser, recordStepUp, sessionToken, type Role } from "./auth";
 
 const BASE_URL = process.env.OAUTH_BASE_URL ?? "http://localhost:5173";
 const JIT_ROLE: Role = (process.env.SSO_DEFAULT_ROLE as Role) ?? "viewer";
@@ -66,21 +66,43 @@ function redirectUri(id: string) {
   return `${BASE_URL}/api/auth/${id}/callback`;
 }
 
+// Build the IdP authorize redirect, recording state + intent ("login" | "step-up")
+// in short-lived cookies the callback reads back. `prompt=login` forces the IdP to
+// re-authenticate the user (the point of step-up); Google honors it, GitHub ignores
+// it (it has no standard re-auth prompt — best-effort there).
+function beginOAuth(reply: any, p: Provider, intent: "login" | "step-up") {
+  const state = randomBytes(16).toString("hex");
+  reply.setCookie(`oauth_state_${p.id}`, state, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
+  reply.setCookie(`oauth_intent_${p.id}`, intent, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
+  const url = new URL(p.authUrl);
+  url.searchParams.set("client_id", p.clientId!);
+  url.searchParams.set("redirect_uri", redirectUri(p.id));
+  url.searchParams.set("scope", p.scope);
+  url.searchParams.set("state", state);
+  url.searchParams.set("response_type", "code");
+  if (intent === "step-up") url.searchParams.set("prompt", "login");
+  return reply.redirect(url.toString());
+}
+
 export function registerOAuth(app: FastifyInstance) {
   app.get("/api/auth/providers", async () => ({ providers: configuredProviders() }));
 
   app.get<{ Params: { provider: string } }>("/api/auth/:provider", async (req, reply) => {
     const p = PROVIDERS[req.params.provider];
     if (!p || !p.clientId || !p.clientSecret) return reply.code(404).send({ error: "provider not configured" });
-    const state = randomBytes(16).toString("hex");
-    (reply as any).setCookie(`oauth_state_${p.id}`, state, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
-    const url = new URL(p.authUrl);
-    url.searchParams.set("client_id", p.clientId);
-    url.searchParams.set("redirect_uri", redirectUri(p.id));
-    url.searchParams.set("scope", p.scope);
-    url.searchParams.set("state", state);
-    url.searchParams.set("response_type", "code");
-    return reply.redirect(url.toString());
+    return beginOAuth(reply, p, "login");
+  });
+
+  // SSO step-up: re-authenticate an SSO-backed user at their IdP and stamp the
+  // session (the SSO equivalent of password step-up). Provider is derived from
+  // the user's own authProvider; local accounts use POST /api/step-up instead.
+  app.get("/api/auth/step-up", async (req, reply) => {
+    const user = await currentUser(req);
+    if (!user) return reply.code(401).send({ error: "unauthenticated" });
+    if (user.authProvider === "local") return reply.code(400).send({ error: "local accounts use password step-up" });
+    const p = PROVIDERS[user.authProvider];
+    if (!p || !p.clientId || !p.clientSecret) return reply.code(400).send({ error: "provider not configured" });
+    return beginOAuth(reply, p, "step-up");
   });
 
   app.get<{ Params: { provider: string }; Querystring: { code?: string; state?: string } }>("/api/auth/:provider/callback", async (req, reply) => {
@@ -109,7 +131,26 @@ export function registerOAuth(app: FastifyInstance) {
     const identity = await p.fetchIdentity(accessToken);
     if (!identity) return reply.code(401).send({ error: "could not resolve a verified email from the IdP" });
 
-    // link existing or JIT-provision (least privilege)
+    const intent = (req as any).cookies?.[`oauth_intent_${p.id}`];
+    (reply as any).clearCookie(`oauth_state_${p.id}`, { path: "/" });
+    (reply as any).clearCookie(`oauth_intent_${p.id}`, { path: "/" });
+
+    // ---- step-up: re-auth an already-signed-in session (no new session) ----
+    if (intent === "step-up") {
+      const user = await currentUser(req);
+      const token = sessionToken(req);
+      if (!user || !token) return reply.redirect(BASE_URL + "/?stepup=expired");
+      // the re-auth must be the SAME identity as the active session
+      if (user.email.toLowerCase() !== identity.email.toLowerCase()) {
+        await db.insert(s.auditLog).values({ actorId: user.id, action: "step-up-mismatch", targetType: "session", payload: { provider: p.id } });
+        return reply.redirect(BASE_URL + "/?stepup=mismatch");
+      }
+      await recordStepUp(token);
+      await db.insert(s.auditLog).values({ actorId: user.id, action: "step-up", targetType: "session", payload: { provider: p.id } });
+      return reply.redirect(BASE_URL + "/?stepup=ok");
+    }
+
+    // ---- login: link existing or JIT-provision (least privilege) ----
     let user = (await db.select().from(s.users).where(eq(s.users.email, identity.email)).limit(1))[0];
     if (!user) {
       [user] = await db.insert(s.users).values({ email: identity.email, name: identity.name, role: JIT_ROLE, authProvider: p.id }).returning();
@@ -120,7 +161,6 @@ export function registerOAuth(app: FastifyInstance) {
     const token = await createSession(user.id);
     setSessionCookie(reply, token);
     await db.insert(s.auditLog).values({ actorId: user.id, action: "login-sso", targetType: "user", targetId: user.email, payload: { provider: p.id } });
-    (reply as any).clearCookie(`oauth_state_${p.id}`, { path: "/" });
     return reply.redirect(BASE_URL + "/");
   });
 }

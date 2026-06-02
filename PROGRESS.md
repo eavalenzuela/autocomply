@@ -166,13 +166,25 @@ neighbor project's Postgres on :5432.)
   transparently — a `403 {code:"step_up_required"}` prompts, re-auths, and retries the
   action once (`src/api.ts`); no per-component wiring. Verified end-to-end via curl
   (challenge → wrong pw 401 → correct pw 200 → action succeeds; export gated; header exempt).
-- *SSO step-up* (IdP re-auth round-trip for non-local accounts) is the remaining piece;
-  password step-up covers all local accounts (incl. every demo account).
+## SSO step-up (added this session) — completes step-up for non-local accounts
+- **IdP re-auth round-trip** (`server/src/oauth.ts`): `GET /api/auth/step-up` derives the
+  provider from the signed-in user's `authProvider`, redirects to the IdP authorize with
+  `prompt=login` (forces re-auth; Google honors it, GitHub best-effort), and tags the flow
+  via an `oauth_intent` cookie. The shared callback branches on intent: for step-up it
+  requires the **same** identity as the active session (mismatch → audit-logged + rejected),
+  stamps `stepped_up_at` on the existing session (no new session), and returns to the app
+  with `?stepup=ok|mismatch|expired`. Local accounts still use `POST /api/step-up` (password).
+- **Frontend**: the step-up modal (`StepUp.tsx`) branches on `me.authProvider` — SSO users
+  get a "Re-authenticate with {provider}" button (full-page redirect) instead of a password
+  field; App shows a feedback banner on return. `authProvider` now flows through `/api/me`
+  + `/api/login`.
+- **Verified** (curl, fake provider env + an SSO test user): no-auth → 401, local → 400,
+  SSO → 302 to the IdP with `prompt=login` + state/intent cookies. The live token-exchange
+  half is operator-tested with a real IdP (as with the original SSO work).
 
 ## Still TODO (next increments)
 - **SCIM** directory provisioning/deprovisioning + **IdP group→role mapping** — needs a
   real directory (Workspace/Okta). OAuth SSO + JIT provisioning above covers the basics.
-- **SSO step-up** re-auth (IdP round-trip) for non-local accounts — password step-up done.
 - **MyCSF-blocked**: full per-domain-gate r2 scoring over the 19 assessment domains;
   authoritative requirement statements/crosswalks; scoping factor logic. (ISO SoA detail
   could still be built locally.)

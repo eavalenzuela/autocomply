@@ -117,7 +117,7 @@ export async function buildApp() {
     const token = await createSession(u.id);
     setSessionCookie(reply, token);
     await db.insert(s.auditLog).values({ actorId: u.id, action: "login", targetType: "user", targetId: u.email });
-    return { id: u.id, email: u.email, name: u.name, role: u.role };
+    return { id: u.id, email: u.email, name: u.name, role: u.role, authProvider: u.authProvider };
   });
 
   app.post("/api/logout", async (req, reply) => {

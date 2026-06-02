@@ -223,6 +223,7 @@ export default function App() {
   const [summary, setSummary] = useState<MatrixSummary | null>(null);
   const [load, setLoad] = useState<{ state: "loading" | "ok" | "error"; msg?: string }>({ state: "loading" });
   const [active, setActive] = useState("matrix");
+  const [stepupMsg, setStepupMsg] = useState<{ text: string; bad: boolean } | null>(null);
 
   const loadMatrix = useCallback(() => {
     fetchMatrix()
@@ -247,6 +248,19 @@ export default function App() {
       setMe(u);
       setAuthChecked(true);
     });
+  }, []);
+
+  // Feedback after an SSO step-up round-trip (?stepup=ok|mismatch|expired).
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("stepup");
+    if (!v) return;
+    const MSG: Record<string, { text: string; bad: boolean }> = {
+      ok: { text: "Re-authenticated — you can repeat the action.", bad: false },
+      mismatch: { text: "Re-authentication was for a different account; not applied.", bad: true },
+      expired: { text: "Your session expired during re-authentication. Sign in again.", bad: true },
+    };
+    setStepupMsg(MSG[v] ?? null);
+    window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
   useEffect(() => {
@@ -304,6 +318,11 @@ export default function App() {
       <div className="shell-body">
         <Sidebar active={active} onNav={setActive} />
         <div className="content">
+          {stepupMsg && (
+            <div className={`api-banner ${stepupMsg.bad ? "error" : ""}`} onClick={() => setStepupMsg(null)}>
+              {stepupMsg.text}
+            </div>
+          )}
           {active === "matrix" && (
             <>
               <Header filters={filters} setFilters={setFilters} summary={summary} domains={domains} />
@@ -352,7 +371,7 @@ export default function App() {
         glyphStyle={t.glyphStyle}
       />
       <TweaksPanel t={t} setTweak={setTweak} />
-      <StepUpGate />
+      <StepUpGate me={me} />
     </div>
   );
 }
