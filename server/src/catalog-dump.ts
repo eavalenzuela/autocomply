@@ -1,7 +1,7 @@
 // Dump the GRCen catalog export to stdout (or a file via `> catalog.json`).
 //   npm --prefix server run catalog:dump > catalog.json
 //   grcen sync-catalog catalog.json --dry-run
-import { buildCatalog } from "./catalog";
+import { buildCatalog, recordCatalogExport } from "./catalog";
 import { pool } from "./db/index";
 
 async function main() {
@@ -9,6 +9,7 @@ async function main() {
   if (droppedSatisfies > 0) {
     process.stderr.write(`warn: dropped ${droppedSatisfies} mapping(s) to unknown requirements\n`);
   }
+  await recordCatalogExport(null, "dump");
   process.stdout.write(JSON.stringify(catalog, null, 2) + "\n");
 }
 

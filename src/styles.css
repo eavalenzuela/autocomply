@@ -1280,6 +1280,7 @@ button { font: inherit; color: inherit; }
 /* ===== Integrations ===== */
 .conn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .conn-card { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); padding: 14px 16px; }
+.export-card { margin-bottom: 14px; border-color: var(--accent); }
 .conn-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .conn-name { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
 .conn-status { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
