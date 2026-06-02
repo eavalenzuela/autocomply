@@ -8,6 +8,7 @@ import { Grid } from "./components/Grid";
 import { Drawer } from "./components/Drawer";
 import { TweaksPanel, useTweaks } from "./components/Tweaks";
 import { LoginPage } from "./components/auth";
+import { StepUpGate } from "./components/StepUp";
 import { Sidebar, StubPage, WorklistPage, EvidencePage, ExceptionsPage, RequirementsPage, DashboardPage, AdminPage, ReportsPage, IntegrationsPage, ControlsPage, PeriodsPage, NAV } from "./components/shell";
 
 function initials(name: string) {
@@ -351,6 +352,7 @@ export default function App() {
         glyphStyle={t.glyphStyle}
       />
       <TweaksPanel t={t} setTweak={setTweak} />
+      <StepUpGate />
     </div>
   );
 }

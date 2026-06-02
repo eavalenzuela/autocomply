@@ -14,6 +14,10 @@ import {
   destroySession,
   setSessionCookie,
   clearSessionCookie,
+  hasFreshStepUp,
+  recordStepUp,
+  sessionToken,
+  STEP_UP_TTL_MS,
   SESSION_COOKIE,
 } from "./auth";
 import { registerOAuth } from "./oauth";
@@ -128,6 +132,22 @@ export async function buildApp() {
     return u ?? { error: "no user" };
   });
 
+  // Step-up re-auth: re-verify the signed-in user's password, stamping the
+  // session so sensitive actions (attest / approve / export) are allowed for a
+  // short window. MFA itself is delegated to the IdP for SSO accounts.
+  app.post<{ Body: { password: string } }>("/api/step-up", async (req, reply) => {
+    const user = await currentUser(req);
+    if (!user) return reply.code(401).send({ error: "unauthenticated" });
+    const token = sessionToken(req);
+    if (!token) return reply.code(400).send({ error: "step-up requires an interactive session" });
+    const u = (await db.select().from(s.users).where(eq(s.users.id, user.id)).limit(1))[0];
+    if (!u?.passwordHash) return reply.code(400).send({ error: "step-up requires re-authentication with your identity provider" });
+    if (!verifyPassword(req.body?.password ?? "", u.passwordHash)) return reply.code(401).send({ error: "incorrect password" });
+    await recordStepUp(token);
+    await db.insert(s.auditLog).values({ actorId: user.id, action: "step-up", targetType: "session" });
+    return { ok: true, expiresInMs: STEP_UP_TTL_MS };
+  });
+
   app.get("/api/matrix", async () => {
     const [cats, ctrls, maps, fw] = await Promise.all([
       db.select().from(s.controlCategories).orderBy(asc(s.controlCategories.id)),
@@ -222,6 +242,7 @@ export async function buildApp() {
       if (!DIMENSIONS.includes(dimension)) return reply.code(400).send({ error: "bad dimension" });
       if (!RATINGS.includes(rating)) return reply.code(400).send({ error: "bad rating" });
       if (!(await canWriteControl(user, control))) return reply.code(403).send({ error: "forbidden (role or assignment scope)" });
+      if (!(await hasFreshStepUp(req))) return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
 
       const [row] = await db
         .insert(s.attestations)
@@ -301,6 +322,7 @@ export async function buildApp() {
     const exc = (await db.select().from(s.exceptions).where(eq(s.exceptions.id, id)).limit(1))[0];
     if (!exc) return reply.code(404).send({ error: "not found" });
     if (exc.requestedBy === user.id) return reply.code(403).send({ error: "separation of duties: the requester cannot approve their own exception" });
+    if (!(await hasFreshStepUp(req))) return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
     const status = req.body.decision === "approve" ? "approved" : "rejected";
     const [row] = await db.update(s.exceptions).set({ status, approvedBy: user.id, decidedAt: new Date() }).where(eq(s.exceptions.id, id)).returning();
     await db.insert(s.auditLog).values({ actorId: user.id, action: `exception-${status}`, targetType: "control", targetId: exc.controlCode, payload: { id } });
@@ -312,11 +334,19 @@ export async function buildApp() {
     return computeRequirements(req.query.framework === "iso27001" ? "iso27001" : "soc2");
   });
 
-  // Auditor evidence package — the report you hand an assessor.
-  app.get<{ Querystring: { framework?: string } }>("/api/report", async (req) => {
+  // Auditor evidence package — the report you hand an assessor. Viewing is open
+  // (UI gates it behind login); exporting (?export=1) is a sensitive action:
+  // requires auth + a fresh step-up and is audit-logged.
+  app.get<{ Querystring: { framework?: string; export?: string } }>("/api/report", async (req, reply) => {
     const me = await currentUser(req);
     const fw = req.query.framework === "iso27001" ? "iso27001" : "soc2";
     const fwName = fw === "iso27001" ? "ISO/IEC 27001:2022" : "SOC 2 (TSC 2017)";
+    const isExport = req.query.export === "1" || req.query.export === "true";
+    if (isExport) {
+      if (!me) return reply.code(401).send({ error: "unauthenticated" });
+      if (!(await hasFreshStepUp(req))) return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
+      await db.insert(s.auditLog).values({ actorId: me.id, action: "report-export", targetType: "framework", targetId: fw });
+    }
     const reqData = await computeRequirements(fw);
     const [att, scoreMap, ctrls, evidence, maps, excs] = await Promise.all([
       latestAttestations(),

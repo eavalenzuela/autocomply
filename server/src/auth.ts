@@ -13,6 +13,9 @@ export interface CurrentUser { id: number; email: string; name: string; role: Ro
 
 const WRITE_ROLES: Role[] = ["admin", "compliance_manager", "control_owner"];
 const SESSION_TTL_MS = 12 * 3600 * 1000;
+// Step-up re-auth window: sensitive actions (attest / approve / export) require a
+// re-verified password within this window of the action.
+export const STEP_UP_TTL_MS = 5 * 60 * 1000;
 export const SESSION_COOKIE = "ac_session";
 
 /* ---- passwords (scrypt) ---- */
@@ -38,6 +41,31 @@ export async function createSession(userId: number): Promise<string> {
 }
 export async function destroySession(token: string): Promise<void> {
   await db.delete(s.sessions).where(eq(s.sessions.token, token));
+}
+
+/* ---- step-up re-auth ---- */
+
+// The active session token (cookie only — the header fallback has no session).
+export function sessionToken(req: FastifyRequest): string | undefined {
+  return (req as any).cookies?.[SESSION_COOKIE] as string | undefined;
+}
+
+// Record a successful step-up re-auth on the active session.
+export async function recordStepUp(token: string): Promise<void> {
+  await db.update(s.sessions).set({ steppedUpAt: new Date() }).where(eq(s.sessions.token, token));
+}
+
+// Step-up gate for sensitive actions. Returns true if the caller may proceed:
+//   - dev/script callers (no session cookie, e.g. x-user-email) are exempt;
+//   - session callers must have re-authenticated within STEP_UP_TTL_MS.
+export async function hasFreshStepUp(req: FastifyRequest): Promise<boolean> {
+  const token = sessionToken(req);
+  if (!token) return true; // dev/script path — no interactive session to step up
+  const row = (
+    await db.select({ at: s.sessions.steppedUpAt }).from(s.sessions).where(eq(s.sessions.token, token)).limit(1)
+  )[0];
+  const at = row?.at;
+  return !!at && Date.now() - at.getTime() < STEP_UP_TTL_MS;
 }
 
 export async function currentUser(req: FastifyRequest): Promise<CurrentUser | null> {

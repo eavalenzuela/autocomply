@@ -12,17 +12,53 @@ export interface MatrixResponse {
   domains: Domain[];
 }
 
+// Step-up re-auth: the app registers a prompt (a password modal). When a request
+// is rejected with {code:"step_up_required"}, we prompt, re-verify, and retry once.
+let stepUpPrompt: (() => Promise<string | null>) | null = null;
+export function setStepUpPrompt(fn: (() => Promise<string | null>) | null) {
+  stepUpPrompt = fn;
+}
+async function doStepUp(password: string): Promise<void> {
+  const r = await fetch("/api/step-up", {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || "re-authentication failed");
+  }
+}
+
+// Core fetch wrapper. On a step-up challenge it prompts once, re-auths, retries.
+async function request(path: string, init: RequestInit): Promise<Response> {
+  let r = await fetch(path, { credentials: "include", ...init });
+  if (r.status === 403) {
+    const j = await r
+      .clone()
+      .json()
+      .catch(() => ({}));
+    if (j.code === "step_up_required" && stepUpPrompt) {
+      const password = await stepUpPrompt();
+      if (password == null) throw new Error("Re-authentication cancelled");
+      await doStepUp(password);
+      r = await fetch(path, { credentials: "include", ...init });
+    }
+  }
+  return r;
+}
+
 // Same-origin (Vite proxies /api), so the session cookie rides along; include
 // credentials explicitly to be safe.
 async function get(path: string) {
-  const r = await fetch(path, { credentials: "include" });
+  const r = await request(path, {});
   if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
   return r.json();
 }
 async function post(path: string, body?: unknown) {
-  const r = await fetch(path, {
+  const r = await request(path, {
     method: "POST",
-    credentials: "include",
     headers: { "content-type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -198,8 +234,10 @@ export interface ReportResponse {
   gaps: { code: string; title: string | null; kind: string }[];
   exceptions: { control: string; reason: string; status: string; expiresAt: string | null }[];
 }
-export async function fetchReport(framework: "soc2" | "iso27001"): Promise<ReportResponse> {
-  return get(`/api/report?framework=${framework}`);
+// `forExport` requests the downloadable artifact — a sensitive action that
+// requires a fresh step-up re-auth and is audit-logged server-side.
+export async function fetchReport(framework: "soc2" | "iso27001", forExport = false): Promise<ReportResponse> {
+  return get(`/api/report?framework=${framework}${forExport ? "&export=1" : ""}`);
 }
 
 export interface Connector { name: string; type: string; checks: number; lastRun: string | null; status: string; findings: number; passRate: number | null; coverage: string; }

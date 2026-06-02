@@ -457,14 +457,20 @@ export function ReportsPage() {
     catch (e: any) { setErr(String(e.message ?? e)); }
     finally { setBusy(false); }
   }
-  function downloadJson() {
-    if (!report) return;
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `autocomply-${fw}-evidence-package.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  async function downloadJson() {
+    setErr(null);
+    try {
+      // Re-fetch as an export — a sensitive action requiring step-up re-auth.
+      const pkg = await fetchReport(fw, true);
+      const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `autocomply-${fw}-evidence-package.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    }
   }
   return (
     <div className="page">

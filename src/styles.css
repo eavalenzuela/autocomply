@@ -1316,3 +1316,11 @@ button { font: inherit; color: inherit; }
 /* ===== SSO buttons (login) ===== */
 .login-sso { display: flex; flex-direction: column; gap: 6px; }
 .login-sso-btn { justify-content: center; padding: 8px; text-decoration: none; }
+
+/* ===== Step-up re-auth modal ===== */
+.stepup-backdrop { position: fixed; inset: 0; background: rgba(20,20,22,0.35); backdrop-filter: blur(2px); z-index: 70; display: flex; align-items: center; justify-content: center; }
+.stepup-card { width: 320px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); padding: 22px; box-shadow: 0 12px 40px rgba(20,20,22,0.18); }
+.stepup-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.stepup-sub { font-size: 12px; color: var(--ink-3); margin: 4px 0 14px; }
+.stepup-card .login-input { width: 100%; }
+.stepup-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
