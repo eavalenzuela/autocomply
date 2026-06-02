@@ -9,7 +9,7 @@ import { db } from "./db/index";
 import * as s from "./db/schema";
 
 export type Role = "admin" | "compliance_manager" | "control_owner" | "auditor" | "viewer";
-export interface CurrentUser { id: number; email: string; name: string; role: Role; }
+export interface CurrentUser { id: number; email: string; name: string; role: Role; authProvider: string; }
 
 const WRITE_ROLES: Role[] = ["admin", "compliance_manager", "control_owner"];
 const SESSION_TTL_MS = 12 * 3600 * 1000;
@@ -79,13 +79,13 @@ export async function currentUser(req: FastifyRequest): Promise<CurrentUser | nu
       .where(and(eq(s.sessions.token, token), gt(s.sessions.expiresAt, new Date())))
       .limit(1);
     const u = rows[0]?.u;
-    if (u && !(u.expiresAt && u.expiresAt.getTime() < Date.now())) return { id: u.id, email: u.email, name: u.name, role: u.role as Role };
+    if (u && !(u.expiresAt && u.expiresAt.getTime() < Date.now())) return { id: u.id, email: u.email, name: u.name, role: u.role as Role, authProvider: u.authProvider };
   }
   // 2) dev/script fallback header
   const email = req.headers["x-user-email"] as string | undefined;
   if (email) {
     const u = (await db.select().from(s.users).where(eq(s.users.email, email)).limit(1))[0];
-    if (u && !(u.expiresAt && u.expiresAt.getTime() < Date.now())) return { id: u.id, email: u.email, name: u.name, role: u.role as Role };
+    if (u && !(u.expiresAt && u.expiresAt.getTime() < Date.now())) return { id: u.id, email: u.email, name: u.name, role: u.role as Role, authProvider: u.authProvider };
   }
   return null;
 }
