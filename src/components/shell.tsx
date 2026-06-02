@@ -22,6 +22,7 @@ import {
   decideException,
   type ReportResponse,
   type Connector,
+  type CatalogExportStatus,
   type LibraryControl,
   type Period,
   type WorklistTask,
@@ -572,9 +573,15 @@ export function ReportsPage() {
 
 export function IntegrationsPage() {
   const [conns, setConns] = useState<Connector[]>([]);
+  const [catalog, setCatalog] = useState<CatalogExportStatus | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
-    fetchIntegrations().then((d) => setConns(d.connectors)).catch((e) => setErr(String(e.message ?? e)));
+    fetchIntegrations()
+      .then((d) => {
+        setConns(d.connectors);
+        setCatalog(d.catalog);
+      })
+      .catch((e) => setErr(String(e.message ?? e)));
   }, []);
   return (
     <div className="page">
@@ -583,6 +590,26 @@ export function IntegrationsPage() {
         <h1 className="h1">Integrations</h1>
       </div>
       {err && <div className="api-banner error">{err}</div>}
+      {catalog && (
+        <div className="conn-card export-card">
+          <div className="conn-top">
+            <span className="conn-name">GRCen catalog export</span>
+            <span className={`conn-status cs-${catalog.lastExport ? "healthy" : "degraded"}`}>
+              {catalog.lastExport ? "exported" : "never"}
+            </span>
+          </div>
+          <div className="conn-stats">
+            <div><b>{catalog.frameworks}</b><span>frameworks</span></div>
+            <div><b>{catalog.requirements}</b><span>requirements</span></div>
+            <div><b>{catalog.controls}</b><span>controls</span></div>
+            <div><b>{catalog.satisfies}</b><span>satisfies</span></div>
+          </div>
+          <div className="conn-foot">
+            Read-only projection at <code>GET /api/catalog</code> → <code>grcen sync-catalog</code>
+            {catalog.lastExport ? ` · last ${new Date(catalog.lastExport).toLocaleString()}` : " · not yet exported"}
+          </div>
+        </div>
+      )}
       <div className="conn-grid">
         {conns.map((c) => (
           <div key={c.name} className="conn-card">

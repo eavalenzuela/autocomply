@@ -125,9 +125,20 @@ The export is a join over autocomply's existing tables (`server/src/db/schema.ts
   emitting the requirement `ref` for every mapped requirement
 
 The crosswalk's relationship-type/confidence fields don't have a home in GRCen's
-binary covered/gap model yet — drop them for now, or stash them in the control's
-`metadata` if you want them to survive the trip. Keep the export **read-only**:
-it's a projection of autocomply state, never an inbound mutation.
+binary covered/gap model yet, so the producer stashes them in each control's
+`metadata.crosswalk` (`{ "<req-ref>": { relationship, confidence } }`) — they
+survive the trip verbatim while `satisfies[]` stays the flat ref list GRCen keys
+off. Keep the export **read-only**: it's a projection of autocomply state, never
+an inbound mutation.
+
+### Ways to produce it
+- **`GET /api/catalog`** — live pull (GRCen syncs against it). Each call is
+  audit-logged (`catalog-export`, `mode=api`).
+- **CLI dump** — `npm --prefix server run catalog:dump --silent > catalog.json`.
+- **Scheduled file export** — set `CATALOG_EXPORT_PATH` (and optionally
+  `CATALOG_EXPORT_INTERVAL_MS`, default 6h) on the API process; it writes the
+  catalog to that path on boot and on the interval, for an external syncer to
+  pick up. The Integrations page shows export status (counts + last export).
 
 ## Validating before you ship it
 

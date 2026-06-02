@@ -6,7 +6,8 @@
 // and contracts/grcen_catalog_export.schema.json.
 //
 // Read-only projection: this never mutates autocomply state.
-import { asc, eq } from "drizzle-orm";
+import { writeFile } from "node:fs/promises";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
 
@@ -76,7 +77,13 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
     db.select().from(s.controls).orderBy(asc(s.controls.code)),
     db.select().from(s.controlCategories),
     db
-      .select({ control: s.mappings.controlCode, frameworkId: s.requirements.frameworkId, code: s.requirements.code })
+      .select({
+        control: s.mappings.controlCode,
+        frameworkId: s.requirements.frameworkId,
+        code: s.requirements.code,
+        relationship: s.mappings.relationship,
+        confidence: s.mappings.confidence,
+      })
       .from(s.mappings)
       .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id)),
   ]);
@@ -116,8 +123,10 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
   });
 
   // control.satisfies[] from the crosswalk — fail-closed: only emit refs that
-  // exist as requirements in this same document (contract rule 3).
-  const satisfiesByControl = new Map<string, Set<string>>();
+  // exist as requirements in this same document (contract rule 3). We also keep
+  // each mapping's relationship/confidence in metadata.crosswalk so that detail
+  // survives the trip (GRCen's covered/gap model is binary and ignores it today).
+  const crosswalkByControl = new Map<string, Record<string, { relationship: string; confidence: string }>>();
   let droppedSatisfies = 0;
   for (const m of maps) {
     const ref = requirementRef(m.frameworkId, m.code);
@@ -125,7 +134,8 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
       droppedSatisfies++;
       continue;
     }
-    (satisfiesByControl.get(m.control) ?? satisfiesByControl.set(m.control, new Set()).get(m.control)!).add(ref);
+    const cw = crosswalkByControl.get(m.control) ?? crosswalkByControl.set(m.control, {}).get(m.control)!;
+    cw[ref] = { relationship: m.relationship, confidence: m.confidence };
   }
 
   const controls: CatalogControl[] = ctrls.map((c) => {
@@ -133,12 +143,13 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
     const cat = catTitle.get(c.categoryId);
     if (cat) metadata.category = cat;
     if (c.objectiveCode) metadata.objective = c.objectiveCode;
-    const sat = satisfiesByControl.get(c.code);
+    const cw = crosswalkByControl.get(c.code);
+    if (cw && Object.keys(cw).length) metadata.crosswalk = cw;
     return {
       ref: c.code,
       name: c.title,
       ...(Object.keys(metadata).length ? { metadata } : {}),
-      ...(sat && sat.size ? { satisfies: [...sat].sort() } : {}),
+      ...(cw && Object.keys(cw).length ? { satisfies: Object.keys(cw).sort() } : {}),
     };
   });
 
@@ -150,4 +161,36 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
     controls,
   };
   return { catalog, droppedSatisfies };
+}
+
+// Record a catalog export in the append-only audit log. `actorId` is null for
+// unauthenticated pulls (e.g. GRCen's sync) and scheduled exports.
+export async function recordCatalogExport(actorId: number | null, mode: "api" | "scheduled" | "dump", extra?: Record<string, unknown>) {
+  await db.insert(s.auditLog).values({
+    actorId: actorId ?? null,
+    action: "catalog-export",
+    targetType: "catalog",
+    payload: { mode, ...extra },
+  });
+}
+
+// Build the catalog and write it to a file (the scheduled-export job). Audit-logged.
+export async function exportCatalogToFile(path: string, generatedAt?: string) {
+  const { catalog, droppedSatisfies } = await buildCatalog(generatedAt);
+  await writeFile(path, JSON.stringify(catalog, null, 2) + "\n", "utf8");
+  await recordCatalogExport(null, "scheduled", { path });
+  return { droppedSatisfies, frameworks: catalog.frameworks.length, controls: catalog.controls.length };
+}
+
+// Latest catalog-export timestamp (for the Integrations export-status card).
+export async function lastCatalogExportAt(): Promise<Date | null> {
+  const row = (
+    await db
+      .select({ ts: s.auditLog.ts })
+      .from(s.auditLog)
+      .where(eq(s.auditLog.action, "catalog-export"))
+      .orderBy(desc(s.auditLog.ts))
+      .limit(1)
+  )[0];
+  return row?.ts ?? null;
 }

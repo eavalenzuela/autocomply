@@ -182,6 +182,20 @@ neighbor project's Postgres on :5432.)
   SSO → 302 to the IdP with `prompt=login` + state/intent cookies. The live token-exchange
   half is operator-tested with a real IdP (as with the original SSO work).
 
+## GRCen catalog export (added this session) — producer side
+- **`buildCatalog()`** (`server/src/catalog.ts`) projects the system-of-record (frameworks +
+  requirements + controls + crosswalk) into the contract document
+  (`contracts/grcen_catalog_export.schema.json`; see `GRCEN_CATALOG_EXPORT.md`). Requirement
+  refs namespaced `<fw>:<code>`; `satisfies[]` fail-closed (only refs present in the doc).
+  Verified against the draft-2020-12 schema and round-tripped through GRCen's importer
+  (`grcen sync-catalog --dry-run`: 2 fw / 184 reqs / 156 controls / 348 satisfies edges).
+- **Three producers**: read-only `GET /api/catalog` (live pull), `catalog:dump` CLI, and a
+  scheduled file export (`CATALOG_EXPORT_PATH` + `CATALOG_EXPORT_INTERVAL_MS`, default 6h;
+  runs on boot + interval). All audit-logged (`catalog-export` with `mode`).
+- **Crosswalk detail preserved**: each control's `metadata.crosswalk` carries per-requirement
+  `{relationship, confidence}` (GRCen's covered/gap model is binary, but the detail survives).
+- **Integrations page** shows a catalog export-status card (counts + last export).
+
 ## Still TODO (next increments)
 - **SCIM** directory provisioning/deprovisioning + **IdP group→role mapping** — needs a
   real directory (Workspace/Okta). OAuth SSO + JIT provisioning above covers the basics.

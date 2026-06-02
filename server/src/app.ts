@@ -21,7 +21,7 @@ import {
   SESSION_COOKIE,
 } from "./auth";
 import { registerOAuth } from "./oauth";
-import { buildCatalog } from "./catalog";
+import { buildCatalog, recordCatalogExport, lastCatalogExportAt } from "./catalog";
 
 const RATINGS: Rating[] = ["nc", "sc", "pc", "mc", "fc"];
 
@@ -415,11 +415,16 @@ export async function buildApp() {
 
   // ---- integrations / collector health ----
   app.get("/api/integrations", async () => {
-    const [checks, runs, findings, evidence] = await Promise.all([
+    const [checks, runs, findings, evidence, fwRows, reqRows, ctrlRows, mapRows, lastExport] = await Promise.all([
       db.select().from(s.checks),
       db.select().from(s.checkRuns).orderBy(desc(s.checkRuns.startedAt)),
       db.select().from(s.automatedFindings),
       db.select().from(s.evidenceItems),
+      db.select({ id: s.frameworks.id }).from(s.frameworks),
+      db.select({ id: s.requirements.id }).from(s.requirements),
+      db.select({ code: s.controls.code }).from(s.controls),
+      db.select({ id: s.mappings.id }).from(s.mappings),
+      lastCatalogExportAt(),
     ]);
     const latestRun = new Map<string, (typeof runs)[number]>();
     for (const r of runs) if (!latestRun.has(r.checkKey)) latestRun.set(r.checkKey, r);
@@ -468,7 +473,15 @@ export async function buildApp() {
       passRate: docs.length ? Math.round(((docs.length - docs.filter((e) => e.drifted).length) / docs.length) * 100) : null,
       coverage: `${docs.filter((e) => e.drifted).length} drifted`,
     });
-    return { connectors };
+    // GRCen catalog export (read-only projection consumed by the sibling tool).
+    const catalog = {
+      frameworks: fwRows.length,
+      requirements: reqRows.length,
+      controls: ctrlRows.length,
+      satisfies: mapRows.length,
+      lastExport,
+    };
+    return { connectors, catalog };
   });
 
   // ---- controls (CCF) library ----
@@ -505,11 +518,13 @@ export async function buildApp() {
   });
 
   // ---- GRCen catalog export (read-only projection; see GRCEN_CATALOG_EXPORT.md) ----
-  app.get("/api/catalog", async () => {
+  app.get("/api/catalog", async (req) => {
     const { catalog, droppedSatisfies } = await buildCatalog(new Date().toISOString());
     if (droppedSatisfies > 0) {
       app.log.warn(`catalog export dropped ${droppedSatisfies} mapping(s) to unknown requirements`);
     }
+    const me = await currentUser(req);
+    await recordCatalogExport(me?.id ?? null, "api");
     return catalog;
   });
 
