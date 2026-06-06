@@ -14,7 +14,7 @@ function hash(seed: string) {
 }
 
 // Deterministic demo: the Policy doc behind 01.q "changed at the source".
-const DRIFTED: { control: string; dim: string }[] = [{ control: "01.q", dim: "pol" }];
+const DRIFTED: { control: string; dim: string }[] = [{ control: "IA-2", dim: "pol" }];
 
 // Reusable tick — also called on an interval by the server when MONITOR_INTERVAL_MS is set.
 export async function runMonitorTick(): Promise<number> {

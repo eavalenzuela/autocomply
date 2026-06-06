@@ -5,7 +5,7 @@ export type Rating = "nc" | "sc" | "pc" | "mc" | "fc";
 
 export const DIMENSIONS: Dimension[] = ["pol", "proc", "impl", "meas", "mang"];
 
-// HITRUST PRISMA maturity-level weights (Implemented heaviest). Confirm vs MyCSF.
+// PRISMA maturity-level weights (NIST IR 7358 lineage; Implemented heaviest).
 export const DIM_WEIGHT: Record<Dimension, number> = {
   pol: 0.15,
   proc: 0.2,

@@ -43,9 +43,9 @@ function Topbar({ me, onLogout }: { me: CurrentUser; onLogout: () => void }) {
       <div className="crumbs">
         <span>Programs</span>
         <span className="sep">/</span>
-        <span>HITRUST</span>
+        <span>NIST 800-53</span>
         <span className="sep">/</span>
-        <strong>r2 · 2026 cycle</strong>
+        <strong>Moderate · 2026 cycle</strong>
       </div>
       <div className="topbar-right">
         <span className="pill">⌘K</span>

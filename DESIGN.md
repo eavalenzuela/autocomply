@@ -1,6 +1,6 @@
 # autocomply — Design
 
-A compliance automation tool for **HITRUST CSF (primary)**, **SOC 2 Type II**, and
+A compliance automation tool for **NIST SP 800-53 Rev 5 (primary)**, **SOC 2 Type II**, and
 **ISO 27001**. AWS-first. Single-org / self-hosted (data model kept tenant-aware so a
 multi-tenant SaaS pivot later isn't a rewrite). Stack: TypeScript / Node.
 
@@ -14,7 +14,7 @@ engine the product is built around.
 
 "Automatable" here means: a defined repository for evidence, defined processes, and a
 tool to manage them — **not** that every step happens without human intervention.
-Human-in-the-loop is expected and fine. This framing fits HITRUST, where ~80% of
+Human-in-the-loop is expected and fine. This framing fits 800-53, where ~80% of
 evidence is inherently human / document / process based.
 
 Build priority follows from this:
@@ -30,61 +30,61 @@ control, then crosswalk that control to many framework requirements.
 
 ```
 AWS / evidence  →  Tests  →  Internal Controls  →  Framework Requirements
- (raw facts)     (automated)   (your CCF, ~150)     (SOC2 / ISO / HITRUST)
+ (raw facts)     (automated)   (your CCF, ~1196)    (SOC2 / ISO / 800-53)
 ```
 
-The control→requirement crosswalk (many-to-many) is the product's moat. Anchor the CCF
-to HITRUST CSF's structure because HITRUST is itself a *harmonizing* framework — its
-authoritative mappings to ISO/SOC2/NIST give the other frameworks' crosswalks largely
-for free.
+The control→requirement crosswalk (many-to-many) is the product's moat. The control
+spine **is** the NIST SP 800-53 Rev 5 catalog: 800-53 is itself a *harmonizing* baseline
+framework — its public OLIR mappings to ISO/SOC2 give the other frameworks' crosswalks
+largely for free, and its content is public-domain (no IP blocker on shipping it).
 
 ### Crosswalk sourcing
 
-The authoritative HITRUST crosswalks live in **MyCSF** (licensed, not redistributable);
-ISO 27001 text is copyrighted; SOC 2 TSC is openly available. Plan:
+The 800-53 control catalog is **public-domain** (NIST OSCAL content, CC0), so it ships
+directly; ISO 27001 text is copyrighted; SOC 2 TSC is openly available. Plan:
 
-- Author ~150 internal control **stubs** now, mirroring HITRUST CSF's public
-  domain/category structure (no licensed text required).
+- The control spine is **generated** from the vendored NIST OSCAL catalog — 20 families
+  → 324 base controls → 1196 controls (base + enhancements). No stub authoring required.
 - Light up **SOC 2 Type II** as the first crosswalk (openly available TSC).
-- Ingest HITRUST requirement text + MyCSF crosswalk once we have a subscription. As the
-  customer of our own single-org tool, ingesting/referencing MyCSF mappings for our own
-  use is fine. No rework — the controls already exist.
+- ISO mappings derive from the published **NIST 800-53r5 ↔ ISO/IEC 27001:2022 OLIR**
+  informative reference (identifiers only). No rework — the controls already exist.
 
-## HITRUST specifics that shape the model
+## NIST 800-53 specifics that shape the model
 
-- **Assessment tiers differ on TWO independent axes** — requirement *selection* and
-  scoring *depth*. This is foundational:
+- **Baselines select controls; the maturity model scores them — two independent axes.**
+  800-53 ships three cumulative baselines (Low ⊂ Moderate ⊂ High); every baseline is
+  assessed across the **full 5-dimension PRISMA maturity model**.
 
-  | Tier | Requirement selection | Scoring depth |
-  |------|----------------------|---------------|
-  | **e1** (~44)  | static, fixed list | **Implemented dimension only** |
-  | **i1** (~182) | static, fixed list | **Implemented dimension only** |
-  | **r2** (variable) | **factor-driven (dynamic)** | **full 5-dimension PRISMA maturity** |
+  | Baseline | Control selection | Scoring depth |
+  |----------|-------------------|---------------|
+  | **Low** (149)      | OSCAL baseline profile | full 5-dimension PRISMA maturity |
+  | **Moderate** (287) | OSCAL baseline profile | full 5-dimension PRISMA maturity |
+  | **High** (370)     | OSCAL baseline profile | full 5-dimension PRISMA maturity |
 
-- **The 5 PRISMA maturity dimensions apply to r2 only.** e1/i1 assess the *Implemented*
-  dimension exclusively — they do not score Policy/Process/Measured/Managed at all.
-- **Maturity scoring (r2)** — each requirement is rated across Policy → Process →
-  Implemented → Measured → Managed, each dimension graded NC / Somewhat / Partially /
-  Mostly / Fully Compliant, weighted into the control/requirement score.
-- **Scoping by risk factors applies to r2 only.** e1/i1 scoping is trivial (pick tier →
-  canned list). Which r2 requirements (and at which implementation level 1/2/3) apply is
-  *computed* from org/system/regulatory factors — needs a scoping engine. See
-  [Scoping engine (r2)](#scoping-engine-r2).
+- **The 5 PRISMA maturity dimensions (NIST IR 7358) apply to every baseline.** Selection
+  narrows *which* controls are in scope; it never narrows the dimensions scored.
+- **Maturity scoring** — each control is rated across Policy → Process → Implemented →
+  Measured → Managed, each dimension graded NC / Somewhat / Partially / Mostly / Fully
+  Compliant, weighted into the control score.
+- **Baseline membership is data, not computed.** Which controls are in scope is read
+  directly from the three OSCAL baseline profile JSONs into a `controlBaselines` join
+  table — no risk-factor scoping engine. See [Baselines](#baselines).
 
-### Consequences of the two-axis tier model
+### Consequences of the baseline + maturity model
 
-- **The grid is r2-shaped.** For e1/i1 the UI collapses to a single Implemented column;
-  the other four are N/A, not greyed-out.
-- **e1/i1 map almost perfectly onto the AWS-fed column.** The Implemented column *is* the
-  automation column → entry/intermediate assessments are where automation ROI is highest;
-  r2 is where the human document/process/metric machinery earns its keep.
-- Roadmap order follows: **nail e1/i1 (Implemented + AWS automation) first, build out the
-  other four columns for r2 second.**
+- **The grid is always 5-column.** Every in-scope control is rated across all five PRISMA
+  dimensions, regardless of baseline.
+- **The Implemented column maps almost perfectly onto the AWS-fed column.** The
+  Implemented dimension *is* the automation column → that's where automation ROI is
+  highest; the other four are where the human document/process/metric machinery earns its
+  keep.
+- Roadmap order follows: **nail the Implemented column (AWS automation) first, build out
+  the other four columns second.**
 
-### The pass/fail ↔ maturity mapping (r2)
+### The pass/fail ↔ maturity mapping
 
-A test never scores a *requirement* directly. It contributes a signal to **one maturity
-dimension** of a control (for r2; for e1/i1 only the Implemented row is in play):
+A test never scores a *control's framework requirement* directly. It contributes a signal
+to **one maturity dimension** of a control:
 
 | Dimension   | Primary evidence source                         |
 |-------------|-------------------------------------------------|
@@ -99,18 +99,17 @@ and operational evidence machinery is co-equal, not a later phase.
 
 ## The UI: grid + worklist
 
-**Grid** = visual quick-check map. Rows = controls grouped by domain; columns = the 5
-PRISMA dimensions (**r2**). For **e1/i1** the grid collapses to a single Implemented
-column. Each cell is a graded **rating** (not a checkbox) plus linked evidence, a
+**Grid** = visual quick-check map. Rows = controls grouped by family; columns = the 5
+PRISMA dimensions. Each cell is a graded **rating** (not a checkbox) plus linked evidence, a
 justification note, and a last-reviewed date. AWS-fed cells (almost entirely the
 Implemented column) can be *suggested* a rating by a collector; a human confirms it.
 
 ```
-Domain 01 · Information Protection Program
+AC · Access Control
 ┌───────────────────────────┬────────┬─────────┬─────────────┬──────────┬─────────┬───────┐
 │ Control                    │ Policy │ Process │ Implemented │ Measured │ Managed │ Score │
 ├───────────────────────────┼────────┼─────────┼─────────────┼──────────┼─────────┼───────┤
-│ 01.a Access control policy │  ✔ FC  │  ✔ FC   │   ⚙ auto FC │  ◑ PC    │  ✕ NC   │  72%  │
+│ AC-2 Account Management    │  ✔ FC  │  ✔ FC   │   ⚙ auto FC │  ◑ PC    │  ✕ NC   │  72%  │
 │   └ 3 docs · refreshed 4d  │ [pol]  │ [proc]  │  AWS:IAM    │ [metric] │   —     │       │
 └───────────────────────────┴────────┴─────────┴─────────────┴──────────┴─────────┴───────┘
 ```
@@ -135,7 +134,7 @@ Priority signals:
 3. **Staleness / drift** — cells about to expire or invalidated by a doc-drift event.
 4. **Score leverage** — unrated/low cells that move the weighted roll-up most, esp. just
    under a scoring threshold.
-5. **Target-tier gating** — only what's in scope for the assessment being pursued.
+5. **Target-baseline gating** — only what's in scope for the baseline being pursued.
 
 Signals 1–2 are graph problems → the worklist engine wants a dependency graph beneath
 it, not just a priority number.
@@ -149,8 +148,8 @@ it, not just a priority number.
   **re-attest task**, preserves both snapshot versions, and makes freshness meaningful
   (triggered by the world changing, not only a clock).
 - Snapshot **rendered** form (PDF/HTML) for proof + a **text extraction** for diffing.
-- **Immutable / append-only store from day one.** Type II and r2 care about operating
-  effectiveness *over a period*, so evidence and ratings are append-only timestamped
+- **Immutable / append-only store from day one.** Type II and period maturity assessment
+  care about operating effectiveness *over a period*, so evidence and ratings are append-only timestamped
   records, never overwritten current-state rows. This is what makes "control held 88/90
   days; 2-day gap on Apr 12" computable.
 
@@ -242,49 +241,38 @@ per-resource attributes (tags, environment), and outputs a suggested rating
 an `Attestation` pins. The two pipelines differ in *production*, converge on the same
 immutable-proof shape — which is what keeps the polymorphic `evidence_refs` clean.
 
-## Scoping engine (r2)
+## Baselines
 
-r2 scoping does two distinct things, modeled separately:
+Control selection is **data, not a computed scoping engine.** 800-53 ships three
+cumulative baselines as OSCAL profile JSONs; we read membership directly:
 
-- **Org + system factors → implementation *level* (1/2/3, cumulative).** Records volume,
-  external network exposure, user/interface counts, cloud/mobile usage, etc. push a
-  control reference up to its level-2/level-3 requirement statements.
-- **Regulatory factors → *overlay* statements.** Selecting HIPAA / PCI / NIST 800-53 /
-  state laws / FedRAMP *adds* requirement statements tagged to that regulation, bolted
-  onto the baseline.
+- **Baseline membership is read from the OSCAL baseline profiles.** The three profile
+  JSONs (Low / Moderate / High) enumerate exactly which controls each baseline includes;
+  the generator loads them into a `controlBaselines(controlCode, baseline)` join table.
+- **Baselines are cumulative supersets.** Low (149) ⊂ Moderate (287) ⊂ High (370). A
+  control is "in play" for a baseline iff it appears in that baseline's profile.
 
-### Atomic unit: the requirement statement
+### The in-scope unit is the control
 
-The in-scope unit is **not** a monolithic requirement. It is a **requirement statement =
-`(control reference, implementation level, optional regulatory overlay tag)`**. The
-`Requirement` entity decomposes into level-stratified statements, not one clause with an
-`impl_level` field.
+The in-scope unit is the **control** (base control or enhancement, code form `AC-2(1)`).
+There is no level-stratified or overlay-tagged requirement statement — selection is a
+flat membership test against the chosen baseline.
 
-### Machinery vs. authoritative data (same split as crosswalks)
+### Provenance
 
-HITRUST's factor→statement logic is proprietary (lives in MyCSF). We do **not**
-reverse-engineer it.
-
-- **Model the machinery now**: a `ScopingProfile` (the org's questionnaire answers) →
-  resulting in-scope statement set.
-- **Ingest authoritative scoping output from MyCSF** once we have access — MyCSF
-  *produces* the scoped list; we consume it.
-- **Bootstrap local-rule layer (DECIDED: yes).** A thin, clearly-non-authoritative local
-  rule set so the grid feels real pre-subscription. Throwaway-ish; replaced by MyCSF
-  ingest.
+The 800-53 catalog and its baselines are **public-domain** (NIST OSCAL content, CC0), so
+there is no authoritative-data licensing seam to ingest later — `data/controls.yaml` is
+generated from the vendored OSCAL catalog by `scripts/gen_nist_catalog.py`, and baseline
+membership comes from the OSCAL baseline profiles in the same generation step.
 
 ### Structural decisions
 
-- **Scope is versioned and bound to an AssessmentPeriod.** Adding a system or adopting a
-  regulation changes the in-scope set; mid-period changes introduce controls with no
-  accrued evidence → straight to the clock-starter worklist. `ScopingProfile` is
-  versioned; an `AssessmentPeriod` pins a specific version.
-- **Regulatory overlays are first-class objects (DECIDED).** A regulation is both a
-  scoping *input* (adds statements) and an output *view* ("show me HIPAA coverage"). It
-  is a reusable `RegulatoryOverlay`, not a transient questionnaire answer.
-- **Scope flows transitively**: scoped statements → mapped Controls (M:N) → a Control is
-  "in play" if ≥1 mapped statement is in scope → its MaturityCells light up (all five for
-  r2, Implemented only for e1/i1).
+- **Baseline is bound to an AssessmentPeriod.** An `AssessmentPeriod` pins one of
+  `low|moderate|high`; the in-scope control set follows from `controlBaselines`. Adding a
+  control to scope mid-period (e.g. moving Moderate → High) introduces controls with no
+  accrued evidence → straight to the clock-starter worklist.
+- **Scope flows directly**: a Control is "in play" if it is a member of the period's
+  baseline → its MaturityCells light up (all five dimensions, for every baseline).
 
 ## SOC 2 / ISO 27001 crosswalks
 
@@ -298,23 +286,24 @@ reverse-engineer it.
   - **Annex A** — 93 controls / 4 themes (Organizational 37, People 8, Physical 14,
     Technological 34). Most CCF technical controls map here.
   - **Clauses 4–10** — the management-system (ISMS) requirements. Mandatory and audited;
-    map to CCF categories 00/03/04/05/06, *not* the technical controls. Easy to miss —
-    `Requirement.kind` distinguishes `iso-clause` vs `iso-annexa`.
-- `RequirementStatement` stays **HITRUST-only** (SOC 2/ISO have no maturity levels);
-  `Requirement` alone covers SOC 2 criteria and ISO clauses/controls.
+    map to 800-53 program-management / governance families (PM, PL, CA, AC, AU), *not*
+    the technical controls. Easy to miss — `Requirement.kind` distinguishes `iso-clause`
+    vs `iso-annexa`.
+- The crosswalk maps 800-53 **base control codes** to SOC 2 criteria and ISO
+  clauses/controls; `Requirement` alone covers SOC 2 criteria and ISO clauses/controls.
 
-### Sourcing (bootstrap now, MyCSF authoritative later)
+### Sourcing
 
-- **SOC 2: hand-author now** — TSC is published, no IP blocker. Reference criterion IDs +
-  paraphrased intent.
-- **ISO: derive via the lineage chain now** — `control → ISO 27002:2005 → (2005→2013→2022
-  via ISO 27002:2022 Annex B) → Annex A:2022`. The `iso_2005` refs in `controls.yaml`
-  seed this; ~80% derives mechanically. The **11 controls new in 2022** (flagged
-  `new_2022` in the framework file) have no ancestor → hand-map.
-- Both **reconciled/overridden by MyCSF crosswalk ingest** later (the payoff of
-  HITRUST-anchoring).
-- **IP boundary**: SOC 2 TSC referenceable; ISO standard text copyrighted → map against
-  identifiers + our paraphrase only, never reproduce ISO text.
+- **SOC 2: hand-authored** — TSC is published, no IP blocker. Reference criterion IDs +
+  paraphrased intent (`SOC2_MAP` in the generator).
+- **ISO: OLIR-derived** — the published **NIST 800-53r5 ↔ ISO/IEC 27001:2022** informative
+  reference gives base-control → Annex A mappings (identifiers only). Controls with no
+  OLIR counterpart fall into the gap report → hand-map.
+- This is a **non-authoritative bootstrap** crosswalk with a gap report for unmapped
+  controls; relationships carry confidence/source so it can be refined.
+- **IP boundary**: 800-53 catalog is public-domain; SOC 2 TSC referenceable; ISO standard
+  text copyrighted → map against identifiers + our paraphrase only, never reproduce ISO
+  text.
 
 ### Reverse roll-up + gap report
 
@@ -338,44 +327,44 @@ reverse-engineer it.
 
 - `data/frameworks/soc2-tsc.yaml` — 61 criteria.
 - `data/frameworks/iso27001-2022.yaml` — 30 clauses + 93 Annex A, `new_2022` flags.
-- `data/mappings/ccf-crosswalk.yaml` — **full** crosswalk: all 156 controls mapped to
-  ISO (162 links), 154 to SOC 2 (186 links); 348 links total, all references validated.
-  Generated by `scripts/gen_crosswalk.py` (re-runnable): ISO via the `ISO_TRANSITION`
-  lineage table, SOC 2 via the hand-authored `SOC2_MAP`. Each link carries
-  relationship/confidence/source.
+- `data/mappings/ccf-crosswalk.yaml` — crosswalk keyed on the **324 base control codes**,
+  generated by `scripts/gen_crosswalk.py` (re-runnable): ISO via the OLIR-derived
+  800-53r5 ↔ ISO 27001:2022 informative reference (codes only), SOC 2 via the
+  hand-authored `SOC2_MAP`. Each link carries relationship/confidence/source. A
+  **non-authoritative bootstrap** with a gap report for unmapped controls.
 
 ### Crosswalk gap report (current state)
 
 The reverse view already produces useful gaps — framework requirements with **no** CCF
 coverage, exactly as predicted:
 
-- **SOC 2** uncovered: `06.b`/`06.f` (IP rights, crypto regulation) have no SOC 2 nexus;
-  criteria `CC1.2, CC5.1, PI1.5, C1.2, P3.2, P6.2–P6.6` lack a technical-control source
-  (governance/privacy).
-- **ISO** uncovered: the **ISMS clauses** (most of 4–10) — our technical CCF doesn't carry
-  the management-system process — and the **new-2022 Annex A controls** with no 2005
-  ancestor (`A.5.7, A.5.23, A.7.4, A.8.9–8.12, A.8.16, A.8.23, A.8.28`, etc.). These are
-  the hand-mapping / new-control backlog, surfaced automatically.
+- **SOC 2** uncovered: criteria `CC1.2, CC5.1, PI1.5, C1.2, P3.2, P6.2–P6.6` lack a
+  technical-control source (governance/privacy) — and 800-53 base controls with no SOC 2
+  nexus surface as unmapped on the other side.
+- **ISO** uncovered: the **ISMS clauses** (most of 4–10) — our technical control spine
+  doesn't carry the management-system process — and any **new-2022 Annex A controls** with
+  no OLIR counterpart (`A.5.7, A.5.23, A.7.4, A.8.9–8.12, A.8.16, A.8.23, A.8.28`, etc.).
+  These are the hand-mapping / new-control backlog, surfaced automatically.
 
 ## Scoring
 
-### Numeric scoring is a HITRUST concern; SOC 2 / ISO are not numeric
+### Numeric maturity scoring; SOC 2 / ISO are not numeric
 
 The same inputs (cell ratings + coverage) roll up **three different ways** — model
 roll-up as a per-framework strategy, *not* one numeric scorer:
 
-- **HITRUST** → weighted **numeric** maturity score (below).
+- **NIST 800-53** → weighted **numeric** PRISMA maturity score (below).
 - **SOC 2 Type II** → auditor *opinion*: per-control effective / not, with **exceptions**
   noted over the period. No number.
 - **ISO 27001** → *conformity*: major/minor **nonconformities** against the ISMS. No
   number.
 
-### HITRUST r2 formula (bottom-up)
+### Maturity formula (bottom-up)
 
-1. **Per requirement statement**, rate each of the 5 maturity levels on NC/SC/PC/MC/FC
+1. **Per control**, rate each of the 5 PRISMA maturity levels on NC/SC/PC/MC/FC
    (≈ 0 / 25 / 50 / 75 / 100%), then weight:
 
-   | Level | Weight* |
+   | Level | Weight |
    |-------|---------|
    | Policy | 15% |
    | Procedure (Process) | 20% |
@@ -383,38 +372,32 @@ roll-up as a per-framework strategy, *not* one numeric scorer:
    | Measured | 10% |
    | Managed | 15% |
 
-   `statement_score = Σ (level_weight × rating%)`. Implemented's 40% makes it the single
+   `control_score = Σ (level_weight × rating%)`. Implemented's 40% makes it the single
    biggest lever — the worklist "score leverage" signal falls straight out of these
    weights.
-2. **Domain score** ≈ equal-weighted average of its requirement-statement scores (across
-   the 19 assessment domains).
-3. **Certification gate is per-domain, not overall** — roughly every one of the 19
-   domains must clear ~3.0 on the 1–5 scale. One weak domain blocks certification.
-   → scorecard surfaces per-domain status; worklist prioritizes lifting the **lowest
-   gate-failing domain** over polishing domains already above the line.
+2. **Family score** ≈ equal-weighted average of its control scores (across the 20 control
+   families).
+3. **Gate is per-family, not overall** — roughly every one of the 20 families must clear
+   ~3.0 on the 0–5 scale. One weak family fails the assessment.
+   → scorecard surfaces per-family status; worklist prioritizes lifting the **lowest
+   gate-failing family** over polishing families already above the line.
 
-\*Level weights, rating-band percentages, and the %→1–5 conversion are HITRUST-defined;
-values here are best-recollection of the published rubric — **confirm against the
-official scoring guide / MyCSF** (same disclaimer as crosswalks/scoping).
+The level weights and rating-band percentages are the PRISMA maturity model (NIST IR
+7358 lineage); the rating scale (nc/sc/pc/mc/fc) and gate thresholds live in
+`scoring.ts`.
 
-**e1/i1**: Implemented-only → statement score *is* the Implemented rating; effectively
-pass/fail, no maturity weighting.
+### Cell granularity
 
-### Cell granularity (DECIDED: A2)
-
-HITRUST scores per **requirement statement** (each statement scored across all 5 levels),
-but our grid cells are per **Control**. Resolution: **`MaturityCell` stays at Control
-level** (the human-friendly grid, usable pre-ingest), with a **statement-level scoring
-projection underneath** that computes the actual HITRUST score at true granularity once
-statements exist (post-MyCSF ingest). Grid ratings roll down to / up from statement
-scoring at compute time.
+Maturity is scored per **control** (each scored across all 5 levels), which is exactly the
+grain of the grid: `MaturityCell` is at Control level, one cell per PRISMA dimension. No
+projection layer is needed — the in-scope unit and the scoring unit are the same Control.
 
 ### `Control.weight` is prioritization-only (DECIDED)
 
-HITRUST weights *maturity levels* and averages requirements within a domain equally —
-there is **no per-control weight** in the HITRUST method. So `Control.weight` does **not**
-feed the score; it is repositioned as a **prioritization weight** (worklist leverage /
-drawing attention to controls we care about).
+The PRISMA method weights *maturity levels* and averages controls within a family equally
+— there is **no per-control weight** in the scoring method. So `Control.weight` does
+**not** feed the score; it is repositioned as a **prioritization weight** (worklist
+leverage / drawing attention to controls we care about).
 
 ### Two scores, and where coverage lands
 
@@ -434,8 +417,8 @@ worklist task ("collection broke" vs "control broke"), different remediation.
 
 ```
   ┌─ CCF / GRID ──────────────────────────────────────────────┐
-  │  Domain 1──* Control 1──* MaturityCell 1──* Attestation    │
-  │             (~150)        (exactly 5,        (append-only  │
+  │  Family 1──* Control 1──* MaturityCell 1──* Attestation    │
+  │   (20)       (1196)       (exactly 5,        (append-only  │
   │                            1 per PRISMA       rating event)│
   │                            dimension)             │ pins   │
   └───────────────────────────────────┬──────────────┼────────┘
@@ -443,10 +426,10 @@ worklist task ("collection broke" vs "control broke"), different remediation.
   ┌─ FRAMEWORKS ───────────┐           │      ┌─ EVIDENCE ──────────────┐
   │ Framework 1──* Require- │           │      │ Source 1──* Automated-  │
   │   ment ◄───────────────┼───────────┘      │   Finding ─┐            │
-  │     ▲  (tier: e1/i1/r2) │  Control↔Req     │            ├─►(evidence │
+  │     ▲  (soc2 / iso)     │  Control↔Req     │            ├─►(evidence │
   │ AssessmentPeriod ──────►│ selects in-scope │ Evidence 1─*Snapshot ─┘ │
-  │     ▲                   │ reqs→controls    │     ▲   (immutable cap.)│
-  │ ScopingFactors ─────────┘                  │     │                   │
+  │     ▲ (baseline)        │ reqs→controls    │     ▲   (immutable cap.)│
+  │ ControlBaseline ────────┘                  │     │                   │
   └─────────────────────────┘     EvidenceAttachment (M:N) ──────────────┘
                                   Evidence/Finding ↔ MaturityCell
   ┌─ WORKFLOW ─────────────────────────────────────────────────┐
@@ -457,20 +440,17 @@ worklist task ("collection broke" vs "control broke"), different remediation.
 
 | Entity | Key fields | Why it exists |
 |---|---|---|
-| **ControlCategory** | code (`00`–`13`), title | The 14 CSF control categories — the control *library* parent. |
-| **ControlObjective** | code (`01.02`), title, category_id | The 49 control objectives; intermediate library node. |
-| **AssessmentDomain** | code (1–19), title | The 19 HITRUST scoring/reporting domains — a regrouping that cuts *across* categories. |
-| **Control** | code (`01.a`), title (ours), category_id, objective, **assessment_domain_id**, **weight** (prioritization-only), owner, hitrust_ref? | CCF row. **156**, near-1:1 mirror of HITRUST control references. Framework-agnostic; `hitrust_ref` filled on ingest. `weight` feeds worklist leverage, **not** scoring. Seeded in `data/controls.yaml`. |
-| **MaturityCell** | control_id, **dimension**, cached_current_rating, freshness_threshold, auto_source? | Grid cell. Exactly 5 per control (A2: Control-level grid; scoring projects to statement level underneath). `cached_current_rating` is a materialized view of the latest Attestation. |
+| **ControlCategory** | code (`AC`, `AU`, …), title | The 20 control families — the 800-53 control *library* parent (`category` in the taxonomy). |
+| **ControlObjective** | code (`AC-1`, `AC-2`, …), title, category_id | The 324 base controls; intermediate library node (`objective` in the taxonomy). |
+| **Control** | code (`AC-2(1)`), title, category_id, objective, **weight** (prioritization-only), owner | CCF row. **1196** (base controls + enhancements), generated from the NIST OSCAL catalog. Framework-agnostic. `weight` feeds worklist leverage, **not** scoring. Seeded in `data/controls.yaml`. |
+| **ControlBaseline** | control_code, **baseline** (low/moderate/high) | Join table: which controls each cumulative baseline includes. Read from the three OSCAL baseline profile JSONs. |
+| **MaturityCell** | control_id, **dimension**, cached_current_rating, freshness_threshold, auto_source? | Grid cell. Exactly 5 per control, 1 per PRISMA dimension. `cached_current_rating` is a materialized view of the latest Attestation. |
 | **Attestation** | cell_id, **rating** (NC/SC/PC/MC/FC), justification, **evidence_refs[]**, actor, ts, supersedes? | Append-only. The immutable rating history that makes period coverage computable. |
-| **Framework** | name, version | SOC2 / ISO27001 / HITRUST CSF |
-| **Requirement** | framework_id, code, text, **kind** (hitrust-ref / soc2-criterion / iso-clause / iso-annexa) | A framework clause/criterion/control. HITRUST refs decompose into statements (below); SOC 2/ISO do not. |
-| **RequirementStatement** | requirement_id, **impl_level** (1/2/3), overlay_id?, text, **tier_membership** (e1/i1/r2) | The atomic in-scope unit: `(control ref, level, optional overlay)`. Tier membership flags fixed e1/i1 lists vs r2-eligible. |
-| **RegulatoryOverlay** | code (HIPAA/PCI/NIST/FedRAMP/…), name | **First-class.** Both a scoping input (adds statements) and a reporting lens. |
-| **Mapping** | control_id, requirement_id, **relationship** (equivalent/superset/subset/partial/related), **confidence** (high/med/low), source (manual/lineage-derived/mycsf-ingest), note | The crosswalk. M:N at **Control** level. `relationship` drives the reverse readiness roll-up. |
-| **AssessmentPeriod** | framework, tier, start, end, status, scoping_profile_version, **tsc_categories[]** (SOC 2) | The lookback window everything is scored *against*. Pins scope; SOC 2 selects opt-in TSC categories. |
+| **Framework** | name, version | SOC2 / ISO27001 (crosswalk targets) |
+| **Requirement** | framework_id, code, text, **kind** (soc2-criterion / iso-clause / iso-annexa) | A framework clause/criterion/control that 800-53 controls map *to*. |
+| **Mapping** | control_id, requirement_id, **relationship** (equivalent/superset/subset/partial/related), **confidence** (high/med/low), source (manual/olir-derived), note | The crosswalk. M:N at **Control** level (keyed on base control codes). `relationship` drives the reverse readiness roll-up. |
+| **AssessmentPeriod** | **framework** (nist80053/soc2/iso27001), **tier** (low/moderate/high), start, end, status, **tsc_categories[]** (SOC 2) | The lookback window everything is scored *against*. `tier` pins the 800-53 baseline; SOC 2 selects opt-in TSC categories. |
 | **SoAEntry** | annexa_control_id, applicable (y/n), justification, implemented (y/n) | ISO Statement of Applicability — required deliverable; first-class, not derived. |
-| **ScopingProfile** | **version**, org/system factor answers, selected overlays[], source (mycsf/local-bootstrap) | Versioned questionnaire answers → resolves to an in-scope RequirementStatement set. r2 only. |
 | **Source** | type (aws/drive/confluence), config, last_sync | A connected system. |
 | **Evidence** | live_url, source_id, kind, owner | The *referenced* doc. Lives elsewhere; we point at it. |
 | **Snapshot** | evidence_id, s3_uri, **content_hash**, text_extract_uri, fetched_at, fetched_by, supersedes? | Immutable point-in-time capture. New hash = drift event. |
@@ -500,26 +480,23 @@ worklist task ("collection broke" vs "control broke"), different remediation.
 ### Settled modeling decisions
 
 - **Mapping attaches at Control level** (not MaturityCell). A requirement maps to a
-  control; HITRUST maturity is *how* that control is scored.
-- **HITRUST requirement score is derived, not stored** — computed over
+  control; PRISMA maturity is *how* that control is scored.
+- **Framework requirement score is derived, not stored** — computed over
   Mapping + MaturityCell + Attestation (weighted), so it can't drift from its inputs.
-- **Tiers differ on two axes** — selection (e1/i1 static, r2 factor-driven) *and* scoring
-  depth (e1/i1 Implemented-only, r2 full 5-dimension). The 5-column grid is r2-shaped.
-- **Atomic in-scope unit is the RequirementStatement** `(control ref, level, overlay)`,
-  not a monolithic Requirement.
-- **Regulatory overlays are first-class objects** (scoping input + reporting lens).
-- **Scoping: bootstrap local rules now, ingest authoritative MyCSF scoping later.** Scope
-  is versioned and pinned to an AssessmentPeriod.
-- **HITRUST has two orthogonal groupings** — the *library* (14 categories → 49
-  objectives → 156 control references, codes like `01.a`) and the *scoring lens* (19
-  assessment domains, which regroup across categories). The model carries both;
-  `Control` belongs to one category+objective and rolls up to one assessment domain.
-- **CCF is a near-1:1 mirror of the 156 HITRUST control references** — adopt the `NN.x`
-  codes, author our own plain-language titles, map 1:1 to HITRUST on ingest, but keep
-  `Control`↔`Requirement` formally separate so SOC2/ISO map cleanly. Stubs generated in
-  **`data/controls.yaml`** (categories 01–12 follow ISO 27002:2005 lineage and are solid;
-  00/03/13 are HITRUST-specific best-effort; assessment_domain + hitrust_ref + statements
-  arrive on MyCSF ingest).
+- **Baselines select; maturity scores** — selection (Low/Moderate/High membership) is a
+  flat data lookup; every in-scope control is scored across the full 5-dimension grid.
+- **In-scope unit is the Control** (base control or enhancement, code `AC-2(1)`), a flat
+  membership test against the chosen baseline — no level-stratified statements.
+- **Baseline is pinned to an AssessmentPeriod** via `tier` (low/moderate/high); the
+  in-scope set follows from `controlBaselines`.
+- **Three-level taxonomy** — the control spine is the *library* (20 families → 324 base
+  controls → 1196 controls incl. enhancements): `category` = family, `objective` = base
+  control, `control` = base control + each enhancement. There is no separate scoring lens
+  — gating groups by the 20 families directly.
+- **CCF *is* the 800-53 catalog** — generated from the public-domain NIST OSCAL content
+  (CC0) vendored under `data/vendor/oscal/`; `data/controls.yaml` is produced by
+  `scripts/gen_nist_catalog.py`. `Control`↔`Requirement` stays formally separate so
+  SOC2/ISO map cleanly.
 - **Automated evidence = internal schema + adapters** (not ASFF/OCSF as the model).
   Three entities: Check (definition) / CheckRun (execution + completeness) /
   AutomatedFinding (per-resource result, append-only). Aggregation is derived.
@@ -528,14 +505,14 @@ worklist task ("collection broke" vs "control broke"), different remediation.
 - **Rating rubric is an expression** evaluated over the finding set (needs a sandboxed
   evaluator); N/A drops from the denominator; error/indeterminate force "needs human";
   output is a human-confirmed *suggestion*.
-- **Scoring is per-framework, not one scorer** — HITRUST = weighted numeric maturity
+- **Scoring is per-framework, not one scorer** — 800-53 = weighted numeric PRISMA maturity
   score; SOC 2 = effective/exception status; ISO = conformity/nonconformity. Shared
   inputs, different roll-ups.
-- **HITRUST: maturity-level weights** (Implemented heaviest, ~40%), domain score =
-  equal-weight average of statement scores, **certification gate is per-domain** (every
-  domain must clear the threshold). Exact weights/bands confirmed against MyCSF.
-- **Cell granularity = A2** — Control-level grid (human-friendly, pre-ingest usable) +
-  statement-level scoring projection underneath (true HITRUST granularity post-ingest).
+- **PRISMA maturity-level weights** (Implemented heaviest, ~40%), family score =
+  equal-weight average of control scores, **gate is per-family** (every one of the 20
+  families must clear the threshold). Weights/scale live in `scoring.ts`.
+- **Cell granularity** — Control-level grid, scored per control across 5 dimensions; the
+  in-scope unit and the scoring unit are the same Control (no projection layer).
 - **`Control.weight` is prioritization-only**, not a scoring input.
 - **Coverage handling = indeterminate-as-NC** — below a configurable coverage threshold
   the level scores as NC and is flagged; gap stays distinct from a genuine NC.
@@ -543,63 +520,58 @@ worklist task ("collection broke" vs "control broke"), different remediation.
   (coverage-adjusted, auditable).
 - **ISO 27001 has two mappable surfaces** — Annex A (93 controls) *and* clauses 4–10
   (ISMS); `Requirement.kind` distinguishes. SOC 2 maps to TSC criteria.
-- **Crosswalk sourcing**: SOC 2 hand-authored now (TSC published); ISO lineage-derived now
-  (27002:2005→2013→2022; 11 new-2022 controls hand-mapped); both overridden by MyCSF.
+- **Crosswalk sourcing**: SOC 2 hand-authored (TSC published); ISO OLIR-derived
+  (800-53r5 ↔ ISO 27001:2022, codes only). Non-authoritative bootstrap + gap report.
 - **`Mapping` carries relationship + confidence + source** — `relationship` drives the
   reverse readiness roll-up; unmapped requirements are a first-class gap report.
 - **SOC 2/ISO read a subset of maturity cells** (mostly Implemented + coverage), not all 5.
 - **Per-framework scoping artifacts**: SOC 2 TSC-category selection; ISO Statement of
   Applicability (first-class `SoAEntry`).
-- **MyCSF ingest is NOT a build prerequisite** — bootstrap-first by design; build the
-  e1/i1 slice now on placeholder data. The required precaution is a **source-agnostic data
-  loader** (`data/*.yaml` is the ingest seam); ingest is additive and built last.
+- **Control/framework data loads through a source-agnostic loader** — `data/*.yaml` is the
+  seam; `controls.yaml` is generated from the NIST OSCAL catalog, crosswalk from the
+  generator, so downstream code never hard-codes provenance.
 
-## Build readiness — MyCSF ingest is NOT a prerequisite
+## Build readiness
 
-> **Call-out (decided 2026-05-22): build can start now, without the MyCSF
-> ingest/reconciliation layer.** The architecture is bootstrap-first by design, so
-> MyCSF is an enhancement that swaps placeholder data for authoritative data — never a
-> gate on building or running the system.
+> **The architecture is generation-driven**: the control spine and crosswalk are produced
+> from public-domain NIST OSCAL content and re-runnable generator scripts — there is no
+> proprietary-data ingest gate on building or running the system.
 
-**Buildable now, needs nothing from MyCSF:**
-- Phase 1 (domain model + schema) — the schema doesn't change based on MyCSF.
-- Phase 2 (the e1/i1 vertical slice) — the *least* MyCSF-dependent thing in the design,
-  since e1/i1 are Implemented-only (the AWS-fed column). Runs against the 156 control
-  stubs we already have.
+**Buildable now:**
+- Phase 1 (domain model + schema) — fully specified against the generated 800-53 catalog.
+- Phase 2 (the Implemented-column vertical slice) — the AWS-fed column. Runs against the
+  1196 controls generated from the OSCAL catalog.
 - Grid, worklist, evidence/snapshot pipeline, attestations, coverage computation — none
   care where control/crosswalk data originated.
 
-**Waits for MyCSF, but not blocking** (each has working non-authoritative placeholder data
-today): authoritative requirement-statement text + exact e1/i1/r2 membership; the
-authoritative 156→19 assessment-domain mapping; factor→statement scoping logic; confirmed
-maturity weights; authoritative crosswalks. You can't produce an *official, submittable r2
-score* without these, but you can build/run the whole system and do real e1/i1-style
-self-assessment.
+**Refinement backlog, not blocking** (each has working non-authoritative data
+today): the SOC 2 / ISO crosswalk is a non-authoritative bootstrap (OLIR-derived ISO,
+hand-authored SOC 2) with a gap report for unmapped controls; non-technical/document
+evidence machinery for the Policy/Process/Measured/Managed columns. You can build/run the
+whole system and do real maturity self-assessment against any 800-53 baseline today.
 
 ### Required precaution: source-agnostic data-loading layer
 
 The one thing that's cheap now and expensive later: **load all control/framework/mapping
-data through a loader that does not care whether a row came from our bootstrap or a future
-MyCSF sync.** The `data/*.yaml` files are the seam.
+data through a loader that does not care whether a row came from a generator run or a
+hand-edit.** The `data/*.yaml` files are the seam.
 
-- Nothing downstream hard-codes our stub titles or assumes mappings are 1:1.
-- The `source` and `confidence` fields on `Mapping` (and `hitrust_ref`/`assessment_domain`
-  `tbd`/`null` placeholders, and the `pending_mycsf_ingest` lists) are the reconciliation
-  hooks — ingest later is *additive*: it rewrites/augments the same files (or a DB seeded
-  from them).
-- **Sequence**: build the loader + Phase 1/2 now → design the reconciliation *strategy*
-  (merge-without-clobbering-human-work) when MyCSF access is in hand → write the ingester
-  last.
+- Nothing downstream hard-codes titles or assumes mappings are 1:1.
+- The `source` and `confidence` fields on `Mapping` are the reconciliation hooks — a
+  re-run of `gen_nist_catalog.py` / `gen_crosswalk.py` is *additive*: it regenerates the
+  same files (or a DB seeded from them) without clobbering hand-authored overrides.
+- **Sequence**: build the loader + Phase 1/2 now → refine the crosswalk gap report as
+  hand-mappings land.
 
 ## Suggested phased roadmap
 
-1. **Domain model + CCF schema** (HITRUST-anchored control stubs + mapping structure) +
-   the **source-agnostic data loader** (reads `data/*.yaml`; the MyCSF-ingest seam).
-2. **e1/i1 vertical slice (Implemented column only)** — single AWS source → ~5
-   collectors → ~5 tests → controls → fixed e1/i1 statement lists. Highest automation ROI;
-   proves the pipeline end to end against the canned tier lists.
+1. **Domain model + schema** (the generated 800-53 control spine + mapping structure) +
+   the **source-agnostic data loader** (reads `data/*.yaml`, generated from NIST OSCAL).
+2. **Implemented-column vertical slice** — single AWS source → ~5 collectors → ~5 tests →
+   controls. Highest automation ROI; proves the pipeline end to end against the Moderate
+   baseline.
 3. **Continuous monitoring** — scheduling, re-collection, drift detection.
 4. **Findings & remediation workflow** + exceptions / risk acceptance.
-5. **r2 build-out** — the other four maturity columns, scoping engine (bootstrap rules →
-   MyCSF ingest), regulatory overlays, non-technical/document evidence, maturity scoring.
-6. **Reporting** — auditor evidence packages, Type II period support, per-overlay views.
+5. **Maturity build-out** — the other four maturity columns, non-technical/document
+   evidence, full maturity scoring across all three baselines.
+6. **Reporting** — auditor evidence packages, Type II period support, per-baseline views.

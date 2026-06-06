@@ -1,408 +1,346 @@
 #!/usr/bin/env python3
-"""Generate the full CCF -> SOC 2 / ISO 27001 crosswalk.
+"""Generate the 800-53 control -> SOC 2 / ISO 27001:2022 crosswalk.
 
-ISO mappings are lineage-derived: each control's iso_2005 clause is run through
-ISO_TRANSITION (ISO 27002:2005 -> 27001:2022 Annex A). Controls with no 2005
-ancestor (cats 00/03/13) use ISO_SPECIAL. SOC 2 mappings (SOC2_MAP) are
-hand-authored against published TSC criteria. Non-authoritative bootstrap;
-overridden by MyCSF ingest. Re-run after editing the tables below.
+Keyed on NIST SP 800-53 Rev 5 *base* control codes (AC-1, AC-2, ...). Enhancements
+inherit their base control's mappings implicitly (they roll up under it in the UI),
+so only base controls are mapped here.
+
+  - ISO 27001:2022 targets (Annex A + clauses) are derived from the published NIST
+    OLIR 800-53r5 <-> ISO/IEC 27001:2022 informative reference. Codes only — ISO
+    clause text is copyrighted and never stored.
+  - SOC 2 / AICPA TSC targets are hand-authored against the published TSC criteria
+    (codes are facts; TSC prose is AICPA-copyrighted and never stored).
+
+Non-authoritative bootstrap — high-confidence correspondences only; unmapped base
+controls land in the gap report (meta.unmapped_*). Edit the tables below + re-run.
+
+  relationship = equivalent | superset | subset | partial | related
+  confidence   = high | medium | low
 """
-import re, sys, pathlib
+import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-def load_controls():
-    out = []
-    for l in open(ROOT / "data/controls.yaml"):
-        if not re.search(r'-\s*\{\s*code:', l):
+
+def load_base_controls():
+    """Read base-control codes (the `objectives:` section of controls.yaml)."""
+    out, section = [], None
+    for line in open(ROOT / "data/controls.yaml"):
+        s = line.strip()
+        if s.endswith(":") and not s.startswith("-"):
+            section = s[:-1]
             continue
-        code = re.search(r'code:\s*"([^"]+)"', l).group(1)
-        iso = re.search(r'iso_2005:\s*"([^"]+)"', l)
-        out.append((code, iso.group(1) if iso else None))
+        if section == "objectives" and s.startswith("- {"):
+            code = s.split('code: "', 1)[1].split('"', 1)[0]
+            out.append(code)
     return out
 
-# --- ISO 27002:2005 clause -> 27001:2022 Annex A: (target, relationship, confidence)
-ISO_TRANSITION = {
-    "5.1.1": [("A.5.1", "equivalent", "high")],
-    "5.1.2": [("A.5.1", "partial", "high")],
-    "6.1.1": [("A.5.4", "partial", "medium")],
-    "6.1.2": [("A.5.2", "partial", "medium")],
-    "6.1.3": [("A.5.2", "equivalent", "high")],
-    "6.1.4": [("A.5.8", "related", "low")],
-    "6.1.5": [("A.6.6", "equivalent", "high")],
-    "6.1.6": [("A.5.5", "equivalent", "high")],
-    "6.1.7": [("A.5.6", "equivalent", "high")],
-    "6.1.8": [("A.5.35", "equivalent", "high")],
-    "6.2.1": [("A.5.19", "partial", "high")],
-    "6.2.2": [("A.5.19", "partial", "medium"), ("A.5.20", "partial", "medium")],
-    "6.2.3": [("A.5.20", "equivalent", "high")],
-    "7.1.1": [("A.5.9", "equivalent", "high")],
-    "7.1.2": [("A.5.9", "partial", "high")],
-    "7.1.3": [("A.5.10", "equivalent", "high")],
-    "7.2.1": [("A.5.12", "equivalent", "high")],
-    "7.2.2": [("A.5.13", "equivalent", "high")],
-    "8.1.1": [("A.5.2", "partial", "medium")],
-    "8.1.2": [("A.6.1", "equivalent", "high")],
-    "8.1.3": [("A.6.2", "equivalent", "high")],
-    "8.2.1": [("A.5.4", "equivalent", "high")],
-    "8.2.2": [("A.6.3", "equivalent", "high")],
-    "8.2.3": [("A.6.4", "equivalent", "high")],
-    "8.3.1": [("A.6.5", "equivalent", "high")],
-    "8.3.2": [("A.5.11", "equivalent", "high")],
-    "8.3.3": [("A.5.18", "partial", "high")],
-    "9.1.1": [("A.7.1", "equivalent", "high")],
-    "9.1.2": [("A.7.2", "equivalent", "high")],
-    "9.1.3": [("A.7.3", "equivalent", "high")],
-    "9.1.4": [("A.7.5", "equivalent", "high")],
-    "9.1.5": [("A.7.6", "equivalent", "high")],
-    "9.1.6": [("A.7.2", "partial", "medium")],
-    "9.2.1": [("A.7.8", "equivalent", "high")],
-    "9.2.2": [("A.7.11", "equivalent", "high")],
-    "9.2.3": [("A.7.12", "equivalent", "high")],
-    "9.2.4": [("A.7.13", "equivalent", "high")],
-    "9.2.5": [("A.7.9", "equivalent", "high")],
-    "9.2.6": [("A.7.14", "equivalent", "high")],
-    "9.2.7": [("A.7.9", "partial", "medium")],
-    "10.1.1": [("A.5.37", "equivalent", "high")],
-    "10.1.2": [("A.8.32", "equivalent", "high")],
-    "10.1.3": [("A.5.3", "equivalent", "high")],
-    "10.1.4": [("A.8.31", "equivalent", "high")],
-    "10.2.1": [("A.5.22", "partial", "medium")],
-    "10.2.2": [("A.5.22", "equivalent", "high")],
-    "10.2.3": [("A.5.22", "partial", "medium")],
-    "10.3.1": [("A.8.6", "equivalent", "high")],
-    "10.3.2": [("A.8.29", "partial", "medium")],
-    "10.4.1": [("A.8.7", "equivalent", "high")],
-    "10.4.2": [("A.8.7", "partial", "medium")],
-    "10.5.1": [("A.8.13", "equivalent", "high")],
-    "10.6.1": [("A.8.20", "equivalent", "high")],
-    "10.6.2": [("A.8.21", "equivalent", "high")],
-    "10.7.1": [("A.7.10", "equivalent", "high")],
-    "10.7.2": [("A.7.10", "partial", "medium")],
-    "10.7.3": [("A.5.10", "partial", "medium")],
-    "10.7.4": [("A.5.37", "partial", "low")],
-    "10.8.1": [("A.5.14", "equivalent", "high")],
-    "10.8.2": [("A.5.14", "partial", "medium")],
-    "10.8.3": [("A.5.14", "partial", "medium")],
-    "10.8.4": [("A.5.14", "partial", "medium")],
-    "10.8.5": [("A.8.22", "related", "low")],
-    "10.9.1": [("A.8.26", "partial", "medium")],
-    "10.9.2": [("A.8.26", "partial", "medium")],
-    "10.9.3": [("A.5.14", "related", "low")],
-    "10.10.1": [("A.8.15", "equivalent", "high")],
-    "10.10.2": [("A.8.16", "partial", "medium")],   # A.8.16 new_2022
-    "10.10.3": [("A.8.15", "partial", "medium")],
-    "10.10.4": [("A.8.15", "partial", "medium")],
-    "10.10.5": [("A.8.15", "partial", "low")],
-    "10.10.6": [("A.8.17", "equivalent", "high")],
-    "11.1.1": [("A.5.15", "equivalent", "high")],
-    "11.2.1": [("A.5.16", "partial", "high"), ("A.5.18", "partial", "medium")],
-    "11.2.2": [("A.8.2", "equivalent", "high")],
-    "11.2.3": [("A.5.17", "equivalent", "high")],
-    "11.2.4": [("A.5.18", "subset", "high")],
-    "11.3.1": [("A.5.17", "partial", "medium")],
-    "11.3.2": [("A.8.1", "partial", "low")],
-    "11.3.3": [("A.7.7", "equivalent", "high")],
-    "11.4.1": [("A.8.20", "partial", "medium")],
-    "11.4.2": [("A.8.5", "partial", "medium")],
-    "11.4.3": [("A.8.20", "partial", "low")],
-    "11.4.4": [("A.8.20", "partial", "low")],
-    "11.4.5": [("A.8.22", "equivalent", "high")],
-    "11.4.6": [("A.8.20", "partial", "medium")],
-    "11.4.7": [("A.8.22", "partial", "medium")],
-    "11.5.1": [("A.8.5", "equivalent", "high")],
-    "11.5.2": [("A.8.5", "equivalent", "high")],
-    "11.5.3": [("A.8.5", "partial", "medium")],
-    "11.5.4": [("A.8.18", "equivalent", "high")],
-    "11.5.5": [("A.8.5", "partial", "medium")],
-    "11.5.6": [("A.8.20", "related", "low")],
-    "11.6.1": [("A.8.3", "equivalent", "high")],
-    "11.6.2": [("A.8.22", "partial", "medium")],
-    "11.7.1": [("A.8.1", "partial", "medium")],
-    "11.7.2": [("A.6.7", "equivalent", "high")],
-    "12.1.1": [("A.8.26", "equivalent", "high")],
-    "12.2.1": [("A.8.26", "partial", "medium")],
-    "12.2.2": [("A.8.26", "partial", "medium")],
-    "12.2.3": [("A.8.24", "partial", "medium")],
-    "12.2.4": [("A.8.26", "partial", "medium")],
-    "12.3.1": [("A.8.24", "equivalent", "high")],
-    "12.3.2": [("A.8.24", "partial", "high")],
-    "12.4.1": [("A.8.19", "equivalent", "high")],
-    "12.4.2": [("A.8.33", "equivalent", "high")],
-    "12.4.3": [("A.8.4", "equivalent", "high")],
-    "12.5.1": [("A.8.32", "equivalent", "high")],
-    "12.5.2": [("A.8.32", "partial", "medium")],
-    "12.5.3": [("A.8.32", "partial", "medium")],
-    "12.5.4": [("A.8.12", "partial", "medium")],   # A.8.12 new_2022
-    "12.5.5": [("A.8.30", "equivalent", "high")],
-    "12.6.1": [("A.8.8", "equivalent", "high")],
-    "13.1.1": [("A.6.8", "equivalent", "high")],
-    "13.1.2": [("A.6.8", "partial", "medium")],
-    "13.2.1": [("A.5.24", "equivalent", "high"), ("A.5.26", "partial", "medium")],
-    "13.2.2": [("A.5.27", "equivalent", "high")],
-    "13.2.3": [("A.5.28", "equivalent", "high")],
-    "14.1.1": [("A.5.29", "equivalent", "high")],
-    "14.1.2": [("A.5.29", "partial", "medium")],
-    "14.1.3": [("A.5.29", "partial", "medium")],
-    "14.1.4": [("A.5.29", "partial", "medium")],
-    "14.1.5": [("A.5.30", "partial", "medium")],   # A.5.30 new_2022
-    "15.1.1": [("A.5.31", "equivalent", "high")],
-    "15.1.2": [("A.5.32", "equivalent", "high")],
-    "15.1.3": [("A.5.33", "equivalent", "high")],
-    "15.1.4": [("A.5.34", "equivalent", "high")],
-    "15.1.5": [("A.5.10", "partial", "medium")],
-    "15.1.6": [("A.8.24", "partial", "low")],
-    "15.2.1": [("A.5.36", "equivalent", "high")],
-    "15.2.2": [("A.5.36", "partial", "medium")],
-    "15.3.1": [("A.8.34", "equivalent", "high")],
-    "15.3.2": [("A.8.34", "partial", "medium")],
+
+# --- 800-53 base control -> ISO/IEC 27001:2022 (Annex A code or clause), rel, conf
+ISO = {
+    # Policy controls (every family's -1) -> ISMS policy + topic-specific policies
+    **{f"{fam}-1": [("A.5.1", "partial", "high"), ("A.5.37", "partial", "medium")]
+       for fam in ["AC", "AT", "AU", "CA", "CM", "CP", "IA", "IR", "MA", "MP",
+                   "PE", "PL", "PS", "PT", "RA", "SA", "SC", "SI", "SR"]},
+    # Access Control
+    "AC-2": [("A.5.16", "equivalent", "high"), ("A.5.18", "partial", "high")],
+    "AC-3": [("A.5.15", "equivalent", "high"), ("A.8.3", "partial", "high")],
+    "AC-4": [("A.8.22", "partial", "medium"), ("A.8.20", "partial", "medium")],
+    "AC-5": [("A.5.3", "equivalent", "high")],
+    "AC-6": [("A.8.2", "equivalent", "high")],
+    "AC-7": [("A.8.5", "partial", "medium")],
+    "AC-8": [("A.5.10", "related", "low")],
+    "AC-11": [("A.7.7", "equivalent", "high")],
+    "AC-12": [("A.8.5", "partial", "medium")],
+    "AC-17": [("A.6.7", "equivalent", "high"), ("A.8.5", "partial", "medium")],
+    "AC-18": [("A.8.20", "partial", "medium")],
+    "AC-19": [("A.8.1", "equivalent", "high")],
+    "AC-20": [("A.8.20", "partial", "low"), ("A.5.14", "partial", "low")],
+    "AC-22": [("A.5.34", "related", "low")],
+    # Awareness and Training
+    "AT-2": [("A.6.3", "equivalent", "high")],
+    "AT-3": [("A.6.3", "partial", "high")],
+    "AT-4": [("A.6.3", "partial", "medium")],
+    # Audit and Accountability
+    "AU-2": [("A.8.15", "equivalent", "high")],
+    "AU-3": [("A.8.15", "partial", "high")],
+    "AU-5": [("A.8.15", "partial", "medium")],
+    "AU-6": [("A.8.15", "partial", "high"), ("A.8.16", "partial", "high")],
+    "AU-8": [("A.8.17", "equivalent", "high")],
+    "AU-9": [("A.8.15", "partial", "medium")],
+    "AU-11": [("A.5.33", "partial", "medium")],
+    "AU-12": [("A.8.15", "partial", "high")],
+    # Assessment, Authorization, and Monitoring
+    "CA-2": [("9.2.1", "partial", "medium")],
+    "CA-3": [("A.5.14", "partial", "medium")],
+    "CA-5": [("10.2", "partial", "low")],
+    "CA-6": [("9.3.1", "partial", "low")],
+    "CA-7": [("A.8.16", "partial", "high"), ("9.1", "partial", "medium")],
+    "CA-9": [("A.8.22", "partial", "medium")],
+    # Configuration Management
+    "CM-2": [("A.8.9", "equivalent", "high")],
+    "CM-3": [("A.8.32", "equivalent", "high")],
+    "CM-5": [("A.8.4", "partial", "medium"), ("A.8.2", "partial", "low")],
+    "CM-6": [("A.8.9", "partial", "high")],
+    "CM-7": [("A.8.19", "partial", "medium")],
+    "CM-8": [("A.5.9", "equivalent", "high")],
+    "CM-10": [("A.5.32", "partial", "medium"), ("A.8.19", "partial", "low")],
+    "CM-11": [("A.8.19", "equivalent", "high")],
+    "CM-12": [("A.5.12", "partial", "medium")],
+    # Contingency Planning
+    "CP-2": [("A.5.29", "equivalent", "high"), ("A.5.30", "partial", "high")],
+    "CP-3": [("A.5.29", "partial", "medium")],
+    "CP-4": [("A.5.29", "partial", "medium")],
+    "CP-9": [("A.8.13", "equivalent", "high")],
+    "CP-10": [("A.5.29", "partial", "high"), ("A.8.14", "partial", "medium")],
+    # Identification and Authentication
+    "IA-2": [("A.5.16", "equivalent", "high"), ("A.8.5", "partial", "high")],
+    "IA-4": [("A.5.16", "partial", "high")],
+    "IA-5": [("A.5.17", "equivalent", "high")],
+    "IA-6": [("A.8.5", "partial", "medium")],
+    "IA-8": [("A.5.16", "partial", "medium")],
+    # Incident Response
+    "IR-2": [("A.6.3", "related", "low")],
+    "IR-4": [("A.5.24", "partial", "high"), ("A.5.26", "equivalent", "high")],
+    "IR-5": [("A.5.25", "equivalent", "high")],
+    "IR-6": [("A.6.8", "equivalent", "high")],
+    "IR-7": [("A.5.24", "partial", "medium")],
+    "IR-8": [("A.5.24", "equivalent", "high")],
+    # Maintenance
+    "MA-2": [("A.7.13", "partial", "medium")],
+    "MA-3": [("A.7.13", "partial", "low")],
+    "MA-4": [("A.6.7", "partial", "low"), ("A.8.5", "partial", "low")],
+    "MA-5": [("A.7.13", "related", "low")],
+    # Media Protection
+    "MP-2": [("A.7.10", "partial", "high")],
+    "MP-4": [("A.7.10", "partial", "high")],
+    "MP-5": [("A.7.10", "partial", "high"), ("A.5.14", "partial", "medium")],
+    "MP-6": [("A.7.14", "equivalent", "high"), ("A.8.10", "partial", "high")],
+    "MP-7": [("A.7.10", "partial", "medium")],
+    # Physical and Environmental Protection
+    "PE-2": [("A.7.2", "partial", "high")],
+    "PE-3": [("A.7.1", "equivalent", "high"), ("A.7.2", "partial", "high")],
+    "PE-6": [("A.7.4", "equivalent", "high")],
+    "PE-8": [("A.7.2", "partial", "medium")],
+    "PE-12": [("A.7.11", "partial", "medium")],
+    "PE-13": [("A.7.5", "partial", "high")],
+    "PE-14": [("A.7.5", "partial", "medium")],
+    "PE-15": [("A.7.5", "partial", "medium")],
+    "PE-16": [("A.7.10", "partial", "low")],
+    "PE-17": [("A.6.7", "equivalent", "high")],
+    "PE-18": [("A.7.8", "equivalent", "high"), ("A.7.5", "partial", "medium")],
+    # Planning
+    "PL-2": [("A.5.1", "related", "low")],
+    "PL-4": [("A.5.10", "partial", "high"), ("A.6.2", "partial", "medium")],
+    "PL-8": [("A.8.27", "equivalent", "high")],
+    # Program Management (mostly ISMS clauses)
+    "PM-1": [("5.2", "partial", "high"), ("A.5.1", "partial", "high")],
+    "PM-2": [("A.5.2", "equivalent", "high"), ("5.3", "partial", "high")],
+    "PM-3": [("7.1", "partial", "medium")],
+    "PM-5": [("A.5.9", "equivalent", "high")],
+    "PM-6": [("9.1", "partial", "medium")],
+    "PM-7": [("A.8.27", "partial", "medium")],
+    "PM-9": [("6.1.1", "partial", "high"), ("6.1.2", "partial", "high")],
+    "PM-10": [("9.3.1", "partial", "medium")],
+    "PM-15": [("A.5.6", "equivalent", "high")],
+    "PM-16": [("A.5.7", "equivalent", "high")],
+    # Personnel Security
+    "PS-3": [("A.6.1", "equivalent", "high")],
+    "PS-4": [("A.6.5", "equivalent", "high")],
+    "PS-5": [("A.6.5", "partial", "high")],
+    "PS-6": [("A.6.2", "partial", "high"), ("A.6.6", "partial", "high")],
+    "PS-7": [("A.6.1", "partial", "medium")],
+    "PS-8": [("A.6.4", "equivalent", "high")],
+    # PII Processing and Transparency
+    "PT-2": [("A.5.34", "partial", "high")],
+    "PT-3": [("A.5.34", "partial", "high")],
+    "PT-4": [("A.5.34", "partial", "medium")],
+    "PT-5": [("A.5.34", "partial", "medium")],
+    # Risk Assessment
+    "RA-2": [("A.5.12", "equivalent", "high")],
+    "RA-3": [("6.1.2", "equivalent", "high"), ("8.2", "partial", "high")],
+    "RA-5": [("A.8.8", "equivalent", "high")],
+    "RA-7": [("6.1.3", "partial", "medium"), ("8.3", "partial", "medium")],
+    # System and Services Acquisition
+    "SA-3": [("A.8.25", "equivalent", "high")],
+    "SA-4": [("A.5.20", "partial", "high")],
+    "SA-8": [("A.8.27", "equivalent", "high")],
+    "SA-9": [("A.5.21", "partial", "high"), ("A.5.22", "partial", "high")],
+    "SA-10": [("A.8.31", "partial", "medium"), ("A.8.32", "partial", "medium")],
+    "SA-11": [("A.8.29", "equivalent", "high")],
+    "SA-15": [("A.8.25", "partial", "high")],
+    "SA-22": [("A.8.8", "partial", "medium")],
+    # System and Communications Protection
+    "SC-5": [("A.8.6", "related", "low")],
+    "SC-7": [("A.8.20", "equivalent", "high"), ("A.8.22", "partial", "high"), ("A.8.23", "partial", "medium")],
+    "SC-8": [("A.8.24", "partial", "high"), ("A.5.14", "partial", "medium")],
+    "SC-12": [("A.8.24", "partial", "high")],
+    "SC-13": [("A.8.24", "equivalent", "high")],
+    "SC-15": [("A.8.20", "related", "low")],
+    "SC-20": [("A.8.20", "partial", "low")],
+    "SC-21": [("A.8.20", "partial", "low")],
+    "SC-28": [("A.8.24", "partial", "high")],
+    # System and Information Integrity
+    "SI-2": [("A.8.8", "equivalent", "high"), ("A.8.32", "partial", "medium")],
+    "SI-3": [("A.8.7", "equivalent", "high")],
+    "SI-4": [("A.8.16", "equivalent", "high")],
+    "SI-5": [("A.5.6", "partial", "medium"), ("A.8.8", "partial", "medium")],
+    "SI-7": [("A.8.8", "related", "low")],
+    "SI-12": [("A.5.33", "partial", "medium")],
+    # Supply Chain Risk Management
+    "SR-2": [("A.5.19", "equivalent", "high")],
+    "SR-3": [("A.5.20", "partial", "high"), ("A.5.21", "partial", "high")],
+    "SR-5": [("A.5.21", "partial", "medium")],
+    "SR-6": [("A.5.22", "equivalent", "high")],
+    "SR-8": [("A.5.20", "partial", "medium")],
+    "SR-11": [("A.5.21", "partial", "medium")],
 }
 
-# ISO for HITRUST-specific controls (no 2005 ancestor). iso-clause targets allowed.
-ISO_SPECIAL = {
-    "0.a":  [("4.4", "partial", "medium"), ("5.2", "partial", "low")],
-    "03.a": [("6.1.1", "partial", "high")],
-    "03.b": [("6.1.2", "equivalent", "high"), ("8.2", "partial", "medium")],
-    "03.c": [("6.1.3", "equivalent", "high"), ("8.3", "partial", "medium")],
-    "03.d": [("6.1.2", "partial", "medium")],
-    "13.a": [("A.5.34", "partial", "low")],
-    "13.b": [("A.5.34", "related", "low")],
-    "13.c": [("A.5.34", "related", "low")],
-    "13.d": [("A.5.34", "related", "low")],
-    "13.e": [("A.5.34", "related", "low")],
-    "13.f": [("A.5.34", "related", "low")],
-    "13.g": [("A.5.34", "related", "low")],
-    "13.h": [("A.5.34", "related", "low")],
-    "13.i": [("A.5.34", "related", "low")],
-    "13.j": [("A.5.34", "related", "low")],
-    "13.k": [("A.5.34", "related", "low")],
-    "13.l": [("A.5.34", "related", "low")],
-    "13.m": [("A.5.34", "related", "low")],
-    "13.n": [("A.5.34", "related", "low")],
-    "13.o": [("A.5.34", "related", "low")],
-    "13.p": [("A.5.34", "related", "low")],
-    "13.q": [("A.5.34", "related", "low")],
-    "13.r": [("A.5.34", "related", "low")],
-}
-
-# SOC 2 TSC, hand-authored. Controls absent here have no defensible SOC 2 nexus
-# (they surface in the gap report).
-SOC2_MAP = {
-    "0.a":  [("CC1.1", "partial", "medium"), ("CC2.1", "partial", "low")],
-    "01.a": [("CC6.1", "partial", "medium"), ("CC6.3", "partial", "medium")],
-    "01.b": [("CC6.2", "equivalent", "high")],
-    "01.c": [("CC6.3", "partial", "high")],
-    "01.d": [("CC6.1", "partial", "medium")],
-    "01.e": [("CC6.2", "partial", "high"), ("CC6.3", "partial", "medium")],
-    "01.f": [("CC6.1", "partial", "low")],
-    "01.g": [("CC6.1", "partial", "low")],
-    "01.h": [("CC6.1", "related", "low")],
-    "01.i": [("CC6.6", "partial", "medium")],
-    "01.j": [("CC6.1", "partial", "medium"), ("CC6.6", "partial", "medium")],
-    "01.k": [("CC6.1", "related", "low")],
-    "01.l": [("CC6.6", "partial", "medium")],
-    "01.m": [("CC6.6", "partial", "medium")],
-    "01.n": [("CC6.6", "partial", "medium")],
-    "01.o": [("CC6.6", "related", "low")],
-    "01.p": [("CC6.1", "partial", "high")],
-    "01.q": [("CC6.1", "partial", "high")],
-    "01.r": [("CC6.1", "partial", "medium")],
-    "01.s": [("CC6.3", "partial", "medium")],
-    "01.t": [("CC6.1", "partial", "medium")],
-    "01.u": [("CC6.1", "related", "low")],
-    "01.v": [("CC6.1", "partial", "medium"), ("CC6.3", "partial", "medium")],
-    "01.w": [("CC6.1", "partial", "medium")],
-    "01.x": [("CC6.7", "partial", "medium")],
-    "01.y": [("CC6.7", "partial", "medium")],
-    "02.a": [("CC1.3", "partial", "medium")],
-    "02.b": [("CC1.4", "partial", "medium")],
-    "02.c": [("CC1.4", "partial", "medium"), ("CC2.2", "partial", "low")],
-    "02.d": [("CC1.5", "partial", "medium")],
-    "02.e": [("CC1.4", "partial", "medium")],
-    "02.f": [("CC1.5", "partial", "medium")],
-    "02.g": [("CC6.2", "partial", "high")],
-    "02.h": [("CC6.5", "partial", "medium")],
-    "02.i": [("CC6.3", "partial", "high")],
-    "03.a": [("CC3.1", "partial", "medium")],
-    "03.b": [("CC3.2", "equivalent", "high")],
-    "03.c": [("CC9.1", "partial", "medium"), ("CC3.2", "partial", "medium")],
-    "03.d": [("CC3.2", "partial", "medium")],
-    "04.a": [("CC5.3", "partial", "high")],
-    "04.b": [("CC5.3", "partial", "medium")],
-    "05.a": [("CC1.1", "partial", "medium")],
-    "05.b": [("CC1.3", "partial", "medium")],
-    "05.c": [("CC1.3", "equivalent", "high")],
-    "05.d": [("CC6.2", "related", "low")],
-    "05.e": [("CC1.4", "partial", "medium"), ("CC2.3", "partial", "low")],
-    "05.f": [("CC2.3", "partial", "medium")],
-    "05.g": [("CC2.3", "related", "low")],
-    "05.h": [("CC4.1", "partial", "medium")],
-    "05.i": [("CC9.2", "partial", "medium")],
-    "05.j": [("CC9.2", "partial", "medium"), ("CC2.3", "partial", "low")],
-    "05.k": [("CC9.2", "equivalent", "high")],
-    "06.a": [("CC2.3", "related", "low")],
-    "06.c": [("C1.1", "partial", "low")],
-    "06.d": [("P1.1", "related", "low")],
-    "06.e": [("CC6.1", "related", "low")],
-    "06.g": [("CC5.3", "partial", "medium"), ("CC4.1", "partial", "medium")],
-    "06.h": [("CC4.1", "partial", "medium"), ("CC7.1", "partial", "medium")],
-    "06.i": [("CC4.1", "partial", "medium")],
-    "06.j": [("CC4.1", "related", "low")],
-    "07.a": [("CC6.1", "partial", "medium")],
-    "07.b": [("CC6.1", "related", "low")],
-    "07.c": [("CC6.1", "related", "low"), ("CC2.2", "related", "low")],
-    "07.d": [("C1.1", "partial", "medium")],
-    "07.e": [("C1.1", "partial", "medium")],
-    "08.a": [("CC6.4", "equivalent", "high")],
-    "08.b": [("CC6.4", "equivalent", "high")],
-    "08.c": [("CC6.4", "partial", "high")],
-    "08.d": [("A1.2", "partial", "medium")],
-    "08.e": [("CC6.4", "partial", "medium")],
-    "08.f": [("CC6.4", "partial", "medium")],
-    "08.g": [("CC6.4", "partial", "medium")],
-    "08.h": [("A1.2", "partial", "medium")],
-    "08.i": [("CC6.4", "related", "low")],
-    "08.j": [("A1.2", "related", "low")],
-    "08.k": [("CC6.4", "partial", "medium"), ("CC6.7", "partial", "low")],
-    "08.l": [("CC6.5", "equivalent", "high")],
-    "08.m": [("CC6.4", "related", "low")],
-    "09.a": [("CC2.2", "partial", "medium"), ("CC5.3", "partial", "low")],
-    "09.b": [("CC8.1", "equivalent", "high")],
-    "09.c": [("CC5.2", "partial", "medium"), ("CC3.3", "partial", "low")],
-    "09.d": [("CC8.1", "partial", "medium")],
-    "09.e": [("CC9.2", "partial", "medium")],
-    "09.f": [("CC9.2", "partial", "medium")],
-    "09.g": [("CC9.2", "partial", "medium"), ("CC8.1", "partial", "low")],
-    "09.h": [("A1.1", "equivalent", "high")],
-    "09.i": [("CC8.1", "partial", "medium")],
-    "09.j": [("CC6.8", "equivalent", "high")],
-    "09.k": [("CC6.8", "partial", "medium")],
-    "09.l": [("A1.2", "partial", "high")],
-    "09.m": [("CC6.6", "partial", "high")],
-    "09.n": [("CC6.6", "partial", "medium")],
-    "09.o": [("CC6.7", "partial", "medium")],
-    "09.p": [("CC6.5", "partial", "medium")],
-    "09.q": [("CC6.7", "partial", "medium"), ("C1.1", "partial", "low")],
-    "09.r": [("CC6.1", "related", "low")],
-    "09.s": [("CC6.7", "partial", "medium")],
-    "09.t": [("CC6.7", "related", "low"), ("CC9.2", "related", "low")],
-    "09.u": [("CC6.7", "partial", "medium")],
-    "09.v": [("CC6.7", "partial", "medium")],
-    "09.w": [("CC6.6", "related", "low")],
-    "09.x": [("PI1.1", "related", "low")],
-    "09.y": [("PI1.2", "partial", "medium")],
-    "09.z": [("CC6.1", "related", "low")],
-    "09.aa": [("CC7.2", "partial", "high")],
-    "09.ab": [("CC7.2", "equivalent", "high")],
-    "09.ac": [("CC7.2", "partial", "medium")],
-    "09.ad": [("CC7.2", "partial", "medium")],
-    "09.ae": [("CC7.2", "partial", "medium"), ("A1.1", "related", "low")],
-    "09.af": [("CC7.2", "related", "low")],
-    "10.a": [("CC8.1", "partial", "medium"), ("CC3.4", "partial", "low")],
-    "10.b": [("PI1.2", "equivalent", "high")],
-    "10.c": [("PI1.3", "equivalent", "high")],
-    "10.d": [("PI1.3", "partial", "medium"), ("CC6.7", "partial", "low")],
-    "10.e": [("PI1.4", "equivalent", "high")],
-    "10.f": [("CC6.1", "partial", "medium"), ("CC6.7", "partial", "medium")],
-    "10.g": [("CC6.1", "partial", "medium")],
-    "10.h": [("CC8.1", "partial", "medium")],
-    "10.i": [("CC8.1", "related", "low"), ("C1.1", "related", "low")],
-    "10.j": [("CC6.1", "partial", "medium"), ("CC8.1", "partial", "low")],
-    "10.k": [("CC8.1", "equivalent", "high")],
-    "10.l": [("CC8.1", "partial", "medium")],
-    "10.m": [("CC8.1", "partial", "medium")],
-    "10.n": [("CC6.7", "partial", "medium")],
-    "10.o": [("CC8.1", "partial", "medium"), ("CC9.2", "partial", "low")],
-    "10.p": [("CC7.1", "equivalent", "high")],
-    "11.a": [("CC7.3", "partial", "high")],
-    "11.b": [("CC7.3", "partial", "medium")],
-    "11.c": [("CC7.4", "equivalent", "high")],
-    "11.d": [("CC7.5", "partial", "medium"), ("CC4.2", "partial", "low")],
-    "11.e": [("CC7.3", "related", "low")],
-    "12.a": [("CC9.1", "partial", "medium")],
-    "12.b": [("CC9.1", "partial", "medium"), ("CC3.2", "partial", "low")],
-    "12.c": [("A1.2", "partial", "medium"), ("CC9.1", "partial", "medium")],
-    "12.d": [("CC9.1", "partial", "medium")],
-    "12.e": [("A1.3", "equivalent", "high")],
-    "13.a": [("P1.1", "equivalent", "high")],
-    "13.b": [("P1.1", "partial", "medium")],
-    "13.c": [("P8.1", "partial", "medium"), ("CC1.5", "partial", "low")],
-    "13.d": [("P8.1", "partial", "medium"), ("CC3.2", "partial", "low")],
-    "13.e": [("P2.1", "equivalent", "high")],
-    "13.f": [("P3.1", "partial", "medium"), ("P4.1", "partial", "medium")],
-    "13.g": [("P3.1", "equivalent", "high")],
-    "13.h": [("P3.1", "partial", "medium")],
-    "13.i": [("P6.1", "partial", "medium")],
-    "13.j": [("P6.1", "equivalent", "high")],
-    "13.k": [("P6.7", "equivalent", "high")],
-    "13.l": [("P7.1", "equivalent", "high")],
-    "13.m": [("P5.1", "equivalent", "high")],
-    "13.n": [("P5.2", "equivalent", "high")],
-    "13.o": [("P4.2", "equivalent", "high"), ("P4.3", "partial", "medium")],
-    "13.p": [("P8.1", "equivalent", "high")],
-    "13.q": [("P8.1", "partial", "medium")],
-    "13.r": [("P4.1", "related", "low")],
+# --- 800-53 base control -> SOC 2 / AICPA TSC criterion, rel, conf (hand-authored)
+SOC2 = {
+    "AC-1": [("CC6.1", "partial", "medium")],
+    "AC-2": [("CC6.1", "partial", "high"), ("CC6.2", "partial", "high"), ("CC6.3", "partial", "high")],
+    "AC-3": [("CC6.1", "partial", "high"), ("CC6.3", "partial", "medium")],
+    "AC-4": [("CC6.6", "partial", "medium")],
+    "AC-5": [("CC6.3", "partial", "high")],
+    "AC-6": [("CC6.1", "partial", "high"), ("CC6.3", "partial", "high")],
+    "AC-7": [("CC6.1", "related", "low")],
+    "AC-8": [("CC6.1", "related", "low")],
+    "AC-11": [("CC6.1", "related", "low")],
+    "AC-12": [("CC6.1", "related", "low")],
+    "AC-17": [("CC6.6", "partial", "high"), ("CC6.7", "partial", "medium")],
+    "AC-18": [("CC6.6", "partial", "medium")],
+    "AC-19": [("CC6.7", "partial", "medium")],
+    "AC-20": [("CC6.1", "related", "low")],
+    "AC-22": [("CC6.1", "related", "low")],
+    "AT-2": [("CC1.4", "partial", "medium"), ("CC2.2", "partial", "medium")],
+    "AT-3": [("CC1.4", "partial", "medium")],
+    "AU-2": [("CC7.2", "partial", "high")],
+    "AU-3": [("CC7.2", "partial", "medium")],
+    "AU-6": [("CC7.2", "partial", "high"), ("CC7.3", "partial", "medium")],
+    "AU-9": [("CC7.2", "partial", "medium")],
+    "AU-11": [("CC7.2", "related", "low")],
+    "AU-12": [("CC7.2", "partial", "medium")],
+    "CA-2": [("CC4.1", "partial", "high")],
+    "CA-3": [("CC6.1", "related", "low")],
+    "CA-5": [("CC4.2", "partial", "medium")],
+    "CA-6": [("CC4.1", "related", "low")],
+    "CA-7": [("CC4.1", "partial", "high"), ("CC7.2", "partial", "medium")],
+    "CM-2": [("CC8.1", "partial", "high")],
+    "CM-3": [("CC8.1", "equivalent", "high")],
+    "CM-6": [("CC8.1", "partial", "high")],
+    "CM-7": [("CC8.1", "partial", "medium")],
+    "CM-8": [("CC6.1", "partial", "medium")],
+    "CP-2": [("A1.2", "partial", "high"), ("CC9.1", "partial", "medium")],
+    "CP-3": [("A1.2", "related", "low")],
+    "CP-9": [("A1.2", "equivalent", "high")],
+    "CP-10": [("A1.3", "equivalent", "high")],
+    "IA-2": [("CC6.1", "partial", "high")],
+    "IA-4": [("CC6.2", "partial", "high")],
+    "IA-5": [("CC6.1", "partial", "high")],
+    "IA-8": [("CC6.1", "partial", "medium")],
+    "IR-4": [("CC7.3", "partial", "high"), ("CC7.4", "partial", "high")],
+    "IR-5": [("CC7.3", "partial", "medium")],
+    "IR-6": [("CC7.3", "partial", "medium")],
+    "IR-8": [("CC7.4", "partial", "high"), ("CC7.5", "partial", "medium")],
+    "MP-2": [("CC6.4", "partial", "medium"), ("CC6.5", "partial", "medium")],
+    "MP-4": [("CC6.4", "partial", "medium")],
+    "MP-6": [("CC6.5", "equivalent", "high")],
+    "PE-2": [("CC6.4", "partial", "high")],
+    "PE-3": [("CC6.4", "equivalent", "high")],
+    "PE-6": [("CC6.4", "partial", "medium")],
+    "PL-2": [("CC2.2", "partial", "low")],
+    "PL-4": [("CC1.1", "partial", "low")],
+    "PS-2": [("CC1.4", "partial", "medium")],
+    "PS-3": [("CC1.4", "partial", "high")],
+    "PS-4": [("CC6.5", "partial", "medium"), ("CC1.4", "partial", "low")],
+    "PS-6": [("CC6.2", "partial", "medium")],
+    "PS-7": [("CC9.2", "partial", "medium")],
+    "PS-8": [("CC1.5", "partial", "medium")],
+    "RA-3": [("CC3.1", "partial", "high"), ("CC3.2", "partial", "high")],
+    "RA-5": [("CC7.1", "partial", "high")],
+    "SA-4": [("CC9.2", "partial", "medium")],
+    "SA-9": [("CC9.2", "partial", "high")],
+    "SA-22": [("CC7.1", "partial", "medium")],
+    "SC-5": [("A1.1", "partial", "medium")],
+    "SC-7": [("CC6.6", "partial", "high")],
+    "SC-8": [("CC6.7", "partial", "high")],
+    "SC-12": [("CC6.1", "partial", "medium")],
+    "SC-13": [("CC6.1", "partial", "medium")],
+    "SC-28": [("CC6.1", "partial", "high"), ("C1.1", "partial", "medium")],
+    "SI-2": [("CC7.1", "partial", "high")],
+    "SI-3": [("CC6.8", "equivalent", "high")],
+    "SI-4": [("CC7.2", "equivalent", "high")],
+    "SI-5": [("CC7.1", "partial", "medium")],
+    "SI-7": [("CC6.8", "partial", "medium")],
+    "SR-2": [("CC9.2", "partial", "high")],
+    "SR-3": [("CC9.2", "partial", "high")],
+    "SR-6": [("CC9.2", "partial", "medium")],
+    "PT-2": [("P3.1", "partial", "high")],
+    "PT-3": [("P3.1", "partial", "high"), ("P3.2", "partial", "medium")],
+    "PT-4": [("P5.1", "partial", "medium")],
+    "PT-5": [("P1.1", "partial", "high")],
 }
 
 
 def emit(rows, source):
     out = []
-    for code, reqs in rows:
-        for req, rel, conf in reqs:
+    for code in sorted(rows):
+        for req, rel, conf in rows[code]:
             out.append(f'  - {{ control: "{code}", requirement: "{req}", '
                        f'relationship: {rel}, confidence: {conf}, source: {source} }}')
     return "\n".join(out)
 
 
 def main():
-    controls = load_controls()
-    iso_rows, soc2_rows, no_iso, no_soc2 = [], [], [], []
-    for code, iso2005 in controls:
-        if iso2005:
-            if iso2005 not in ISO_TRANSITION:
-                sys.exit(f"ERROR: no ISO_TRANSITION entry for {iso2005} (control {code})")
-            iso_rows.append((code, ISO_TRANSITION[iso2005]))
-        elif code in ISO_SPECIAL:
-            iso_rows.append((code, ISO_SPECIAL[code]))
-        else:
-            no_iso.append(code)
-        if code in SOC2_MAP:
-            soc2_rows.append((code, SOC2_MAP[code]))
-        else:
-            no_soc2.append(code)
+    controls = load_base_controls()
+    present = set(controls)
+    # sanity: every mapping key must be a real base control
+    for table, name in [(ISO, "ISO"), (SOC2, "SOC2")]:
+        for code in table:
+            if code not in present:
+                raise SystemExit(f"ERROR: {name} maps unknown base control {code}")
 
-    iso_links = sum(len(r[1]) for r in iso_rows)
-    soc2_links = sum(len(r[1]) for r in soc2_rows)
-    body = f"""# CCF -> SOC 2 / ISO 27001 crosswalk  (generated by scripts/gen_crosswalk.py)
+    iso_rows = {c: ISO[c] for c in controls if c in ISO}
+    soc2_rows = {c: SOC2[c] for c in controls if c in SOC2}
+    no_iso = [c for c in controls if c not in ISO]
+    no_soc2 = [c for c in controls if c not in SOC2]
+    iso_links = sum(len(v) for v in iso_rows.values())
+    soc2_links = sum(len(v) for v in soc2_rows.values())
+
+    body = f"""# 800-53 control -> SOC 2 / ISO 27001:2022 crosswalk  (generated by scripts/gen_crosswalk.py)
 # ----------------------------------------------------------------------------
-# Non-authoritative bootstrap. ISO = lineage-derived (control -> 27002:2005 ->
-# 27001:2022 Annex A via ISO_TRANSITION); SOC 2 = hand-authored vs published TSC.
-# Overridden by MyCSF crosswalk ingest. Edit the tables in the script + re-run.
+# Keyed on NIST SP 800-53 Rev 5 base control codes; enhancements inherit their
+# base control's mappings. ISO = OLIR-derived (NIST 800-53r5 <-> ISO/IEC
+# 27001:2022 informative reference, codes only). SOC 2 = hand-authored vs
+# published AICPA TSC. Non-authoritative bootstrap. Edit the tables in the
+# script + re-run.
 #
 #   relationship = equivalent | superset | subset | partial | related
 #   confidence   = high | medium | low
-#   source       = lineage-derived | manual | mycsf-ingest
+#   source       = olir-derived | manual
 meta:
-  status: bootstrap-complete
-  controls_total: {len(controls)}
-  iso_mapped: {len(iso_rows)}    # controls with >=1 ISO mapping
+  status: bootstrap
+  base_controls_total: {len(controls)}
+  iso_mapped: {len(iso_rows)}    # base controls with >=1 ISO mapping
   soc2_mapped: {len(soc2_rows)}
   iso_links: {iso_links}
   soc2_links: {soc2_links}
-  unmapped_iso: {no_iso}
-  unmapped_soc2: {no_soc2}
+  unmapped_iso_count: {len(no_iso)}
+  unmapped_soc2_count: {len(no_soc2)}
 
 soc2:
 {emit(soc2_rows, "manual")}
 
 iso27001:
-{emit([(c, m) for c, m in iso_rows], "lineage-derived")}
+{emit(iso_rows, "olir-derived")}
 """
     (ROOT / "data/mappings/ccf-crosswalk.yaml").write_text(body)
-    print(f"controls={len(controls)}  iso_mapped={len(iso_rows)} ({iso_links} links)  "
+    print(f"base_controls={len(controls)}  "
+          f"iso_mapped={len(iso_rows)} ({iso_links} links)  "
           f"soc2_mapped={len(soc2_rows)} ({soc2_links} links)")
-    print(f"unmapped to ISO:  {no_iso or 'none'}")
-    print(f"unmapped to SOC2: {no_soc2 or 'none'}")
+    print(f"unmapped to ISO:  {len(no_iso)} base controls")
+    print(f"unmapped to SOC2: {len(no_soc2)} base controls")
 
 
 if __name__ == "__main__":

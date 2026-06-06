@@ -12,40 +12,46 @@ import {
   jsonb,
   numeric,
   uniqueIndex,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 /* ===== Structural CCF library ===== */
 
 export const controlCategories = pgTable("control_categories", {
-  id: varchar("id", { length: 8 }).primaryKey(), // "00".."13"
+  id: varchar("id", { length: 8 }).primaryKey(), // 800-53 family, "AC".."SR"
   title: text("title").notNull(),
 });
 
 export const controlObjectives = pgTable("control_objectives", {
-  code: varchar("code", { length: 16 }).primaryKey(), // "01.02"
+  code: varchar("code", { length: 16 }).primaryKey(), // base control, "AC-2"
   title: text("title").notNull(),
   categoryId: varchar("category_id", { length: 8 })
     .notNull()
     .references(() => controlCategories.id),
 });
 
-export const assessmentDomains = pgTable("assessment_domains", {
-  id: varchar("id", { length: 8 }).primaryKey(), // 19 scoring domains (populated on MyCSF ingest)
-  title: text("title").notNull(),
-});
-
 export const controls = pgTable("controls", {
-  code: varchar("code", { length: 16 }).primaryKey(), // "01.a"
+  code: varchar("code", { length: 16 }).primaryKey(), // "AC-2" | "AC-2(1)"
   title: text("title").notNull(),
   categoryId: varchar("category_id", { length: 8 })
     .notNull()
     .references(() => controlCategories.id),
   objectiveCode: varchar("objective_code", { length: 16 }).references(() => controlObjectives.code),
-  assessmentDomainId: varchar("assessment_domain_id", { length: 8 }), // tbd until MyCSF ingest
   weight: numeric("weight").notNull().default("1.0"), // prioritization-only
   owner: integer("owner").references(() => users.id),
-  hitrustRef: varchar("hitrust_ref", { length: 32 }), // filled on MyCSF ingest
 });
+
+// 800-53 Low/Moderate/High baseline membership (cumulative). Drives the tier scoping.
+export const controlBaselines = pgTable(
+  "control_baselines",
+  {
+    controlCode: varchar("control_code", { length: 16 })
+      .notNull()
+      .references(() => controls.code),
+    baseline: varchar("baseline", { length: 12 }).notNull(), // low | moderate | high
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.controlCode, t.baseline] }) }),
+);
 
 /* ===== Frameworks + crosswalk ===== */
 
@@ -80,7 +86,7 @@ export const mappings = pgTable("mappings", {
     .references(() => requirements.id),
   relationship: varchar("relationship", { length: 16 }).notNull(), // equivalent|superset|subset|partial|related
   confidence: varchar("confidence", { length: 8 }).notNull(), // high|medium|low
-  source: varchar("source", { length: 24 }).notNull(), // manual|lineage-derived|mycsf-ingest
+  source: varchar("source", { length: 24 }).notNull(), // manual|olir-derived
   note: text("note"),
 });
 
@@ -153,8 +159,8 @@ export const evidenceItems = pgTable("evidence_items", {
 export const assessmentPeriods = pgTable("assessment_periods", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  framework: varchar("framework", { length: 32 }).notNull(), // hitrust | soc2 | iso27001
-  tier: varchar("tier", { length: 8 }), // e1 | i1 | r2 (hitrust)
+  framework: varchar("framework", { length: 32 }).notNull(), // nist80053 | soc2 | iso27001
+  tier: varchar("tier", { length: 12 }), // low | moderate | high (800-53 baseline)
   startDate: timestamp("start_date", { withTimezone: true }).notNull(),
   endDate: timestamp("end_date", { withTimezone: true }).notNull(),
   status: varchar("status", { length: 12 }).notNull().default("active"), // planning | active | closed

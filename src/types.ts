@@ -1,6 +1,7 @@
-// Data contract for the HITRUST r2 control matrix.
+// Data contract for the NIST 800-53 Rev 5 control matrix.
 // Mirrors the design handoff; maps onto the autocomply entity model
-// (MaturityCell, Control, AssessmentDomain, Attestation, Mapping).
+// (MaturityCell, Control, Category, Attestation, Mapping). Maturity columns
+// are the PRISMA dimensions (NIST IR 7358 lineage).
 
 /** 0 = N/A, 1 Policy, 2 Process, 3 Implemented, 4 Measured, 5 Managed */
 export type MaturityGrade = 0 | 1 | 2 | 3 | 4 | 5;
@@ -39,8 +40,6 @@ export interface Control {
   status?: Status;
   /** marks the coverage-as-NC scoring case */
   flag?: string;
-  /** e1/i1 control — only the Implemented dimension is assessed */
-  implOnly?: boolean;
 }
 
 export interface Domain {

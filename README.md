@@ -1,26 +1,28 @@
 # autocomply
 
-A single-org, self-hosted **compliance-automation platform** for HITRUST CSF,
-SOC 2, and ISO 27001. It models a Common Control Framework (CCF), crosswalks it
-to external frameworks, and drives continuous self-assessment from automated
-evidence — so that the work of staying audit-ready is mostly maintained by the
-system rather than by hand.
+A single-org, self-hosted **compliance-automation platform** anchored on
+**NIST SP 800-53 Rev 5**, with crosswalks to SOC 2 and ISO 27001. It models the
+800-53 catalog as its control set, crosswalks it to external frameworks, and
+drives continuous self-assessment from automated evidence — so that the work of
+staying audit-ready is mostly maintained by the system rather than by hand.
 
 TypeScript/Node throughout: a **Vite + React** frontend over a **Fastify +
-Drizzle + PostgreSQL** backend, seeded from version-controlled YAML
-(156 controls / 14 categories / 348 framework mappings).
+Drizzle + PostgreSQL** backend. The control catalog is generated from the
+public-domain NIST OSCAL content (1,196 controls across 20 families / 324 base
+controls), with version-controlled YAML for the framework crosswalk
+(301 mappings).
 
 > **Status:** working prototype. Every nav section is wired end-to-end on
-> bootstrap + simulated data. Authoritative HITRUST scoring (MyCSF), live AWS
-> collection, and enterprise auth (SCIM/MFA/SAML) are intentionally deferred —
-> see [Project status](#project-status).
+> bootstrap + simulated data. Live AWS collection and enterprise auth
+> (SCIM/MFA/SAML) are intentionally deferred — see
+> [Project status](#project-status).
 
 ## Features
 
-- **Control matrix** — all 156 CCF controls grouped by category, with live
+- **Control matrix** — all 1,196 controls grouped by 800-53 family, with live
   maturity scores, crosswalk badges, and a per-control detail drawer.
-- **Attestation + scoring** — append-only attestations across the five maturity
-  dimensions; normalized weighted scoring with domain roll-ups and gates.
+- **Attestation + scoring** — append-only attestations across the five PRISMA
+  maturity dimensions; normalized weighted scoring with family roll-ups and gates.
 - **Evidence store** — immutable, snapshot-hashed evidence with freshness/drift
   tracking.
 - **Collectors** — a simulated AWS collector (Check / CheckRun /
@@ -47,13 +49,14 @@ src/                 Vite + React + TypeScript frontend (control matrix, drawer,
                      worklist, evidence, requirements, reports, admin)
 server/src/          Fastify API
   db/                Drizzle schema + connection
-  loader.ts          source-agnostic YAML loader (the MyCSF-ingest seam)
+  loader.ts          source-agnostic YAML loader (reads the generated catalog)
   seed.ts            seeds data/*.yaml into Postgres
-  scoring.ts         maturity scoring + domain gates
+  scoring.ts         maturity scoring + family gates
   collectors/        simulated AWS collector, doc seeding, monitoring tick
   auth.ts / oauth.ts local sessions, RBAC, GitHub/Google OIDC
-data/                bootstrap YAML — controls, frameworks, crosswalk mappings
-scripts/             gen_crosswalk.py (crosswalk generator)
+data/                controls (generated), frameworks, crosswalk mappings
+  vendor/oscal/      vendored NIST 800-53 Rev 5 OSCAL catalog + baselines (CC0)
+scripts/             gen_nist_catalog.py (catalog), gen_crosswalk.py (crosswalk)
 ```
 
 ## Getting started
@@ -102,15 +105,15 @@ Built across the six roadmap phases (see `ROADMAP.md`) at MVP depth:
 | Phase | Scope                              | Status                                   |
 |-------|------------------------------------|------------------------------------------|
 | 0     | Walking skeleton (schema/shell/auth) | Complete                               |
-| 1     | e1/i1 self-assessment slice        | Core complete (AWS collector simulated)  |
+| 1     | Low-baseline self-assessment slice | Core complete (AWS collector simulated)  |
 | 2     | Continuous monitoring + remediation | Complete                                |
 | 3     | Enterprise auth + admin            | Local + OAuth SSO done; SCIM/MFA/SAML TODO |
-| 4     | r2 full maturity model             | Gap report + dashboard done; full r2 scoring blocked on MyCSF |
-| 5     | Reporting + auditor + MyCSF        | Reporting + auditor role done; MyCSF ingest TODO |
+| 4     | Full maturity model (all baselines) | Gap report + dashboard done; per-family scoring roll-ups in progress |
+| 5     | Reporting + auditor + catalog export | Reporting, auditor role, and GRCen catalog export done |
 
 What runs today does so on **bootstrap and simulated data**. The deferred items
-(authoritative MyCSF-driven r2 scoring, live AWS credentials, SCIM/MFA/SAML)
-are documented in `PROGRESS.md` and `ROADMAP.md`.
+(live AWS credentials, SCIM/MFA/SAML, and broader crosswalk coverage) are
+documented in `PROGRESS.md` and `ROADMAP.md`.
 
 ## Documentation
 

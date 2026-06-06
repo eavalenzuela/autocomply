@@ -73,7 +73,7 @@
       "required": ["ref", "name"],
       "additionalProperties": false,
       "properties": {
-        "ref": { "$ref": "#/$defs/ref", "description": "Stable, unique among controls. Use the CCF code, e.g. '01.a'." },
+        "ref": { "$ref": "#/$defs/ref", "description": "Stable, unique among controls. Use the control code, e.g. 'AC-2'." },
         "name": { "type": "string", "minLength": 1, "maxLength": 255 },
         "description": { "type": "string" },
         "metadata": {

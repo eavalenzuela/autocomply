@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "../db/index";
 import * as s from "../db/schema";
 
-const DOC_CONTROLS = ["10.f", "01.q", "09.aa", "09.af", "01.r", "10.p", "09.l"];
+const DOC_CONTROLS = ["SC-28", "IA-2", "AU-2", "AU-8", "IA-5", "SI-4", "CP-9"];
 
 function hash(seed: string) {
   return createHash("sha256").update(seed).digest("hex").slice(0, 32);
@@ -53,7 +53,7 @@ async function main() {
   const soon = new Date(Date.now() + 5 * 24 * 3600 * 1000);
   await db.insert(s.exceptions).values([
     {
-      controlCode: "09.l",
+      controlCode: "CP-9",
       dimension: "impl",
       reason: "Legacy EBS volumes scheduled for migration in Q3; backup policy waived until then.",
       status: "approved",
@@ -63,7 +63,7 @@ async function main() {
       decidedAt: new Date(),
     },
     {
-      controlCode: "10.p",
+      controlCode: "SI-4",
       dimension: "impl",
       reason: "One non-prod account pending GuardDuty rollout.",
       status: "pending",

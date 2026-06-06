@@ -24,10 +24,10 @@ async function main() {
   await db.delete(s.mappings);
   await db.delete(s.requirements);
   await db.delete(s.frameworks);
+  await db.delete(s.controlBaselines);
   await db.delete(s.controls);
   await db.delete(s.controlObjectives);
   await db.delete(s.controlCategories);
-  await db.delete(s.assessmentDomains);
   await db.delete(s.users);
 
   // Seed users (all share password "autocomply"). Auditor is time-boxed.
@@ -55,13 +55,14 @@ async function main() {
       objectiveCode: c.objectiveCode,
     })),
   );
+  await db.insert(s.controlBaselines).values(data.baselines);
   // Assign a few controls to the Control Owner (demonstrates write-scoping).
-  await db.insert(s.controlAssignments).values(["01.a", "01.q", "09.aa", "10.f"].map((c) => ({ userId: owner.id, controlCode: c })));
+  await db.insert(s.controlAssignments).values(["AC-1", "AC-2", "AU-6", "SC-7"].map((c) => ({ userId: owner.id, controlCode: c })));
 
   await db.insert(s.frameworks).values(data.frameworks);
 
   await db.insert(s.assessmentPeriods).values([
-    { name: "HITRUST r2 — 2026 cycle", framework: "hitrust", tier: "r2", startDate: new Date("2026-02-20"), endDate: new Date("2026-05-21"), status: "active" },
+    { name: "NIST 800-53 Rev 5 — Moderate baseline 2026", framework: "nist80053", tier: "moderate", startDate: new Date("2026-02-20"), endDate: new Date("2026-05-21"), status: "active" },
     { name: "SOC 2 Type II — 2026 H1", framework: "soc2", startDate: new Date("2026-01-01"), endDate: new Date("2026-06-30"), status: "planning", tscCategories: ["security", "availability", "confidentiality"] },
   ]);
 

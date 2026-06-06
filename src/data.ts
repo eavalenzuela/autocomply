@@ -1,5 +1,5 @@
-// autocomply mock data — HITRUST r2 maturity model.
-// Swappable later for the source-agnostic data loader (data/*.yaml).
+// autocomply mock data — NIST 800-53 / PRISMA maturity model (UI scaffold).
+// The live matrix is served from the API; this is dev/demo fixture data only.
 import type {
   Cell,
   Control,
@@ -140,7 +140,6 @@ export const DOMAINS: Domain[] = [
         owner: "AS",
         lastChange: "2026-05-21",
         status: "fc",
-        implOnly: true,
       },
     ],
   },
@@ -213,7 +212,7 @@ export const KPI: Kpi = {
 
 export const HEADER: Header = {
   org: "autocomply",
-  framework: "HITRUST r2",
+  framework: "NIST 800-53 Rev 5 (Moderate)",
   period: { start: "2026-02-20", end: "2026-05-21", days: 90 },
 };
 

@@ -21,13 +21,13 @@ interface SimCheck {
 }
 
 const CHECKS: SimCheck[] = [
-  { key: "s3-default-encryption", title: "S3 buckets enforce encryption at rest", sourceKind: "aws-config", control: "10.f", resources: 42, passRate: 1.0, coverage: 1.0 },
-  { key: "iam-mfa-enabled", title: "IAM users have MFA enabled", sourceKind: "security-hub", control: "01.q", resources: 30, passRate: 0.93, coverage: 1.0 },
-  { key: "cloudtrail-enabled", title: "CloudTrail logging enabled in all regions", sourceKind: "aws-config", control: "09.aa", resources: 17, passRate: 1.0, coverage: 1.0 },
-  { key: "ntp-managed", title: "Instances use managed time sync", sourceKind: "custom-collector", control: "09.af", resources: 88, passRate: 1.0, coverage: 1.0 },
-  { key: "iam-password-policy", title: "Account password policy meets baseline (90-day window)", sourceKind: "aws-config", control: "01.r", resources: 90, passRate: 1.0, coverage: 0.8 }, // 72/90 days → coverage gap → NC
-  { key: "guardduty-enabled", title: "GuardDuty enabled", sourceKind: "security-hub", control: "10.p", resources: 6, passRate: 0.83, coverage: 1.0 },
-  { key: "ebs-backups", title: "EBS volumes have backup policy", sourceKind: "aws-config", control: "09.l", resources: 51, passRate: 0.71, coverage: 1.0 },
+  { key: "s3-default-encryption", title: "S3 buckets enforce encryption at rest", sourceKind: "aws-config", control: "SC-28", resources: 42, passRate: 1.0, coverage: 1.0 },
+  { key: "iam-mfa-enabled", title: "IAM users have MFA enabled", sourceKind: "security-hub", control: "IA-2", resources: 30, passRate: 0.93, coverage: 1.0 },
+  { key: "cloudtrail-enabled", title: "CloudTrail logging enabled in all regions", sourceKind: "aws-config", control: "AU-2", resources: 17, passRate: 1.0, coverage: 1.0 },
+  { key: "ntp-managed", title: "Instances use managed time sync", sourceKind: "custom-collector", control: "AU-8", resources: 88, passRate: 1.0, coverage: 1.0 },
+  { key: "iam-password-policy", title: "Account password policy meets baseline (90-day window)", sourceKind: "aws-config", control: "IA-5", resources: 90, passRate: 1.0, coverage: 0.8 }, // 72/90 days → coverage gap → NC
+  { key: "guardduty-enabled", title: "GuardDuty enabled", sourceKind: "security-hub", control: "SI-4", resources: 6, passRate: 0.83, coverage: 1.0 },
+  { key: "ebs-backups", title: "EBS volumes have backup policy", sourceKind: "aws-config", control: "CP-9", resources: 51, passRate: 0.71, coverage: 1.0 },
 ];
 
 // rubric: pass-rate → suggested rating; coverage below threshold forces NC + gap

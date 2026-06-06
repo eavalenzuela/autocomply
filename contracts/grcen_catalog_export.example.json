@@ -1,57 +1,155 @@
 {
   "catalog_version": "1",
   "source": "autocomply",
-  "generated_at": "2026-05-31T00:00:00Z",
+  "generated_at": "2026-06-05T00:00:00Z",
   "frameworks": [
     {
-      "ref": "soc2",
-      "name": "SOC 2",
-      "description": "AICPA Trust Services Criteria",
-      "metadata": { "version": "2017 (rev. 2022)", "governing_body": "AICPA" },
+      "ref": "iso27001",
+      "name": "ISO/IEC 27001",
+      "metadata": {
+        "version": "2022"
+      },
       "requirements": [
         {
-          "ref": "soc2:CC6.1",
-          "name": "CC6.1 — Logical and physical access controls",
-          "reference_id": "CC6.1",
-          "category": "Common Criteria"
+          "ref": "iso27001:A.5.16",
+          "name": "A.5.16 \u2014 Identity management",
+          "reference_id": "A.5.16",
+          "metadata": {
+            "kind": "iso-annexa",
+            "theme": "organizational",
+            "new_2022": false
+          },
+          "category": "Annex A \u2014 Organizational"
         },
         {
-          "ref": "soc2:CC7.2",
-          "name": "CC7.2 — System monitoring",
-          "reference_id": "CC7.2",
-          "category": "Common Criteria"
+          "ref": "iso27001:A.5.18",
+          "name": "A.5.18 \u2014 Access rights",
+          "reference_id": "A.5.18",
+          "metadata": {
+            "kind": "iso-annexa",
+            "theme": "organizational",
+            "new_2022": false
+          },
+          "category": "Annex A \u2014 Organizational"
+        },
+        {
+          "ref": "iso27001:A.8.16",
+          "name": "A.8.16 \u2014 Monitoring activities",
+          "reference_id": "A.8.16",
+          "metadata": {
+            "kind": "iso-annexa",
+            "theme": "technological",
+            "new_2022": true
+          },
+          "category": "Annex A \u2014 Technological"
         }
       ]
     },
     {
-      "ref": "iso27001",
-      "name": "ISO/IEC 27001:2022",
-      "description": "Information security management",
-      "metadata": { "version": "2022", "governing_body": "ISO/IEC" },
+      "ref": "soc2",
+      "name": "SOC 2",
+      "metadata": {
+        "version": "TSC 2017 (rev. 2022)"
+      },
       "requirements": [
         {
-          "ref": "iso27001:A.8.1",
-          "name": "A.8.1 — User endpoint devices",
-          "reference_id": "A.8.1",
-          "category": "Annex A — Technological"
+          "ref": "soc2:CC6.1",
+          "name": "CC6.1 \u2014 Logical access security software and infrastructure",
+          "reference_id": "CC6.1",
+          "metadata": {
+            "kind": "soc2-criterion"
+          },
+          "category": "Common Criteria"
+        },
+        {
+          "ref": "soc2:CC6.2",
+          "name": "CC6.2 \u2014 User registration and authorization",
+          "reference_id": "CC6.2",
+          "metadata": {
+            "kind": "soc2-criterion"
+          },
+          "category": "Common Criteria"
+        },
+        {
+          "ref": "soc2:CC6.3",
+          "name": "CC6.3 \u2014 Role-based access and least privilege",
+          "reference_id": "CC6.3",
+          "metadata": {
+            "kind": "soc2-criterion"
+          },
+          "category": "Common Criteria"
+        },
+        {
+          "ref": "soc2:CC7.2",
+          "name": "CC7.2 \u2014 Monitoring for anomalies and security events",
+          "reference_id": "CC7.2",
+          "metadata": {
+            "kind": "soc2-criterion"
+          },
+          "category": "Common Criteria"
         }
       ]
     }
   ],
   "controls": [
     {
-      "ref": "01.a",
-      "name": "Access Control Policy",
-      "description": "Documented, approved access-control policy reviewed annually.",
-      "metadata": { "control_type": "preventive" },
-      "satisfies": ["soc2:CC6.1", "iso27001:A.8.1"]
+      "ref": "AC-2",
+      "name": "Account Management",
+      "metadata": {
+        "category": "Access Control",
+        "objective": "AC-2",
+        "crosswalk": {
+          "soc2:CC6.1": {
+            "relationship": "partial",
+            "confidence": "high"
+          },
+          "soc2:CC6.2": {
+            "relationship": "partial",
+            "confidence": "high"
+          },
+          "soc2:CC6.3": {
+            "relationship": "partial",
+            "confidence": "high"
+          },
+          "iso27001:A.5.16": {
+            "relationship": "equivalent",
+            "confidence": "high"
+          },
+          "iso27001:A.5.18": {
+            "relationship": "partial",
+            "confidence": "high"
+          }
+        }
+      },
+      "satisfies": [
+        "iso27001:A.5.16",
+        "iso27001:A.5.18",
+        "soc2:CC6.1",
+        "soc2:CC6.2",
+        "soc2:CC6.3"
+      ]
     },
     {
-      "ref": "07.b",
-      "name": "Security Monitoring",
-      "description": "Centralized log collection and alerting.",
-      "metadata": { "control_type": "detective" },
-      "satisfies": ["soc2:CC7.2"]
+      "ref": "SI-4",
+      "name": "System Monitoring",
+      "metadata": {
+        "category": "System and Information Integrity",
+        "objective": "SI-4",
+        "crosswalk": {
+          "soc2:CC7.2": {
+            "relationship": "equivalent",
+            "confidence": "high"
+          },
+          "iso27001:A.8.16": {
+            "relationship": "equivalent",
+            "confidence": "high"
+          }
+        }
+      },
+      "satisfies": [
+        "iso27001:A.8.16",
+        "soc2:CC7.2"
+      ]
     }
   ]
 }

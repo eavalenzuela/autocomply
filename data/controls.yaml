@@ -1,230 +1,1561 @@
-# autocomply — CCF control stubs
+# autocomply — control catalog
 # ----------------------------------------------------------------------------
-# Near-1:1 mirror of the HITRUST CSF control-reference library (see DESIGN.md).
-# These are OUR framework-agnostic CCF controls, laid into the public HITRUST
-# skeleton, ready to map 1:1 to HITRUST control references on MyCSF ingest.
+# Generated from the NIST SP 800-53 Rev 5 OSCAL catalog by
+# scripts/gen_nist_catalog.py. Source: usnistgov/oscal-content, which is a
+# work of the U.S. government — CC0 / public domain, freely redistributable
+# (titles and statement text alike). Edit the vendored OSCAL under
+# data/vendor/oscal/ and re-run the generator; do not hand-edit this file.
 #
-# Structure: 14 control categories -> 49 control objectives -> 156 control refs.
-#
-# Provenance / accuracy:
-#   - Categories 01-12 follow the ISO/IEC 27002:2005 lineage HITRUST was built
-#     on; codes, objectives, and titles here are solid. `iso_2005` gives the
-#     source clause (also seeds the future ISO 27001 / SOC 2 crosswalk).
-#   - Categories 00, 03, 13 are HITRUST-specific; reconstruction is BEST-EFFORT
-#     and must be reconciled on MyCSF ingest (esp. category 13 privacy letters).
-#   - Titles are our plain-language placeholders, NOT HITRUST IP.
-#
-# Fields populated later (defaults below apply to every control until then):
+#   category  = 800-53 family       (AC, AU, ...)
+#   objective = base control        (AC-1, AC-2, ...)
+#   control   = base + enhancement  (AC-2, AC-2(1), ...)
+#   baselines = Low/Moderate/High membership (cumulative), drives the tier feature
 meta:
-  generated: 2026-05-22
-  csf_structure: { categories: 14, objectives: 49, control_refs: 156 }
-  defaults:
-    assessment_domain: tbd     # 1 of 19 scoring domains; from MyCSF ingest
-    weight: 1.0                # tuned during scoring-math design
-    owner: null
-    hitrust_ref: null          # the Mapping target; from MyCSF ingest
-  pending_mycsf_ingest:
-    - assessment_domain (156 -> 19 regrouping)
-    - hitrust_ref + authoritative control-reference titles
-    - requirement_statements (L1/L2/L3) + e1/i1/r2 membership
+  source: NIST SP 800-53 Rev 5 (OSCAL, public domain)
+  counts: { families: 20, base_controls: 324, controls: 1196, in_baseline: 370 }
 
 categories:
-  - { id: "00", title: "Information Security Management Program" }
-  - { id: "01", title: "Access Control" }
-  - { id: "02", title: "Human Resources Security" }
-  - { id: "03", title: "Risk Management" }
-  - { id: "04", title: "Security Policy" }
-  - { id: "05", title: "Organization of Information Security" }
-  - { id: "06", title: "Compliance" }
-  - { id: "07", title: "Asset Management" }
-  - { id: "08", title: "Physical and Environmental Security" }
-  - { id: "09", title: "Communications and Operations Management" }
-  - { id: "10", title: "Information Systems Acquisition, Development, and Maintenance" }
-  - { id: "11", title: "Information Security Incident Management" }
-  - { id: "12", title: "Business Continuity Management" }
-  - { id: "13", title: "Privacy Practices" }
+  - { id: "AC", title: "Access Control" }
+  - { id: "AT", title: "Awareness and Training" }
+  - { id: "AU", title: "Audit and Accountability" }
+  - { id: "CA", title: "Assessment, Authorization, and Monitoring" }
+  - { id: "CM", title: "Configuration Management" }
+  - { id: "CP", title: "Contingency Planning" }
+  - { id: "IA", title: "Identification and Authentication" }
+  - { id: "IR", title: "Incident Response" }
+  - { id: "MA", title: "Maintenance" }
+  - { id: "MP", title: "Media Protection" }
+  - { id: "PE", title: "Physical and Environmental Protection" }
+  - { id: "PL", title: "Planning" }
+  - { id: "PM", title: "Program Management" }
+  - { id: "PS", title: "Personnel Security" }
+  - { id: "PT", title: "Personally Identifiable Information Processing and Transparency" }
+  - { id: "RA", title: "Risk Assessment" }
+  - { id: "SA", title: "System and Services Acquisition" }
+  - { id: "SC", title: "System and Communications Protection" }
+  - { id: "SI", title: "System and Information Integrity" }
+  - { id: "SR", title: "Supply Chain Risk Management" }
+
+objectives:
+  - { code: "AC-1", category: "AC", title: "Policy and Procedures" }
+  - { code: "AC-2", category: "AC", title: "Account Management" }
+  - { code: "AC-3", category: "AC", title: "Access Enforcement" }
+  - { code: "AC-4", category: "AC", title: "Information Flow Enforcement" }
+  - { code: "AC-5", category: "AC", title: "Separation of Duties" }
+  - { code: "AC-6", category: "AC", title: "Least Privilege" }
+  - { code: "AC-7", category: "AC", title: "Unsuccessful Logon Attempts" }
+  - { code: "AC-8", category: "AC", title: "System Use Notification" }
+  - { code: "AC-9", category: "AC", title: "Previous Logon Notification" }
+  - { code: "AC-10", category: "AC", title: "Concurrent Session Control" }
+  - { code: "AC-11", category: "AC", title: "Device Lock" }
+  - { code: "AC-12", category: "AC", title: "Session Termination" }
+  - { code: "AC-13", category: "AC", title: "Supervision and Review — Access Control" }
+  - { code: "AC-14", category: "AC", title: "Permitted Actions Without Identification or Authentication" }
+  - { code: "AC-15", category: "AC", title: "Automated Marking" }
+  - { code: "AC-16", category: "AC", title: "Security and Privacy Attributes" }
+  - { code: "AC-17", category: "AC", title: "Remote Access" }
+  - { code: "AC-18", category: "AC", title: "Wireless Access" }
+  - { code: "AC-19", category: "AC", title: "Access Control for Mobile Devices" }
+  - { code: "AC-20", category: "AC", title: "Use of External Systems" }
+  - { code: "AC-21", category: "AC", title: "Information Sharing" }
+  - { code: "AC-22", category: "AC", title: "Publicly Accessible Content" }
+  - { code: "AC-23", category: "AC", title: "Data Mining Protection" }
+  - { code: "AC-24", category: "AC", title: "Access Control Decisions" }
+  - { code: "AC-25", category: "AC", title: "Reference Monitor" }
+  - { code: "AT-1", category: "AT", title: "Policy and Procedures" }
+  - { code: "AT-2", category: "AT", title: "Literacy Training and Awareness" }
+  - { code: "AT-3", category: "AT", title: "Role-based Training" }
+  - { code: "AT-4", category: "AT", title: "Training Records" }
+  - { code: "AT-5", category: "AT", title: "Contacts with Security Groups and Associations" }
+  - { code: "AT-6", category: "AT", title: "Training Feedback" }
+  - { code: "AU-1", category: "AU", title: "Policy and Procedures" }
+  - { code: "AU-2", category: "AU", title: "Event Logging" }
+  - { code: "AU-3", category: "AU", title: "Content of Audit Records" }
+  - { code: "AU-4", category: "AU", title: "Audit Log Storage Capacity" }
+  - { code: "AU-5", category: "AU", title: "Response to Audit Logging Process Failures" }
+  - { code: "AU-6", category: "AU", title: "Audit Record Review, Analysis, and Reporting" }
+  - { code: "AU-7", category: "AU", title: "Audit Record Reduction and Report Generation" }
+  - { code: "AU-8", category: "AU", title: "Time Stamps" }
+  - { code: "AU-9", category: "AU", title: "Protection of Audit Information" }
+  - { code: "AU-10", category: "AU", title: "Non-repudiation" }
+  - { code: "AU-11", category: "AU", title: "Audit Record Retention" }
+  - { code: "AU-12", category: "AU", title: "Audit Record Generation" }
+  - { code: "AU-13", category: "AU", title: "Monitoring for Information Disclosure" }
+  - { code: "AU-14", category: "AU", title: "Session Audit" }
+  - { code: "AU-15", category: "AU", title: "Alternate Audit Logging Capability" }
+  - { code: "AU-16", category: "AU", title: "Cross-organizational Audit Logging" }
+  - { code: "CA-1", category: "CA", title: "Policy and Procedures" }
+  - { code: "CA-2", category: "CA", title: "Control Assessments" }
+  - { code: "CA-3", category: "CA", title: "Information Exchange" }
+  - { code: "CA-4", category: "CA", title: "Security Certification" }
+  - { code: "CA-5", category: "CA", title: "Plan of Action and Milestones" }
+  - { code: "CA-6", category: "CA", title: "Authorization" }
+  - { code: "CA-7", category: "CA", title: "Continuous Monitoring" }
+  - { code: "CA-8", category: "CA", title: "Penetration Testing" }
+  - { code: "CA-9", category: "CA", title: "Internal System Connections" }
+  - { code: "CM-1", category: "CM", title: "Policy and Procedures" }
+  - { code: "CM-2", category: "CM", title: "Baseline Configuration" }
+  - { code: "CM-3", category: "CM", title: "Configuration Change Control" }
+  - { code: "CM-4", category: "CM", title: "Impact Analyses" }
+  - { code: "CM-5", category: "CM", title: "Access Restrictions for Change" }
+  - { code: "CM-6", category: "CM", title: "Configuration Settings" }
+  - { code: "CM-7", category: "CM", title: "Least Functionality" }
+  - { code: "CM-8", category: "CM", title: "System Component Inventory" }
+  - { code: "CM-9", category: "CM", title: "Configuration Management Plan" }
+  - { code: "CM-10", category: "CM", title: "Software Usage Restrictions" }
+  - { code: "CM-11", category: "CM", title: "User-installed Software" }
+  - { code: "CM-12", category: "CM", title: "Information Location" }
+  - { code: "CM-13", category: "CM", title: "Data Action Mapping" }
+  - { code: "CM-14", category: "CM", title: "Signed Components" }
+  - { code: "CP-1", category: "CP", title: "Policy and Procedures" }
+  - { code: "CP-2", category: "CP", title: "Contingency Plan" }
+  - { code: "CP-3", category: "CP", title: "Contingency Training" }
+  - { code: "CP-4", category: "CP", title: "Contingency Plan Testing" }
+  - { code: "CP-5", category: "CP", title: "Contingency Plan Update" }
+  - { code: "CP-6", category: "CP", title: "Alternate Storage Site" }
+  - { code: "CP-7", category: "CP", title: "Alternate Processing Site" }
+  - { code: "CP-8", category: "CP", title: "Telecommunications Services" }
+  - { code: "CP-9", category: "CP", title: "System Backup" }
+  - { code: "CP-10", category: "CP", title: "System Recovery and Reconstitution" }
+  - { code: "CP-11", category: "CP", title: "Alternate Communications Protocols" }
+  - { code: "CP-12", category: "CP", title: "Safe Mode" }
+  - { code: "CP-13", category: "CP", title: "Alternative Security Mechanisms" }
+  - { code: "IA-1", category: "IA", title: "Policy and Procedures" }
+  - { code: "IA-2", category: "IA", title: "Identification and Authentication (Organizational Users)" }
+  - { code: "IA-3", category: "IA", title: "Device Identification and Authentication" }
+  - { code: "IA-4", category: "IA", title: "Identifier Management" }
+  - { code: "IA-5", category: "IA", title: "Authenticator Management" }
+  - { code: "IA-6", category: "IA", title: "Authentication Feedback" }
+  - { code: "IA-7", category: "IA", title: "Cryptographic Module Authentication" }
+  - { code: "IA-8", category: "IA", title: "Identification and Authentication (Non-organizational Users)" }
+  - { code: "IA-9", category: "IA", title: "Service Identification and Authentication" }
+  - { code: "IA-10", category: "IA", title: "Adaptive Authentication" }
+  - { code: "IA-11", category: "IA", title: "Re-authentication" }
+  - { code: "IA-12", category: "IA", title: "Identity Proofing" }
+  - { code: "IA-13", category: "IA", title: "Identity Providers and Authorization Servers" }
+  - { code: "IR-1", category: "IR", title: "Policy and Procedures" }
+  - { code: "IR-2", category: "IR", title: "Incident Response Training" }
+  - { code: "IR-3", category: "IR", title: "Incident Response Testing" }
+  - { code: "IR-4", category: "IR", title: "Incident Handling" }
+  - { code: "IR-5", category: "IR", title: "Incident Monitoring" }
+  - { code: "IR-6", category: "IR", title: "Incident Reporting" }
+  - { code: "IR-7", category: "IR", title: "Incident Response Assistance" }
+  - { code: "IR-8", category: "IR", title: "Incident Response Plan" }
+  - { code: "IR-9", category: "IR", title: "Information Spillage Response" }
+  - { code: "IR-10", category: "IR", title: "Integrated Information Security Analysis Team" }
+  - { code: "MA-1", category: "MA", title: "Policy and Procedures" }
+  - { code: "MA-2", category: "MA", title: "Controlled Maintenance" }
+  - { code: "MA-3", category: "MA", title: "Maintenance Tools" }
+  - { code: "MA-4", category: "MA", title: "Nonlocal Maintenance" }
+  - { code: "MA-5", category: "MA", title: "Maintenance Personnel" }
+  - { code: "MA-6", category: "MA", title: "Timely Maintenance" }
+  - { code: "MA-7", category: "MA", title: "Field Maintenance" }
+  - { code: "MP-1", category: "MP", title: "Policy and Procedures" }
+  - { code: "MP-2", category: "MP", title: "Media Access" }
+  - { code: "MP-3", category: "MP", title: "Media Marking" }
+  - { code: "MP-4", category: "MP", title: "Media Storage" }
+  - { code: "MP-5", category: "MP", title: "Media Transport" }
+  - { code: "MP-6", category: "MP", title: "Media Sanitization" }
+  - { code: "MP-7", category: "MP", title: "Media Use" }
+  - { code: "MP-8", category: "MP", title: "Media Downgrading" }
+  - { code: "PE-1", category: "PE", title: "Policy and Procedures" }
+  - { code: "PE-2", category: "PE", title: "Physical Access Authorizations" }
+  - { code: "PE-3", category: "PE", title: "Physical Access Control" }
+  - { code: "PE-4", category: "PE", title: "Access Control for Transmission" }
+  - { code: "PE-5", category: "PE", title: "Access Control for Output Devices" }
+  - { code: "PE-6", category: "PE", title: "Monitoring Physical Access" }
+  - { code: "PE-7", category: "PE", title: "Visitor Control" }
+  - { code: "PE-8", category: "PE", title: "Visitor Access Records" }
+  - { code: "PE-9", category: "PE", title: "Power Equipment and Cabling" }
+  - { code: "PE-10", category: "PE", title: "Emergency Shutoff" }
+  - { code: "PE-11", category: "PE", title: "Emergency Power" }
+  - { code: "PE-12", category: "PE", title: "Emergency Lighting" }
+  - { code: "PE-13", category: "PE", title: "Fire Protection" }
+  - { code: "PE-14", category: "PE", title: "Environmental Controls" }
+  - { code: "PE-15", category: "PE", title: "Water Damage Protection" }
+  - { code: "PE-16", category: "PE", title: "Delivery and Removal" }
+  - { code: "PE-17", category: "PE", title: "Alternate Work Site" }
+  - { code: "PE-18", category: "PE", title: "Location of System Components" }
+  - { code: "PE-19", category: "PE", title: "Information Leakage" }
+  - { code: "PE-20", category: "PE", title: "Asset Monitoring and Tracking" }
+  - { code: "PE-21", category: "PE", title: "Electromagnetic Pulse Protection" }
+  - { code: "PE-22", category: "PE", title: "Component Marking" }
+  - { code: "PE-23", category: "PE", title: "Facility Location" }
+  - { code: "PL-1", category: "PL", title: "Policy and Procedures" }
+  - { code: "PL-2", category: "PL", title: "System Security and Privacy Plans" }
+  - { code: "PL-3", category: "PL", title: "System Security Plan Update" }
+  - { code: "PL-4", category: "PL", title: "Rules of Behavior" }
+  - { code: "PL-5", category: "PL", title: "Privacy Impact Assessment" }
+  - { code: "PL-6", category: "PL", title: "Security-related Activity Planning" }
+  - { code: "PL-7", category: "PL", title: "Concept of Operations" }
+  - { code: "PL-8", category: "PL", title: "Security and Privacy Architectures" }
+  - { code: "PL-9", category: "PL", title: "Central Management" }
+  - { code: "PL-10", category: "PL", title: "Baseline Selection" }
+  - { code: "PL-11", category: "PL", title: "Baseline Tailoring" }
+  - { code: "PM-1", category: "PM", title: "Information Security Program Plan" }
+  - { code: "PM-2", category: "PM", title: "Information Security Program Leadership Role" }
+  - { code: "PM-3", category: "PM", title: "Information Security and Privacy Resources" }
+  - { code: "PM-4", category: "PM", title: "Plan of Action and Milestones Process" }
+  - { code: "PM-5", category: "PM", title: "System Inventory" }
+  - { code: "PM-6", category: "PM", title: "Measures of Performance" }
+  - { code: "PM-7", category: "PM", title: "Enterprise Architecture" }
+  - { code: "PM-8", category: "PM", title: "Critical Infrastructure Plan" }
+  - { code: "PM-9", category: "PM", title: "Risk Management Strategy" }
+  - { code: "PM-10", category: "PM", title: "Authorization Process" }
+  - { code: "PM-11", category: "PM", title: "Mission and Business Process Definition" }
+  - { code: "PM-12", category: "PM", title: "Insider Threat Program" }
+  - { code: "PM-13", category: "PM", title: "Security and Privacy Workforce" }
+  - { code: "PM-14", category: "PM", title: "Testing, Training, and Monitoring" }
+  - { code: "PM-15", category: "PM", title: "Security and Privacy Groups and Associations" }
+  - { code: "PM-16", category: "PM", title: "Threat Awareness Program" }
+  - { code: "PM-17", category: "PM", title: "Protecting Controlled Unclassified Information on External Systems" }
+  - { code: "PM-18", category: "PM", title: "Privacy Program Plan" }
+  - { code: "PM-19", category: "PM", title: "Privacy Program Leadership Role" }
+  - { code: "PM-20", category: "PM", title: "Dissemination of Privacy Program Information" }
+  - { code: "PM-21", category: "PM", title: "Accounting of Disclosures" }
+  - { code: "PM-22", category: "PM", title: "Personally Identifiable Information Quality Management" }
+  - { code: "PM-23", category: "PM", title: "Data Governance Body" }
+  - { code: "PM-24", category: "PM", title: "Data Integrity Board" }
+  - { code: "PM-25", category: "PM", title: "Minimization of Personally Identifiable Information Used in Testing, Training, and Research" }
+  - { code: "PM-26", category: "PM", title: "Complaint Management" }
+  - { code: "PM-27", category: "PM", title: "Privacy Reporting" }
+  - { code: "PM-28", category: "PM", title: "Risk Framing" }
+  - { code: "PM-29", category: "PM", title: "Risk Management Program Leadership Roles" }
+  - { code: "PM-30", category: "PM", title: "Supply Chain Risk Management Strategy" }
+  - { code: "PM-31", category: "PM", title: "Continuous Monitoring Strategy" }
+  - { code: "PM-32", category: "PM", title: "Purposing" }
+  - { code: "PS-1", category: "PS", title: "Policy and Procedures" }
+  - { code: "PS-2", category: "PS", title: "Position Risk Designation" }
+  - { code: "PS-3", category: "PS", title: "Personnel Screening" }
+  - { code: "PS-4", category: "PS", title: "Personnel Termination" }
+  - { code: "PS-5", category: "PS", title: "Personnel Transfer" }
+  - { code: "PS-6", category: "PS", title: "Access Agreements" }
+  - { code: "PS-7", category: "PS", title: "External Personnel Security" }
+  - { code: "PS-8", category: "PS", title: "Personnel Sanctions" }
+  - { code: "PS-9", category: "PS", title: "Position Descriptions" }
+  - { code: "PT-1", category: "PT", title: "Policy and Procedures" }
+  - { code: "PT-2", category: "PT", title: "Authority to Process Personally Identifiable Information" }
+  - { code: "PT-3", category: "PT", title: "Personally Identifiable Information Processing Purposes" }
+  - { code: "PT-4", category: "PT", title: "Consent" }
+  - { code: "PT-5", category: "PT", title: "Privacy Notice" }
+  - { code: "PT-6", category: "PT", title: "System of Records Notice" }
+  - { code: "PT-7", category: "PT", title: "Specific Categories of Personally Identifiable Information" }
+  - { code: "PT-8", category: "PT", title: "Computer Matching Requirements" }
+  - { code: "RA-1", category: "RA", title: "Policy and Procedures" }
+  - { code: "RA-2", category: "RA", title: "Security Categorization" }
+  - { code: "RA-3", category: "RA", title: "Risk Assessment" }
+  - { code: "RA-4", category: "RA", title: "Risk Assessment Update" }
+  - { code: "RA-5", category: "RA", title: "Vulnerability Monitoring and Scanning" }
+  - { code: "RA-6", category: "RA", title: "Technical Surveillance Countermeasures Survey" }
+  - { code: "RA-7", category: "RA", title: "Risk Response" }
+  - { code: "RA-8", category: "RA", title: "Privacy Impact Assessments" }
+  - { code: "RA-9", category: "RA", title: "Criticality Analysis" }
+  - { code: "RA-10", category: "RA", title: "Threat Hunting" }
+  - { code: "SA-1", category: "SA", title: "Policy and Procedures" }
+  - { code: "SA-2", category: "SA", title: "Allocation of Resources" }
+  - { code: "SA-3", category: "SA", title: "System Development Life Cycle" }
+  - { code: "SA-4", category: "SA", title: "Acquisition Process" }
+  - { code: "SA-5", category: "SA", title: "System Documentation" }
+  - { code: "SA-6", category: "SA", title: "Software Usage Restrictions" }
+  - { code: "SA-7", category: "SA", title: "User-installed Software" }
+  - { code: "SA-8", category: "SA", title: "Security and Privacy Engineering Principles" }
+  - { code: "SA-9", category: "SA", title: "External System Services" }
+  - { code: "SA-10", category: "SA", title: "Developer Configuration Management" }
+  - { code: "SA-11", category: "SA", title: "Developer Testing and Evaluation" }
+  - { code: "SA-12", category: "SA", title: "Supply Chain Protection" }
+  - { code: "SA-13", category: "SA", title: "Trustworthiness" }
+  - { code: "SA-14", category: "SA", title: "Criticality Analysis" }
+  - { code: "SA-15", category: "SA", title: "Development Process, Standards, and Tools" }
+  - { code: "SA-16", category: "SA", title: "Developer-provided Training" }
+  - { code: "SA-17", category: "SA", title: "Developer Security and Privacy Architecture and Design" }
+  - { code: "SA-18", category: "SA", title: "Tamper Resistance and Detection" }
+  - { code: "SA-19", category: "SA", title: "Component Authenticity" }
+  - { code: "SA-20", category: "SA", title: "Customized Development of Critical Components" }
+  - { code: "SA-21", category: "SA", title: "Developer Screening" }
+  - { code: "SA-22", category: "SA", title: "Unsupported System Components" }
+  - { code: "SA-23", category: "SA", title: "Specialization" }
+  - { code: "SA-24", category: "SA", title: "Design For Cyber Resiliency" }
+  - { code: "SC-1", category: "SC", title: "Policy and Procedures" }
+  - { code: "SC-2", category: "SC", title: "Separation of System and User Functionality" }
+  - { code: "SC-3", category: "SC", title: "Security Function Isolation" }
+  - { code: "SC-4", category: "SC", title: "Information in Shared System Resources" }
+  - { code: "SC-5", category: "SC", title: "Denial-of-service Protection" }
+  - { code: "SC-6", category: "SC", title: "Resource Availability" }
+  - { code: "SC-7", category: "SC", title: "Boundary Protection" }
+  - { code: "SC-8", category: "SC", title: "Transmission Confidentiality and Integrity" }
+  - { code: "SC-9", category: "SC", title: "Transmission Confidentiality" }
+  - { code: "SC-10", category: "SC", title: "Network Disconnect" }
+  - { code: "SC-11", category: "SC", title: "Trusted Path" }
+  - { code: "SC-12", category: "SC", title: "Cryptographic Key Establishment and Management" }
+  - { code: "SC-13", category: "SC", title: "Cryptographic Protection" }
+  - { code: "SC-14", category: "SC", title: "Public Access Protections" }
+  - { code: "SC-15", category: "SC", title: "Collaborative Computing Devices and Applications" }
+  - { code: "SC-16", category: "SC", title: "Transmission of Security and Privacy Attributes" }
+  - { code: "SC-17", category: "SC", title: "Public Key Infrastructure Certificates" }
+  - { code: "SC-18", category: "SC", title: "Mobile Code" }
+  - { code: "SC-19", category: "SC", title: "Voice Over Internet Protocol" }
+  - { code: "SC-20", category: "SC", title: "Secure Name/Address Resolution Service (Authoritative Source)" }
+  - { code: "SC-21", category: "SC", title: "Secure Name/Address Resolution Service (Recursive or Caching Resolver)" }
+  - { code: "SC-22", category: "SC", title: "Architecture and Provisioning for Name/Address Resolution Service" }
+  - { code: "SC-23", category: "SC", title: "Session Authenticity" }
+  - { code: "SC-24", category: "SC", title: "Fail in Known State" }
+  - { code: "SC-25", category: "SC", title: "Thin Nodes" }
+  - { code: "SC-26", category: "SC", title: "Decoys" }
+  - { code: "SC-27", category: "SC", title: "Platform-independent Applications" }
+  - { code: "SC-28", category: "SC", title: "Protection of Information at Rest" }
+  - { code: "SC-29", category: "SC", title: "Heterogeneity" }
+  - { code: "SC-30", category: "SC", title: "Concealment and Misdirection" }
+  - { code: "SC-31", category: "SC", title: "Covert Channel Analysis" }
+  - { code: "SC-32", category: "SC", title: "System Partitioning" }
+  - { code: "SC-33", category: "SC", title: "Transmission Preparation Integrity" }
+  - { code: "SC-34", category: "SC", title: "Non-modifiable Executable Programs" }
+  - { code: "SC-35", category: "SC", title: "External Malicious Code Identification" }
+  - { code: "SC-36", category: "SC", title: "Distributed Processing and Storage" }
+  - { code: "SC-37", category: "SC", title: "Out-of-band Channels" }
+  - { code: "SC-38", category: "SC", title: "Operations Security" }
+  - { code: "SC-39", category: "SC", title: "Process Isolation" }
+  - { code: "SC-40", category: "SC", title: "Wireless Link Protection" }
+  - { code: "SC-41", category: "SC", title: "Port and I/O Device Access" }
+  - { code: "SC-42", category: "SC", title: "Sensor Capability and Data" }
+  - { code: "SC-43", category: "SC", title: "Usage Restrictions" }
+  - { code: "SC-44", category: "SC", title: "Detonation Chambers" }
+  - { code: "SC-45", category: "SC", title: "System Time Synchronization" }
+  - { code: "SC-46", category: "SC", title: "Cross Domain Policy Enforcement" }
+  - { code: "SC-47", category: "SC", title: "Alternate Communications Paths" }
+  - { code: "SC-48", category: "SC", title: "Sensor Relocation" }
+  - { code: "SC-49", category: "SC", title: "Hardware-enforced Separation and Policy Enforcement" }
+  - { code: "SC-50", category: "SC", title: "Software-enforced Separation and Policy Enforcement" }
+  - { code: "SC-51", category: "SC", title: "Hardware-based Protection" }
+  - { code: "SI-1", category: "SI", title: "Policy and Procedures" }
+  - { code: "SI-2", category: "SI", title: "Flaw Remediation" }
+  - { code: "SI-3", category: "SI", title: "Malicious Code Protection" }
+  - { code: "SI-4", category: "SI", title: "System Monitoring" }
+  - { code: "SI-5", category: "SI", title: "Security Alerts, Advisories, and Directives" }
+  - { code: "SI-6", category: "SI", title: "Security and Privacy Function Verification" }
+  - { code: "SI-7", category: "SI", title: "Software, Firmware, and Information Integrity" }
+  - { code: "SI-8", category: "SI", title: "Spam Protection" }
+  - { code: "SI-9", category: "SI", title: "Information Input Restrictions" }
+  - { code: "SI-10", category: "SI", title: "Information Input Validation" }
+  - { code: "SI-11", category: "SI", title: "Error Handling" }
+  - { code: "SI-12", category: "SI", title: "Information Management and Retention" }
+  - { code: "SI-13", category: "SI", title: "Predictable Failure Prevention" }
+  - { code: "SI-14", category: "SI", title: "Non-persistence" }
+  - { code: "SI-15", category: "SI", title: "Information Output Filtering" }
+  - { code: "SI-16", category: "SI", title: "Memory Protection" }
+  - { code: "SI-17", category: "SI", title: "Fail-safe Procedures" }
+  - { code: "SI-18", category: "SI", title: "Personally Identifiable Information Quality Operations" }
+  - { code: "SI-19", category: "SI", title: "De-identification" }
+  - { code: "SI-20", category: "SI", title: "Tainting" }
+  - { code: "SI-21", category: "SI", title: "Information Refresh" }
+  - { code: "SI-22", category: "SI", title: "Information Diversity" }
+  - { code: "SI-23", category: "SI", title: "Information Fragmentation" }
+  - { code: "SR-1", category: "SR", title: "Policy and Procedures" }
+  - { code: "SR-2", category: "SR", title: "Supply Chain Risk Management Plan" }
+  - { code: "SR-3", category: "SR", title: "Supply Chain Controls and Processes" }
+  - { code: "SR-4", category: "SR", title: "Provenance" }
+  - { code: "SR-5", category: "SR", title: "Acquisition Strategies, Tools, and Methods" }
+  - { code: "SR-6", category: "SR", title: "Supplier Assessments and Reviews" }
+  - { code: "SR-7", category: "SR", title: "Supply Chain Operations Security" }
+  - { code: "SR-8", category: "SR", title: "Notification Agreements" }
+  - { code: "SR-9", category: "SR", title: "Tamper Resistance and Detection" }
+  - { code: "SR-10", category: "SR", title: "Inspection of Systems or Components" }
+  - { code: "SR-11", category: "SR", title: "Component Authenticity" }
+  - { code: "SR-12", category: "SR", title: "Component Disposal" }
 
 controls:
-  # --- 00 Information Security Management Program (HITRUST-specific) ---------
-  - { code: "0.a",  category: "00", objective: "00.01 Information Security Management Program", title: "Information Security Management Program" }
-
-  # --- 01 Access Control (ISO 27002:2005 cl. 11) ----------------------------
-  - { code: "01.a", category: "01", objective: "01.01 Business Requirement for Access Control", title: "Access Control Policy", iso_2005: "11.1.1" }
-  - { code: "01.b", category: "01", objective: "01.02 Authorized Access to Information Systems", title: "User Registration", iso_2005: "11.2.1" }
-  - { code: "01.c", category: "01", objective: "01.02 Authorized Access to Information Systems", title: "Privilege Management", iso_2005: "11.2.2" }
-  - { code: "01.d", category: "01", objective: "01.02 Authorized Access to Information Systems", title: "User Password Management", iso_2005: "11.2.3" }
-  - { code: "01.e", category: "01", objective: "01.02 Authorized Access to Information Systems", title: "Review of User Access Rights", iso_2005: "11.2.4" }
-  - { code: "01.f", category: "01", objective: "01.03 User Responsibilities", title: "Password Use", iso_2005: "11.3.1" }
-  - { code: "01.g", category: "01", objective: "01.03 User Responsibilities", title: "Unattended User Equipment", iso_2005: "11.3.2" }
-  - { code: "01.h", category: "01", objective: "01.03 User Responsibilities", title: "Clear Desk and Clear Screen Policy", iso_2005: "11.3.3" }
-  - { code: "01.i", category: "01", objective: "01.04 Network Access Control", title: "Policy on the Use of Network Services", iso_2005: "11.4.1" }
-  - { code: "01.j", category: "01", objective: "01.04 Network Access Control", title: "User Authentication for External Connections", iso_2005: "11.4.2" }
-  - { code: "01.k", category: "01", objective: "01.04 Network Access Control", title: "Equipment Identification in Networks", iso_2005: "11.4.3" }
-  - { code: "01.l", category: "01", objective: "01.04 Network Access Control", title: "Remote Diagnostic and Configuration Port Protection", iso_2005: "11.4.4" }
-  - { code: "01.m", category: "01", objective: "01.04 Network Access Control", title: "Segregation in Networks", iso_2005: "11.4.5" }
-  - { code: "01.n", category: "01", objective: "01.04 Network Access Control", title: "Network Connection Control", iso_2005: "11.4.6" }
-  - { code: "01.o", category: "01", objective: "01.04 Network Access Control", title: "Network Routing Control", iso_2005: "11.4.7" }
-  - { code: "01.p", category: "01", objective: "01.05 Operating System Access Control", title: "Secure Log-on Procedures", iso_2005: "11.5.1" }
-  - { code: "01.q", category: "01", objective: "01.05 Operating System Access Control", title: "User Identification and Authentication", iso_2005: "11.5.2" }
-  - { code: "01.r", category: "01", objective: "01.05 Operating System Access Control", title: "Password Management System", iso_2005: "11.5.3" }
-  - { code: "01.s", category: "01", objective: "01.05 Operating System Access Control", title: "Use of System Utilities", iso_2005: "11.5.4" }
-  - { code: "01.t", category: "01", objective: "01.05 Operating System Access Control", title: "Session Time-out", iso_2005: "11.5.5" }
-  - { code: "01.u", category: "01", objective: "01.05 Operating System Access Control", title: "Limitation of Connection Time", iso_2005: "11.5.6" }
-  - { code: "01.v", category: "01", objective: "01.06 Application and Information Access Control", title: "Information Access Restriction", iso_2005: "11.6.1" }
-  - { code: "01.w", category: "01", objective: "01.06 Application and Information Access Control", title: "Sensitive System Isolation", iso_2005: "11.6.2" }
-  - { code: "01.x", category: "01", objective: "01.07 Mobile Computing and Teleworking", title: "Mobile Computing and Communications", iso_2005: "11.7.1" }
-  - { code: "01.y", category: "01", objective: "01.07 Mobile Computing and Teleworking", title: "Teleworking", iso_2005: "11.7.2" }
-
-  # --- 02 Human Resources Security (ISO 27002:2005 cl. 8) -------------------
-  - { code: "02.a", category: "02", objective: "02.01 Prior to Employment", title: "Roles and Responsibilities", iso_2005: "8.1.1" }
-  - { code: "02.b", category: "02", objective: "02.01 Prior to Employment", title: "Screening", iso_2005: "8.1.2" }
-  - { code: "02.c", category: "02", objective: "02.01 Prior to Employment", title: "Terms and Conditions of Employment", iso_2005: "8.1.3" }
-  - { code: "02.d", category: "02", objective: "02.02 During Employment", title: "Management Responsibilities", iso_2005: "8.2.1" }
-  - { code: "02.e", category: "02", objective: "02.02 During Employment", title: "Information Security Awareness, Education, and Training", iso_2005: "8.2.2" }
-  - { code: "02.f", category: "02", objective: "02.02 During Employment", title: "Disciplinary Process", iso_2005: "8.2.3" }
-  - { code: "02.g", category: "02", objective: "02.03 Termination or Change of Employment", title: "Termination or Change Responsibilities", iso_2005: "8.3.1" }
-  - { code: "02.h", category: "02", objective: "02.03 Termination or Change of Employment", title: "Return of Assets", iso_2005: "8.3.2" }
-  - { code: "02.i", category: "02", objective: "02.03 Termination or Change of Employment", title: "Removal of Access Rights", iso_2005: "8.3.3" }
-
-  # --- 03 Risk Management (HITRUST-specific; best-effort) -------------------
-  - { code: "03.a", category: "03", objective: "03.01 Risk Management Program", title: "Risk Management Program Development" }
-  - { code: "03.b", category: "03", objective: "03.01 Risk Management Program", title: "Performing Risk Assessments" }
-  - { code: "03.c", category: "03", objective: "03.01 Risk Management Program", title: "Risk Mitigation" }
-  - { code: "03.d", category: "03", objective: "03.01 Risk Management Program", title: "Risk Evaluation" }
-
-  # --- 04 Security Policy (ISO 27002:2005 cl. 5) ----------------------------
-  - { code: "04.a", category: "04", objective: "04.01 Information Security Policy", title: "Information Security Policy Document", iso_2005: "5.1.1" }
-  - { code: "04.b", category: "04", objective: "04.01 Information Security Policy", title: "Review of the Information Security Policy", iso_2005: "5.1.2" }
-
-  # --- 05 Organization of Information Security (ISO 27002:2005 cl. 6) -------
-  - { code: "05.a", category: "05", objective: "05.01 Internal Organization", title: "Management Commitment to Information Security", iso_2005: "6.1.1" }
-  - { code: "05.b", category: "05", objective: "05.01 Internal Organization", title: "Information Security Coordination", iso_2005: "6.1.2" }
-  - { code: "05.c", category: "05", objective: "05.01 Internal Organization", title: "Allocation of Information Security Responsibilities", iso_2005: "6.1.3" }
-  - { code: "05.d", category: "05", objective: "05.01 Internal Organization", title: "Authorization Process for Information Assets and Facilities", iso_2005: "6.1.4" }
-  - { code: "05.e", category: "05", objective: "05.01 Internal Organization", title: "Confidentiality Agreements", iso_2005: "6.1.5" }
-  - { code: "05.f", category: "05", objective: "05.01 Internal Organization", title: "Contact with Authorities", iso_2005: "6.1.6" }
-  - { code: "05.g", category: "05", objective: "05.01 Internal Organization", title: "Contact with Special Interest Groups", iso_2005: "6.1.7" }
-  - { code: "05.h", category: "05", objective: "05.01 Internal Organization", title: "Independent Review of Information Security", iso_2005: "6.1.8" }
-  - { code: "05.i", category: "05", objective: "05.02 External Parties", title: "Identification of Risks Related to External Parties", iso_2005: "6.2.1" }
-  - { code: "05.j", category: "05", objective: "05.02 External Parties", title: "Addressing Security When Dealing with Customers", iso_2005: "6.2.2" }
-  - { code: "05.k", category: "05", objective: "05.02 External Parties", title: "Addressing Security in Third Party Agreements", iso_2005: "6.2.3" }
-
-  # --- 06 Compliance (ISO 27002:2005 cl. 15) -------------------------------
-  - { code: "06.a", category: "06", objective: "06.01 Compliance with Legal Requirements", title: "Identification of Applicable Legislation", iso_2005: "15.1.1" }
-  - { code: "06.b", category: "06", objective: "06.01 Compliance with Legal Requirements", title: "Intellectual Property Rights", iso_2005: "15.1.2" }
-  - { code: "06.c", category: "06", objective: "06.01 Compliance with Legal Requirements", title: "Protection of Organizational Records", iso_2005: "15.1.3" }
-  - { code: "06.d", category: "06", objective: "06.01 Compliance with Legal Requirements", title: "Data Protection and Privacy of Covered Information", iso_2005: "15.1.4" }
-  - { code: "06.e", category: "06", objective: "06.01 Compliance with Legal Requirements", title: "Prevention of Misuse of Information Assets", iso_2005: "15.1.5" }
-  - { code: "06.f", category: "06", objective: "06.01 Compliance with Legal Requirements", title: "Regulation of Cryptographic Controls", iso_2005: "15.1.6" }
-  - { code: "06.g", category: "06", objective: "06.02 Compliance with Security Policies and Standards", title: "Compliance with Security Policies and Standards", iso_2005: "15.2.1" }
-  - { code: "06.h", category: "06", objective: "06.02 Compliance with Security Policies and Standards", title: "Technical Compliance Checking", iso_2005: "15.2.2" }
-  - { code: "06.i", category: "06", objective: "06.03 Information Systems Audit Considerations", title: "Information Systems Audit Controls", iso_2005: "15.3.1" }
-  - { code: "06.j", category: "06", objective: "06.03 Information Systems Audit Considerations", title: "Protection of Information Systems Audit Tools", iso_2005: "15.3.2" }
-
-  # --- 07 Asset Management (ISO 27002:2005 cl. 7) --------------------------
-  - { code: "07.a", category: "07", objective: "07.01 Responsibility for Assets", title: "Inventory of Assets", iso_2005: "7.1.1" }
-  - { code: "07.b", category: "07", objective: "07.01 Responsibility for Assets", title: "Ownership of Assets", iso_2005: "7.1.2" }
-  - { code: "07.c", category: "07", objective: "07.01 Responsibility for Assets", title: "Acceptable Use of Assets", iso_2005: "7.1.3" }
-  - { code: "07.d", category: "07", objective: "07.02 Information Classification", title: "Classification Guidelines", iso_2005: "7.2.1" }
-  - { code: "07.e", category: "07", objective: "07.02 Information Classification", title: "Information Labeling and Handling", iso_2005: "7.2.2" }
-
-  # --- 08 Physical and Environmental Security (ISO 27002:2005 cl. 9) -------
-  - { code: "08.a", category: "08", objective: "08.01 Secure Areas", title: "Physical Security Perimeter", iso_2005: "9.1.1" }
-  - { code: "08.b", category: "08", objective: "08.01 Secure Areas", title: "Physical Entry Controls", iso_2005: "9.1.2" }
-  - { code: "08.c", category: "08", objective: "08.01 Secure Areas", title: "Securing Offices, Rooms, and Facilities", iso_2005: "9.1.3" }
-  - { code: "08.d", category: "08", objective: "08.01 Secure Areas", title: "Protecting Against External and Environmental Threats", iso_2005: "9.1.4" }
-  - { code: "08.e", category: "08", objective: "08.01 Secure Areas", title: "Working in Secure Areas", iso_2005: "9.1.5" }
-  - { code: "08.f", category: "08", objective: "08.01 Secure Areas", title: "Public Access, Delivery, and Loading Areas", iso_2005: "9.1.6" }
-  - { code: "08.g", category: "08", objective: "08.02 Equipment Security", title: "Equipment Siting and Protection", iso_2005: "9.2.1" }
-  - { code: "08.h", category: "08", objective: "08.02 Equipment Security", title: "Supporting Utilities", iso_2005: "9.2.2" }
-  - { code: "08.i", category: "08", objective: "08.02 Equipment Security", title: "Cabling Security", iso_2005: "9.2.3" }
-  - { code: "08.j", category: "08", objective: "08.02 Equipment Security", title: "Equipment Maintenance", iso_2005: "9.2.4" }
-  - { code: "08.k", category: "08", objective: "08.02 Equipment Security", title: "Security of Equipment Off-Premises", iso_2005: "9.2.5" }
-  - { code: "08.l", category: "08", objective: "08.02 Equipment Security", title: "Secure Disposal or Re-Use of Equipment", iso_2005: "9.2.6" }
-  - { code: "08.m", category: "08", objective: "08.02 Equipment Security", title: "Removal of Property", iso_2005: "9.2.7" }
-
-  # --- 09 Communications and Operations Management (ISO 27002:2005 cl. 10) -
-  - { code: "09.a",  category: "09", objective: "09.01 Documented Operating Procedures and Responsibilities", title: "Documented Operating Procedures", iso_2005: "10.1.1" }
-  - { code: "09.b",  category: "09", objective: "09.01 Documented Operating Procedures and Responsibilities", title: "Change Management", iso_2005: "10.1.2" }
-  - { code: "09.c",  category: "09", objective: "09.01 Documented Operating Procedures and Responsibilities", title: "Segregation of Duties", iso_2005: "10.1.3" }
-  - { code: "09.d",  category: "09", objective: "09.01 Documented Operating Procedures and Responsibilities", title: "Separation of Development, Test, and Operational Environments", iso_2005: "10.1.4" }
-  - { code: "09.e",  category: "09", objective: "09.02 Third Party Service Delivery Management", title: "Service Delivery", iso_2005: "10.2.1" }
-  - { code: "09.f",  category: "09", objective: "09.02 Third Party Service Delivery Management", title: "Monitoring and Review of Third Party Services", iso_2005: "10.2.2" }
-  - { code: "09.g",  category: "09", objective: "09.02 Third Party Service Delivery Management", title: "Managing Changes to Third Party Services", iso_2005: "10.2.3" }
-  - { code: "09.h",  category: "09", objective: "09.03 System Planning and Acceptance", title: "Capacity Management", iso_2005: "10.3.1" }
-  - { code: "09.i",  category: "09", objective: "09.03 System Planning and Acceptance", title: "System Acceptance", iso_2005: "10.3.2" }
-  - { code: "09.j",  category: "09", objective: "09.04 Protection Against Malicious and Mobile Code", title: "Controls Against Malicious Code", iso_2005: "10.4.1" }
-  - { code: "09.k",  category: "09", objective: "09.04 Protection Against Malicious and Mobile Code", title: "Controls Against Mobile Code", iso_2005: "10.4.2" }
-  - { code: "09.l",  category: "09", objective: "09.05 Information Back-Up", title: "Information Back-Up", iso_2005: "10.5.1" }
-  - { code: "09.m",  category: "09", objective: "09.06 Network Security Management", title: "Network Controls", iso_2005: "10.6.1" }
-  - { code: "09.n",  category: "09", objective: "09.06 Network Security Management", title: "Security of Network Services", iso_2005: "10.6.2" }
-  - { code: "09.o",  category: "09", objective: "09.07 Media Handling", title: "Management of Removable Media", iso_2005: "10.7.1" }
-  - { code: "09.p",  category: "09", objective: "09.07 Media Handling", title: "Disposal of Media", iso_2005: "10.7.2" }
-  - { code: "09.q",  category: "09", objective: "09.07 Media Handling", title: "Information Handling Procedures", iso_2005: "10.7.3" }
-  - { code: "09.r",  category: "09", objective: "09.07 Media Handling", title: "Security of System Documentation", iso_2005: "10.7.4" }
-  - { code: "09.s",  category: "09", objective: "09.08 Exchange of Information", title: "Information Exchange Policies and Procedures", iso_2005: "10.8.1" }
-  - { code: "09.t",  category: "09", objective: "09.08 Exchange of Information", title: "Exchange Agreements", iso_2005: "10.8.2" }
-  - { code: "09.u",  category: "09", objective: "09.08 Exchange of Information", title: "Physical Media in Transit", iso_2005: "10.8.3" }
-  - { code: "09.v",  category: "09", objective: "09.08 Exchange of Information", title: "Electronic Messaging", iso_2005: "10.8.4" }
-  - { code: "09.w",  category: "09", objective: "09.08 Exchange of Information", title: "Interconnected Business Information Systems", iso_2005: "10.8.5" }
-  - { code: "09.x",  category: "09", objective: "09.09 Electronic Commerce Services", title: "Electronic Commerce Services", iso_2005: "10.9.1" }
-  - { code: "09.y",  category: "09", objective: "09.09 Electronic Commerce Services", title: "On-line Transactions", iso_2005: "10.9.2" }
-  - { code: "09.z",  category: "09", objective: "09.09 Electronic Commerce Services", title: "Publicly Available Information", iso_2005: "10.9.3" }
-  - { code: "09.aa", category: "09", objective: "09.10 Monitoring", title: "Audit Logging", iso_2005: "10.10.1" }
-  - { code: "09.ab", category: "09", objective: "09.10 Monitoring", title: "Monitoring System Use", iso_2005: "10.10.2" }
-  - { code: "09.ac", category: "09", objective: "09.10 Monitoring", title: "Protection of Log Information", iso_2005: "10.10.3" }
-  - { code: "09.ad", category: "09", objective: "09.10 Monitoring", title: "Administrator and Operator Logs", iso_2005: "10.10.4" }
-  - { code: "09.ae", category: "09", objective: "09.10 Monitoring", title: "Fault Logging", iso_2005: "10.10.5" }
-  - { code: "09.af", category: "09", objective: "09.10 Monitoring", title: "Clock Synchronization", iso_2005: "10.10.6" }
-
-  # --- 10 Info Systems Acquisition, Development, Maintenance (ISO cl. 12) ---
-  - { code: "10.a", category: "10", objective: "10.01 Security Requirements of Information Systems", title: "Security Requirements Analysis and Specification", iso_2005: "12.1.1" }
-  - { code: "10.b", category: "10", objective: "10.02 Correct Processing in Applications", title: "Input Data Validation", iso_2005: "12.2.1" }
-  - { code: "10.c", category: "10", objective: "10.02 Correct Processing in Applications", title: "Control of Internal Processing", iso_2005: "12.2.2" }
-  - { code: "10.d", category: "10", objective: "10.02 Correct Processing in Applications", title: "Message Integrity", iso_2005: "12.2.3" }
-  - { code: "10.e", category: "10", objective: "10.02 Correct Processing in Applications", title: "Output Data Validation", iso_2005: "12.2.4" }
-  - { code: "10.f", category: "10", objective: "10.03 Cryptographic Controls", title: "Policy on the Use of Cryptographic Controls", iso_2005: "12.3.1" }
-  - { code: "10.g", category: "10", objective: "10.03 Cryptographic Controls", title: "Key Management", iso_2005: "12.3.2" }
-  - { code: "10.h", category: "10", objective: "10.04 Security of System Files", title: "Control of Operational Software", iso_2005: "12.4.1" }
-  - { code: "10.i", category: "10", objective: "10.04 Security of System Files", title: "Protection of System Test Data", iso_2005: "12.4.2" }
-  - { code: "10.j", category: "10", objective: "10.04 Security of System Files", title: "Access Control to Program Source Code", iso_2005: "12.4.3" }
-  - { code: "10.k", category: "10", objective: "10.05 Security in Development and Support Processes", title: "Change Control Procedures", iso_2005: "12.5.1" }
-  - { code: "10.l", category: "10", objective: "10.05 Security in Development and Support Processes", title: "Technical Review of Applications After Operating System Changes", iso_2005: "12.5.2" }
-  - { code: "10.m", category: "10", objective: "10.05 Security in Development and Support Processes", title: "Restrictions on Changes to Software Packages", iso_2005: "12.5.3" }
-  - { code: "10.n", category: "10", objective: "10.05 Security in Development and Support Processes", title: "Information Leakage", iso_2005: "12.5.4" }
-  - { code: "10.o", category: "10", objective: "10.05 Security in Development and Support Processes", title: "Outsourced Software Development", iso_2005: "12.5.5" }
-  - { code: "10.p", category: "10", objective: "10.06 Technical Vulnerability Management", title: "Control of Technical Vulnerabilities", iso_2005: "12.6.1" }
-
-  # --- 11 Information Security Incident Management (ISO 27002:2005 cl. 13) --
-  - { code: "11.a", category: "11", objective: "11.01 Reporting Information Security Events and Weaknesses", title: "Reporting Information Security Events", iso_2005: "13.1.1" }
-  - { code: "11.b", category: "11", objective: "11.01 Reporting Information Security Events and Weaknesses", title: "Reporting Security Weaknesses", iso_2005: "13.1.2" }
-  - { code: "11.c", category: "11", objective: "11.02 Management of Information Security Incidents and Improvements", title: "Responsibilities and Procedures", iso_2005: "13.2.1" }
-  - { code: "11.d", category: "11", objective: "11.02 Management of Information Security Incidents and Improvements", title: "Learning from Information Security Incidents", iso_2005: "13.2.2" }
-  - { code: "11.e", category: "11", objective: "11.02 Management of Information Security Incidents and Improvements", title: "Collection of Evidence", iso_2005: "13.2.3" }
-
-  # --- 12 Business Continuity Management (ISO 27002:2005 cl. 14) ------------
-  - { code: "12.a", category: "12", objective: "12.01 Information Security Aspects of Business Continuity Management", title: "Including Information Security in the Business Continuity Process", iso_2005: "14.1.1" }
-  - { code: "12.b", category: "12", objective: "12.01 Information Security Aspects of Business Continuity Management", title: "Business Continuity and Risk Assessment", iso_2005: "14.1.2" }
-  - { code: "12.c", category: "12", objective: "12.01 Information Security Aspects of Business Continuity Management", title: "Developing and Implementing Continuity Plans", iso_2005: "14.1.3" }
-  - { code: "12.d", category: "12", objective: "12.01 Information Security Aspects of Business Continuity Management", title: "Business Continuity Planning Framework", iso_2005: "14.1.4" }
-  - { code: "12.e", category: "12", objective: "12.01 Information Security Aspects of Business Continuity Management", title: "Testing, Maintaining, and Re-Assessing Continuity Plans", iso_2005: "14.1.5" }
-
-  # --- 13 Privacy Practices (HITRUST-specific; BEST-EFFORT, reconcile w/ MyCSF)
-  - { code: "13.a", category: "13", objective: "13.01 Openness, Transparency, and Notice", title: "Privacy Notice" }
-  - { code: "13.b", category: "13", objective: "13.01 Openness, Transparency, and Notice", title: "Openness and Transparency" }
-  - { code: "13.c", category: "13", objective: "13.02 Accountability and Privacy Risk Management", title: "Accountability for Privacy" }
-  - { code: "13.d", category: "13", objective: "13.02 Accountability and Privacy Risk Management", title: "Privacy Risk Management and Assessment" }
-  - { code: "13.e", category: "13", objective: "13.03 Choice and Consent", title: "Choice and Consent" }
-  - { code: "13.f", category: "13", objective: "13.03 Choice and Consent", title: "Purpose Specification" }
-  - { code: "13.g", category: "13", objective: "13.04 Collection and Minimization", title: "Collection Limitation and Data Minimization" }
-  - { code: "13.h", category: "13", objective: "13.04 Collection and Minimization", title: "Direct Collection from the Individual" }
-  - { code: "13.i", category: "13", objective: "13.05 Use and Disclosure", title: "Use and Disclosure Limitation" }
-  - { code: "13.j", category: "13", objective: "13.05 Use and Disclosure", title: "Authorization for Use and Disclosure" }
-  - { code: "13.k", category: "13", objective: "13.05 Use and Disclosure", title: "Accounting of Disclosures" }
-  - { code: "13.l", category: "13", objective: "13.06 Data Quality and Integrity", title: "Data Quality and Integrity" }
-  - { code: "13.m", category: "13", objective: "13.07 Individual Participation", title: "Individual Access to Personal Information" }
-  - { code: "13.n", category: "13", objective: "13.07 Individual Participation", title: "Correction and Amendment of Personal Information" }
-  - { code: "13.o", category: "13", objective: "13.08 Retention, Disposal, and Enforcement", title: "Retention and Disposal of Personal Information" }
-  - { code: "13.p", category: "13", objective: "13.08 Retention, Disposal, and Enforcement", title: "Privacy Monitoring and Enforcement" }
-  - { code: "13.q", category: "13", objective: "13.08 Retention, Disposal, and Enforcement", title: "Complaint and Dispute Resolution" }
-  - { code: "13.r", category: "13", objective: "13.08 Retention, Disposal, and Enforcement", title: "De-identification and Anonymization" }
+  - { code: "AC-1", category: "AC", objective: "AC-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "AC-2", category: "AC", objective: "AC-2", title: "Account Management", baselines: [low, moderate, high] }
+  - { code: "AC-2(1)", category: "AC", objective: "AC-2", title: "Automated System Account Management", baselines: [moderate, high] }
+  - { code: "AC-2(2)", category: "AC", objective: "AC-2", title: "Automated Temporary and Emergency Account Management", baselines: [moderate, high] }
+  - { code: "AC-2(3)", category: "AC", objective: "AC-2", title: "Disable Accounts", baselines: [moderate, high] }
+  - { code: "AC-2(4)", category: "AC", objective: "AC-2", title: "Automated Audit Actions", baselines: [moderate, high] }
+  - { code: "AC-2(5)", category: "AC", objective: "AC-2", title: "Inactivity Logout", baselines: [moderate, high] }
+  - { code: "AC-2(6)", category: "AC", objective: "AC-2", title: "Dynamic Privilege Management", baselines: [] }
+  - { code: "AC-2(7)", category: "AC", objective: "AC-2", title: "Privileged User Accounts", baselines: [] }
+  - { code: "AC-2(8)", category: "AC", objective: "AC-2", title: "Dynamic Account Management", baselines: [] }
+  - { code: "AC-2(9)", category: "AC", objective: "AC-2", title: "Restrictions on Use of Shared and Group Accounts", baselines: [] }
+  - { code: "AC-2(10)", category: "AC", objective: "AC-2", title: "Shared and Group Account Credential Change", baselines: [] }
+  - { code: "AC-2(11)", category: "AC", objective: "AC-2", title: "Usage Conditions", baselines: [high] }
+  - { code: "AC-2(12)", category: "AC", objective: "AC-2", title: "Account Monitoring for Atypical Usage", baselines: [high] }
+  - { code: "AC-2(13)", category: "AC", objective: "AC-2", title: "Disable Accounts for High-risk Individuals", baselines: [moderate, high] }
+  - { code: "AC-3", category: "AC", objective: "AC-3", title: "Access Enforcement", baselines: [low, moderate, high] }
+  - { code: "AC-3(1)", category: "AC", objective: "AC-3", title: "Restricted Access to Privileged Functions", baselines: [] }
+  - { code: "AC-3(2)", category: "AC", objective: "AC-3", title: "Dual Authorization", baselines: [] }
+  - { code: "AC-3(3)", category: "AC", objective: "AC-3", title: "Mandatory Access Control", baselines: [] }
+  - { code: "AC-3(4)", category: "AC", objective: "AC-3", title: "Discretionary Access Control", baselines: [] }
+  - { code: "AC-3(5)", category: "AC", objective: "AC-3", title: "Security-relevant Information", baselines: [] }
+  - { code: "AC-3(6)", category: "AC", objective: "AC-3", title: "Protection of User and System Information", baselines: [] }
+  - { code: "AC-3(7)", category: "AC", objective: "AC-3", title: "Role-based Access Control", baselines: [] }
+  - { code: "AC-3(8)", category: "AC", objective: "AC-3", title: "Revocation of Access Authorizations", baselines: [] }
+  - { code: "AC-3(9)", category: "AC", objective: "AC-3", title: "Controlled Release", baselines: [] }
+  - { code: "AC-3(10)", category: "AC", objective: "AC-3", title: "Audited Override of Access Control Mechanisms", baselines: [] }
+  - { code: "AC-3(11)", category: "AC", objective: "AC-3", title: "Restrict Access to Specific Information Types", baselines: [] }
+  - { code: "AC-3(12)", category: "AC", objective: "AC-3", title: "Assert and Enforce Application Access", baselines: [] }
+  - { code: "AC-3(13)", category: "AC", objective: "AC-3", title: "Attribute-based Access Control", baselines: [] }
+  - { code: "AC-3(14)", category: "AC", objective: "AC-3", title: "Individual Access", baselines: [] }
+  - { code: "AC-3(15)", category: "AC", objective: "AC-3", title: "Discretionary and Mandatory Access Control", baselines: [] }
+  - { code: "AC-4", category: "AC", objective: "AC-4", title: "Information Flow Enforcement", baselines: [moderate, high] }
+  - { code: "AC-4(1)", category: "AC", objective: "AC-4", title: "Object Security and Privacy Attributes", baselines: [] }
+  - { code: "AC-4(2)", category: "AC", objective: "AC-4", title: "Processing Domains", baselines: [] }
+  - { code: "AC-4(3)", category: "AC", objective: "AC-4", title: "Dynamic Information Flow Control", baselines: [] }
+  - { code: "AC-4(4)", category: "AC", objective: "AC-4", title: "Flow Control of Encrypted Information", baselines: [high] }
+  - { code: "AC-4(5)", category: "AC", objective: "AC-4", title: "Embedded Data Types", baselines: [] }
+  - { code: "AC-4(6)", category: "AC", objective: "AC-4", title: "Metadata", baselines: [] }
+  - { code: "AC-4(7)", category: "AC", objective: "AC-4", title: "One-way Flow Mechanisms", baselines: [] }
+  - { code: "AC-4(8)", category: "AC", objective: "AC-4", title: "Security and Privacy Policy Filters", baselines: [] }
+  - { code: "AC-4(9)", category: "AC", objective: "AC-4", title: "Human Reviews", baselines: [] }
+  - { code: "AC-4(10)", category: "AC", objective: "AC-4", title: "Enable and Disable Security or Privacy Policy Filters", baselines: [] }
+  - { code: "AC-4(11)", category: "AC", objective: "AC-4", title: "Configuration of Security or Privacy Policy Filters", baselines: [] }
+  - { code: "AC-4(12)", category: "AC", objective: "AC-4", title: "Data Type Identifiers", baselines: [] }
+  - { code: "AC-4(13)", category: "AC", objective: "AC-4", title: "Decomposition into Policy-relevant Subcomponents", baselines: [] }
+  - { code: "AC-4(14)", category: "AC", objective: "AC-4", title: "Security or Privacy Policy Filter Constraints", baselines: [] }
+  - { code: "AC-4(15)", category: "AC", objective: "AC-4", title: "Detection of Unsanctioned Information", baselines: [] }
+  - { code: "AC-4(16)", category: "AC", objective: "AC-4", title: "Information Transfers on Interconnected Systems", baselines: [] }
+  - { code: "AC-4(17)", category: "AC", objective: "AC-4", title: "Domain Authentication", baselines: [] }
+  - { code: "AC-4(18)", category: "AC", objective: "AC-4", title: "Security Attribute Binding", baselines: [] }
+  - { code: "AC-4(19)", category: "AC", objective: "AC-4", title: "Validation of Metadata", baselines: [] }
+  - { code: "AC-4(20)", category: "AC", objective: "AC-4", title: "Approved Solutions", baselines: [] }
+  - { code: "AC-4(21)", category: "AC", objective: "AC-4", title: "Physical or Logical Separation of Information Flows", baselines: [] }
+  - { code: "AC-4(22)", category: "AC", objective: "AC-4", title: "Access Only", baselines: [] }
+  - { code: "AC-4(23)", category: "AC", objective: "AC-4", title: "Modify Non-releasable Information", baselines: [] }
+  - { code: "AC-4(24)", category: "AC", objective: "AC-4", title: "Internal Normalized Format", baselines: [] }
+  - { code: "AC-4(25)", category: "AC", objective: "AC-4", title: "Data Sanitization", baselines: [] }
+  - { code: "AC-4(26)", category: "AC", objective: "AC-4", title: "Audit Filtering Actions", baselines: [] }
+  - { code: "AC-4(27)", category: "AC", objective: "AC-4", title: "Redundant/Independent Filtering Mechanisms", baselines: [] }
+  - { code: "AC-4(28)", category: "AC", objective: "AC-4", title: "Linear Filter Pipelines", baselines: [] }
+  - { code: "AC-4(29)", category: "AC", objective: "AC-4", title: "Filter Orchestration Engines", baselines: [] }
+  - { code: "AC-4(30)", category: "AC", objective: "AC-4", title: "Filter Mechanisms Using Multiple Processes", baselines: [] }
+  - { code: "AC-4(31)", category: "AC", objective: "AC-4", title: "Failed Content Transfer Prevention", baselines: [] }
+  - { code: "AC-4(32)", category: "AC", objective: "AC-4", title: "Process Requirements for Information Transfer", baselines: [] }
+  - { code: "AC-5", category: "AC", objective: "AC-5", title: "Separation of Duties", baselines: [moderate, high] }
+  - { code: "AC-6", category: "AC", objective: "AC-6", title: "Least Privilege", baselines: [moderate, high] }
+  - { code: "AC-6(1)", category: "AC", objective: "AC-6", title: "Authorize Access to Security Functions", baselines: [moderate, high] }
+  - { code: "AC-6(2)", category: "AC", objective: "AC-6", title: "Non-privileged Access for Nonsecurity Functions", baselines: [moderate, high] }
+  - { code: "AC-6(3)", category: "AC", objective: "AC-6", title: "Network Access to Privileged Commands", baselines: [high] }
+  - { code: "AC-6(4)", category: "AC", objective: "AC-6", title: "Separate Processing Domains", baselines: [] }
+  - { code: "AC-6(5)", category: "AC", objective: "AC-6", title: "Privileged Accounts", baselines: [moderate, high] }
+  - { code: "AC-6(6)", category: "AC", objective: "AC-6", title: "Privileged Access by Non-organizational Users", baselines: [] }
+  - { code: "AC-6(7)", category: "AC", objective: "AC-6", title: "Review of User Privileges", baselines: [moderate, high] }
+  - { code: "AC-6(8)", category: "AC", objective: "AC-6", title: "Privilege Levels for Code Execution", baselines: [] }
+  - { code: "AC-6(9)", category: "AC", objective: "AC-6", title: "Log Use of Privileged Functions", baselines: [moderate, high] }
+  - { code: "AC-6(10)", category: "AC", objective: "AC-6", title: "Prohibit Non-privileged Users from Executing Privileged Functions", baselines: [moderate, high] }
+  - { code: "AC-7", category: "AC", objective: "AC-7", title: "Unsuccessful Logon Attempts", baselines: [low, moderate, high] }
+  - { code: "AC-7(1)", category: "AC", objective: "AC-7", title: "Automatic Account Lock", baselines: [] }
+  - { code: "AC-7(2)", category: "AC", objective: "AC-7", title: "Purge or Wipe Mobile Device", baselines: [] }
+  - { code: "AC-7(3)", category: "AC", objective: "AC-7", title: "Biometric Attempt Limiting", baselines: [] }
+  - { code: "AC-7(4)", category: "AC", objective: "AC-7", title: "Use of Alternate Authentication Factor", baselines: [] }
+  - { code: "AC-8", category: "AC", objective: "AC-8", title: "System Use Notification", baselines: [low, moderate, high] }
+  - { code: "AC-9", category: "AC", objective: "AC-9", title: "Previous Logon Notification", baselines: [] }
+  - { code: "AC-9(1)", category: "AC", objective: "AC-9", title: "Unsuccessful Logons", baselines: [] }
+  - { code: "AC-9(2)", category: "AC", objective: "AC-9", title: "Successful and Unsuccessful Logons", baselines: [] }
+  - { code: "AC-9(3)", category: "AC", objective: "AC-9", title: "Notification of Account Changes", baselines: [] }
+  - { code: "AC-9(4)", category: "AC", objective: "AC-9", title: "Additional Logon Information", baselines: [] }
+  - { code: "AC-10", category: "AC", objective: "AC-10", title: "Concurrent Session Control", baselines: [high] }
+  - { code: "AC-11", category: "AC", objective: "AC-11", title: "Device Lock", baselines: [moderate, high] }
+  - { code: "AC-11(1)", category: "AC", objective: "AC-11", title: "Pattern-hiding Displays", baselines: [moderate, high] }
+  - { code: "AC-12", category: "AC", objective: "AC-12", title: "Session Termination", baselines: [moderate, high] }
+  - { code: "AC-12(1)", category: "AC", objective: "AC-12", title: "User-initiated Logouts", baselines: [] }
+  - { code: "AC-12(2)", category: "AC", objective: "AC-12", title: "Termination Message", baselines: [] }
+  - { code: "AC-12(3)", category: "AC", objective: "AC-12", title: "Timeout Warning Message", baselines: [] }
+  - { code: "AC-13", category: "AC", objective: "AC-13", title: "Supervision and Review — Access Control", baselines: [] }
+  - { code: "AC-14", category: "AC", objective: "AC-14", title: "Permitted Actions Without Identification or Authentication", baselines: [low, moderate, high] }
+  - { code: "AC-14(1)", category: "AC", objective: "AC-14", title: "Necessary Uses", baselines: [] }
+  - { code: "AC-15", category: "AC", objective: "AC-15", title: "Automated Marking", baselines: [] }
+  - { code: "AC-16", category: "AC", objective: "AC-16", title: "Security and Privacy Attributes", baselines: [] }
+  - { code: "AC-16(1)", category: "AC", objective: "AC-16", title: "Dynamic Attribute Association", baselines: [] }
+  - { code: "AC-16(2)", category: "AC", objective: "AC-16", title: "Attribute Value Changes by Authorized Individuals", baselines: [] }
+  - { code: "AC-16(3)", category: "AC", objective: "AC-16", title: "Maintenance of Attribute Associations by System", baselines: [] }
+  - { code: "AC-16(4)", category: "AC", objective: "AC-16", title: "Association of Attributes by Authorized Individuals", baselines: [] }
+  - { code: "AC-16(5)", category: "AC", objective: "AC-16", title: "Attribute Displays on Objects to Be Output", baselines: [] }
+  - { code: "AC-16(6)", category: "AC", objective: "AC-16", title: "Maintenance of Attribute Association", baselines: [] }
+  - { code: "AC-16(7)", category: "AC", objective: "AC-16", title: "Consistent Attribute Interpretation", baselines: [] }
+  - { code: "AC-16(8)", category: "AC", objective: "AC-16", title: "Association Techniques and Technologies", baselines: [] }
+  - { code: "AC-16(9)", category: "AC", objective: "AC-16", title: "Attribute Reassignment — Regrading Mechanisms", baselines: [] }
+  - { code: "AC-16(10)", category: "AC", objective: "AC-16", title: "Attribute Configuration by Authorized Individuals", baselines: [] }
+  - { code: "AC-17", category: "AC", objective: "AC-17", title: "Remote Access", baselines: [low, moderate, high] }
+  - { code: "AC-17(1)", category: "AC", objective: "AC-17", title: "Monitoring and Control", baselines: [moderate, high] }
+  - { code: "AC-17(2)", category: "AC", objective: "AC-17", title: "Protection of Confidentiality and Integrity Using Encryption", baselines: [moderate, high] }
+  - { code: "AC-17(3)", category: "AC", objective: "AC-17", title: "Managed Access Control Points", baselines: [moderate, high] }
+  - { code: "AC-17(4)", category: "AC", objective: "AC-17", title: "Privileged Commands and Access", baselines: [moderate, high] }
+  - { code: "AC-17(5)", category: "AC", objective: "AC-17", title: "Monitoring for Unauthorized Connections", baselines: [] }
+  - { code: "AC-17(6)", category: "AC", objective: "AC-17", title: "Protection of Mechanism Information", baselines: [] }
+  - { code: "AC-17(7)", category: "AC", objective: "AC-17", title: "Additional Protection for Security Function Access", baselines: [] }
+  - { code: "AC-17(8)", category: "AC", objective: "AC-17", title: "Disable Nonsecure Network Protocols", baselines: [] }
+  - { code: "AC-17(9)", category: "AC", objective: "AC-17", title: "Disconnect or Disable Access", baselines: [] }
+  - { code: "AC-17(10)", category: "AC", objective: "AC-17", title: "Authenticate Remote Commands", baselines: [] }
+  - { code: "AC-18", category: "AC", objective: "AC-18", title: "Wireless Access", baselines: [low, moderate, high] }
+  - { code: "AC-18(1)", category: "AC", objective: "AC-18", title: "Authentication and Encryption", baselines: [moderate, high] }
+  - { code: "AC-18(2)", category: "AC", objective: "AC-18", title: "Monitoring Unauthorized Connections", baselines: [] }
+  - { code: "AC-18(3)", category: "AC", objective: "AC-18", title: "Disable Wireless Networking", baselines: [moderate, high] }
+  - { code: "AC-18(4)", category: "AC", objective: "AC-18", title: "Restrict Configurations by Users", baselines: [high] }
+  - { code: "AC-18(5)", category: "AC", objective: "AC-18", title: "Antennas and Transmission Power Levels", baselines: [high] }
+  - { code: "AC-19", category: "AC", objective: "AC-19", title: "Access Control for Mobile Devices", baselines: [low, moderate, high] }
+  - { code: "AC-19(1)", category: "AC", objective: "AC-19", title: "Use of Writable and Portable Storage Devices", baselines: [] }
+  - { code: "AC-19(2)", category: "AC", objective: "AC-19", title: "Use of Personally Owned Portable Storage Devices", baselines: [] }
+  - { code: "AC-19(3)", category: "AC", objective: "AC-19", title: "Use of Portable Storage Devices with No Identifiable Owner", baselines: [] }
+  - { code: "AC-19(4)", category: "AC", objective: "AC-19", title: "Restrictions for Classified Information", baselines: [] }
+  - { code: "AC-19(5)", category: "AC", objective: "AC-19", title: "Full Device or Container-based Encryption", baselines: [moderate, high] }
+  - { code: "AC-20", category: "AC", objective: "AC-20", title: "Use of External Systems", baselines: [low, moderate, high] }
+  - { code: "AC-20(1)", category: "AC", objective: "AC-20", title: "Limits on Authorized Use", baselines: [moderate, high] }
+  - { code: "AC-20(2)", category: "AC", objective: "AC-20", title: "Portable Storage Devices — Restricted Use", baselines: [moderate, high] }
+  - { code: "AC-20(3)", category: "AC", objective: "AC-20", title: "Non-organizationally Owned Systems — Restricted Use", baselines: [] }
+  - { code: "AC-20(4)", category: "AC", objective: "AC-20", title: "Network Accessible Storage Devices — Prohibited Use", baselines: [] }
+  - { code: "AC-20(5)", category: "AC", objective: "AC-20", title: "Portable Storage Devices — Prohibited Use", baselines: [] }
+  - { code: "AC-21", category: "AC", objective: "AC-21", title: "Information Sharing", baselines: [moderate, high] }
+  - { code: "AC-21(1)", category: "AC", objective: "AC-21", title: "Automated Decision Support", baselines: [] }
+  - { code: "AC-21(2)", category: "AC", objective: "AC-21", title: "Information Search and Retrieval", baselines: [] }
+  - { code: "AC-22", category: "AC", objective: "AC-22", title: "Publicly Accessible Content", baselines: [low, moderate, high] }
+  - { code: "AC-23", category: "AC", objective: "AC-23", title: "Data Mining Protection", baselines: [] }
+  - { code: "AC-24", category: "AC", objective: "AC-24", title: "Access Control Decisions", baselines: [] }
+  - { code: "AC-24(1)", category: "AC", objective: "AC-24", title: "Transmit Access Authorization Information", baselines: [] }
+  - { code: "AC-24(2)", category: "AC", objective: "AC-24", title: "No User or Process Identity", baselines: [] }
+  - { code: "AC-25", category: "AC", objective: "AC-25", title: "Reference Monitor", baselines: [] }
+  - { code: "AT-1", category: "AT", objective: "AT-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "AT-2", category: "AT", objective: "AT-2", title: "Literacy Training and Awareness", baselines: [low, moderate, high] }
+  - { code: "AT-2(1)", category: "AT", objective: "AT-2", title: "Practical Exercises", baselines: [] }
+  - { code: "AT-2(2)", category: "AT", objective: "AT-2", title: "Insider Threat", baselines: [low, moderate, high] }
+  - { code: "AT-2(3)", category: "AT", objective: "AT-2", title: "Social Engineering and Mining", baselines: [moderate, high] }
+  - { code: "AT-2(4)", category: "AT", objective: "AT-2", title: "Suspicious Communications and Anomalous System Behavior", baselines: [] }
+  - { code: "AT-2(5)", category: "AT", objective: "AT-2", title: "Advanced Persistent Threat", baselines: [] }
+  - { code: "AT-2(6)", category: "AT", objective: "AT-2", title: "Cyber Threat Environment", baselines: [] }
+  - { code: "AT-3", category: "AT", objective: "AT-3", title: "Role-based Training", baselines: [low, moderate, high] }
+  - { code: "AT-3(1)", category: "AT", objective: "AT-3", title: "Environmental Controls", baselines: [] }
+  - { code: "AT-3(2)", category: "AT", objective: "AT-3", title: "Physical Security Controls", baselines: [] }
+  - { code: "AT-3(3)", category: "AT", objective: "AT-3", title: "Practical Exercises", baselines: [] }
+  - { code: "AT-3(4)", category: "AT", objective: "AT-3", title: "Suspicious Communications and Anomalous System Behavior", baselines: [] }
+  - { code: "AT-3(5)", category: "AT", objective: "AT-3", title: "Processing Personally Identifiable Information", baselines: [] }
+  - { code: "AT-4", category: "AT", objective: "AT-4", title: "Training Records", baselines: [low, moderate, high] }
+  - { code: "AT-5", category: "AT", objective: "AT-5", title: "Contacts with Security Groups and Associations", baselines: [] }
+  - { code: "AT-6", category: "AT", objective: "AT-6", title: "Training Feedback", baselines: [] }
+  - { code: "AU-1", category: "AU", objective: "AU-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "AU-2", category: "AU", objective: "AU-2", title: "Event Logging", baselines: [low, moderate, high] }
+  - { code: "AU-2(1)", category: "AU", objective: "AU-2", title: "Compilation of Audit Records from Multiple Sources", baselines: [] }
+  - { code: "AU-2(2)", category: "AU", objective: "AU-2", title: "Selection of Audit Events by Component", baselines: [] }
+  - { code: "AU-2(3)", category: "AU", objective: "AU-2", title: "Reviews and Updates", baselines: [] }
+  - { code: "AU-2(4)", category: "AU", objective: "AU-2", title: "Privileged Functions", baselines: [] }
+  - { code: "AU-3", category: "AU", objective: "AU-3", title: "Content of Audit Records", baselines: [low, moderate, high] }
+  - { code: "AU-3(1)", category: "AU", objective: "AU-3", title: "Additional Audit Information", baselines: [moderate, high] }
+  - { code: "AU-3(2)", category: "AU", objective: "AU-3", title: "Centralized Management of Planned Audit Record Content", baselines: [] }
+  - { code: "AU-3(3)", category: "AU", objective: "AU-3", title: "Limit Personally Identifiable Information Elements", baselines: [] }
+  - { code: "AU-4", category: "AU", objective: "AU-4", title: "Audit Log Storage Capacity", baselines: [low, moderate, high] }
+  - { code: "AU-4(1)", category: "AU", objective: "AU-4", title: "Transfer to Alternate Storage", baselines: [] }
+  - { code: "AU-5", category: "AU", objective: "AU-5", title: "Response to Audit Logging Process Failures", baselines: [low, moderate, high] }
+  - { code: "AU-5(1)", category: "AU", objective: "AU-5", title: "Storage Capacity Warning", baselines: [high] }
+  - { code: "AU-5(2)", category: "AU", objective: "AU-5", title: "Real-time Alerts", baselines: [high] }
+  - { code: "AU-5(3)", category: "AU", objective: "AU-5", title: "Configurable Traffic Volume Thresholds", baselines: [] }
+  - { code: "AU-5(4)", category: "AU", objective: "AU-5", title: "Shutdown on Failure", baselines: [] }
+  - { code: "AU-5(5)", category: "AU", objective: "AU-5", title: "Alternate Audit Logging Capability", baselines: [] }
+  - { code: "AU-6", category: "AU", objective: "AU-6", title: "Audit Record Review, Analysis, and Reporting", baselines: [low, moderate, high] }
+  - { code: "AU-6(1)", category: "AU", objective: "AU-6", title: "Automated Process Integration", baselines: [moderate, high] }
+  - { code: "AU-6(2)", category: "AU", objective: "AU-6", title: "Automated Security Alerts", baselines: [] }
+  - { code: "AU-6(3)", category: "AU", objective: "AU-6", title: "Correlate Audit Record Repositories", baselines: [moderate, high] }
+  - { code: "AU-6(4)", category: "AU", objective: "AU-6", title: "Central Review and Analysis", baselines: [] }
+  - { code: "AU-6(5)", category: "AU", objective: "AU-6", title: "Integrated Analysis of Audit Records", baselines: [high] }
+  - { code: "AU-6(6)", category: "AU", objective: "AU-6", title: "Correlation with Physical Monitoring", baselines: [high] }
+  - { code: "AU-6(7)", category: "AU", objective: "AU-6", title: "Permitted Actions", baselines: [] }
+  - { code: "AU-6(8)", category: "AU", objective: "AU-6", title: "Full Text Analysis of Privileged Commands", baselines: [] }
+  - { code: "AU-6(9)", category: "AU", objective: "AU-6", title: "Correlation with Information from Nontechnical Sources", baselines: [] }
+  - { code: "AU-6(10)", category: "AU", objective: "AU-6", title: "Audit Level Adjustment", baselines: [] }
+  - { code: "AU-7", category: "AU", objective: "AU-7", title: "Audit Record Reduction and Report Generation", baselines: [moderate, high] }
+  - { code: "AU-7(1)", category: "AU", objective: "AU-7", title: "Automatic Processing", baselines: [moderate, high] }
+  - { code: "AU-7(2)", category: "AU", objective: "AU-7", title: "Automatic Sort and Search", baselines: [] }
+  - { code: "AU-8", category: "AU", objective: "AU-8", title: "Time Stamps", baselines: [low, moderate, high] }
+  - { code: "AU-8(1)", category: "AU", objective: "AU-8", title: "Synchronization with Authoritative Time Source", baselines: [] }
+  - { code: "AU-8(2)", category: "AU", objective: "AU-8", title: "Secondary Authoritative Time Source", baselines: [] }
+  - { code: "AU-9", category: "AU", objective: "AU-9", title: "Protection of Audit Information", baselines: [low, moderate, high] }
+  - { code: "AU-9(1)", category: "AU", objective: "AU-9", title: "Hardware Write-once Media", baselines: [] }
+  - { code: "AU-9(2)", category: "AU", objective: "AU-9", title: "Store on Separate Physical Systems or Components", baselines: [high] }
+  - { code: "AU-9(3)", category: "AU", objective: "AU-9", title: "Cryptographic Protection", baselines: [high] }
+  - { code: "AU-9(4)", category: "AU", objective: "AU-9", title: "Access by Subset of Privileged Users", baselines: [moderate, high] }
+  - { code: "AU-9(5)", category: "AU", objective: "AU-9", title: "Dual Authorization", baselines: [] }
+  - { code: "AU-9(6)", category: "AU", objective: "AU-9", title: "Read-only Access", baselines: [] }
+  - { code: "AU-9(7)", category: "AU", objective: "AU-9", title: "Store on Component with Different Operating System", baselines: [] }
+  - { code: "AU-10", category: "AU", objective: "AU-10", title: "Non-repudiation", baselines: [high] }
+  - { code: "AU-10(1)", category: "AU", objective: "AU-10", title: "Association of Identities", baselines: [] }
+  - { code: "AU-10(2)", category: "AU", objective: "AU-10", title: "Validate Binding of Information Producer Identity", baselines: [] }
+  - { code: "AU-10(3)", category: "AU", objective: "AU-10", title: "Chain of Custody", baselines: [] }
+  - { code: "AU-10(4)", category: "AU", objective: "AU-10", title: "Validate Binding of Information Reviewer Identity", baselines: [] }
+  - { code: "AU-10(5)", category: "AU", objective: "AU-10", title: "Digital Signatures", baselines: [] }
+  - { code: "AU-11", category: "AU", objective: "AU-11", title: "Audit Record Retention", baselines: [low, moderate, high] }
+  - { code: "AU-11(1)", category: "AU", objective: "AU-11", title: "Long-term Retrieval Capability", baselines: [] }
+  - { code: "AU-12", category: "AU", objective: "AU-12", title: "Audit Record Generation", baselines: [low, moderate, high] }
+  - { code: "AU-12(1)", category: "AU", objective: "AU-12", title: "System-wide and Time-correlated Audit Trail", baselines: [high] }
+  - { code: "AU-12(2)", category: "AU", objective: "AU-12", title: "Standardized Formats", baselines: [] }
+  - { code: "AU-12(3)", category: "AU", objective: "AU-12", title: "Changes by Authorized Individuals", baselines: [high] }
+  - { code: "AU-12(4)", category: "AU", objective: "AU-12", title: "Query Parameter Audits of Personally Identifiable Information", baselines: [] }
+  - { code: "AU-13", category: "AU", objective: "AU-13", title: "Monitoring for Information Disclosure", baselines: [] }
+  - { code: "AU-13(1)", category: "AU", objective: "AU-13", title: "Use of Automated Tools", baselines: [] }
+  - { code: "AU-13(2)", category: "AU", objective: "AU-13", title: "Review of Monitored Sites", baselines: [] }
+  - { code: "AU-13(3)", category: "AU", objective: "AU-13", title: "Unauthorized Replication of Information", baselines: [] }
+  - { code: "AU-14", category: "AU", objective: "AU-14", title: "Session Audit", baselines: [] }
+  - { code: "AU-14(1)", category: "AU", objective: "AU-14", title: "System Start-up", baselines: [] }
+  - { code: "AU-14(2)", category: "AU", objective: "AU-14", title: "Capture and Record Content", baselines: [] }
+  - { code: "AU-14(3)", category: "AU", objective: "AU-14", title: "Remote Viewing and Listening", baselines: [] }
+  - { code: "AU-15", category: "AU", objective: "AU-15", title: "Alternate Audit Logging Capability", baselines: [] }
+  - { code: "AU-16", category: "AU", objective: "AU-16", title: "Cross-organizational Audit Logging", baselines: [] }
+  - { code: "AU-16(1)", category: "AU", objective: "AU-16", title: "Identity Preservation", baselines: [] }
+  - { code: "AU-16(2)", category: "AU", objective: "AU-16", title: "Sharing of Audit Information", baselines: [] }
+  - { code: "AU-16(3)", category: "AU", objective: "AU-16", title: "Disassociability", baselines: [] }
+  - { code: "CA-1", category: "CA", objective: "CA-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "CA-2", category: "CA", objective: "CA-2", title: "Control Assessments", baselines: [low, moderate, high] }
+  - { code: "CA-2(1)", category: "CA", objective: "CA-2", title: "Independent Assessors", baselines: [moderate, high] }
+  - { code: "CA-2(2)", category: "CA", objective: "CA-2", title: "Specialized Assessments", baselines: [high] }
+  - { code: "CA-2(3)", category: "CA", objective: "CA-2", title: "Leveraging Results from External Organizations", baselines: [] }
+  - { code: "CA-3", category: "CA", objective: "CA-3", title: "Information Exchange", baselines: [low, moderate, high] }
+  - { code: "CA-3(1)", category: "CA", objective: "CA-3", title: "Unclassified National Security System Connections", baselines: [] }
+  - { code: "CA-3(2)", category: "CA", objective: "CA-3", title: "Classified National Security System Connections", baselines: [] }
+  - { code: "CA-3(3)", category: "CA", objective: "CA-3", title: "Unclassified Non-national Security System Connections", baselines: [] }
+  - { code: "CA-3(4)", category: "CA", objective: "CA-3", title: "Connections to Public Networks", baselines: [] }
+  - { code: "CA-3(5)", category: "CA", objective: "CA-3", title: "Restrictions on External System Connections", baselines: [] }
+  - { code: "CA-3(6)", category: "CA", objective: "CA-3", title: "Transfer Authorizations", baselines: [high] }
+  - { code: "CA-3(7)", category: "CA", objective: "CA-3", title: "Transitive Information Exchanges", baselines: [] }
+  - { code: "CA-4", category: "CA", objective: "CA-4", title: "Security Certification", baselines: [] }
+  - { code: "CA-5", category: "CA", objective: "CA-5", title: "Plan of Action and Milestones", baselines: [low, moderate, high] }
+  - { code: "CA-5(1)", category: "CA", objective: "CA-5", title: "Automation Support for Accuracy and Currency", baselines: [] }
+  - { code: "CA-6", category: "CA", objective: "CA-6", title: "Authorization", baselines: [low, moderate, high] }
+  - { code: "CA-6(1)", category: "CA", objective: "CA-6", title: "Joint Authorization — Intra-organization", baselines: [] }
+  - { code: "CA-6(2)", category: "CA", objective: "CA-6", title: "Joint Authorization — Inter-organization", baselines: [] }
+  - { code: "CA-7", category: "CA", objective: "CA-7", title: "Continuous Monitoring", baselines: [low, moderate, high] }
+  - { code: "CA-7(1)", category: "CA", objective: "CA-7", title: "Independent Assessment", baselines: [moderate, high] }
+  - { code: "CA-7(2)", category: "CA", objective: "CA-7", title: "Types of Assessments", baselines: [] }
+  - { code: "CA-7(3)", category: "CA", objective: "CA-7", title: "Trend Analyses", baselines: [] }
+  - { code: "CA-7(4)", category: "CA", objective: "CA-7", title: "Risk Monitoring", baselines: [low, moderate, high] }
+  - { code: "CA-7(5)", category: "CA", objective: "CA-7", title: "Consistency Analysis", baselines: [] }
+  - { code: "CA-7(6)", category: "CA", objective: "CA-7", title: "Automation Support for Monitoring", baselines: [] }
+  - { code: "CA-8", category: "CA", objective: "CA-8", title: "Penetration Testing", baselines: [high] }
+  - { code: "CA-8(1)", category: "CA", objective: "CA-8", title: "Independent Penetration Testing Agent or Team", baselines: [high] }
+  - { code: "CA-8(2)", category: "CA", objective: "CA-8", title: "Red Team Exercises", baselines: [] }
+  - { code: "CA-8(3)", category: "CA", objective: "CA-8", title: "Facility Penetration Testing", baselines: [] }
+  - { code: "CA-9", category: "CA", objective: "CA-9", title: "Internal System Connections", baselines: [low, moderate, high] }
+  - { code: "CA-9(1)", category: "CA", objective: "CA-9", title: "Compliance Checks", baselines: [] }
+  - { code: "CM-1", category: "CM", objective: "CM-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "CM-2", category: "CM", objective: "CM-2", title: "Baseline Configuration", baselines: [low, moderate, high] }
+  - { code: "CM-2(1)", category: "CM", objective: "CM-2", title: "Reviews and Updates", baselines: [] }
+  - { code: "CM-2(2)", category: "CM", objective: "CM-2", title: "Automation Support for Accuracy and Currency", baselines: [moderate, high] }
+  - { code: "CM-2(3)", category: "CM", objective: "CM-2", title: "Retention of Previous Configurations", baselines: [moderate, high] }
+  - { code: "CM-2(4)", category: "CM", objective: "CM-2", title: "Unauthorized Software", baselines: [] }
+  - { code: "CM-2(5)", category: "CM", objective: "CM-2", title: "Authorized Software", baselines: [] }
+  - { code: "CM-2(6)", category: "CM", objective: "CM-2", title: "Development and Test Environments", baselines: [] }
+  - { code: "CM-2(7)", category: "CM", objective: "CM-2", title: "Configure Systems and Components for High-risk Areas", baselines: [moderate, high] }
+  - { code: "CM-3", category: "CM", objective: "CM-3", title: "Configuration Change Control", baselines: [moderate, high] }
+  - { code: "CM-3(1)", category: "CM", objective: "CM-3", title: "Automated Documentation, Notification, and Prohibition of Changes", baselines: [high] }
+  - { code: "CM-3(2)", category: "CM", objective: "CM-3", title: "Testing, Validation, and Documentation of Changes", baselines: [moderate, high] }
+  - { code: "CM-3(3)", category: "CM", objective: "CM-3", title: "Automated Change Implementation", baselines: [] }
+  - { code: "CM-3(4)", category: "CM", objective: "CM-3", title: "Security and Privacy Representatives", baselines: [moderate, high] }
+  - { code: "CM-3(5)", category: "CM", objective: "CM-3", title: "Automated Security Response", baselines: [] }
+  - { code: "CM-3(6)", category: "CM", objective: "CM-3", title: "Cryptography Management", baselines: [high] }
+  - { code: "CM-3(7)", category: "CM", objective: "CM-3", title: "Review System Changes", baselines: [] }
+  - { code: "CM-3(8)", category: "CM", objective: "CM-3", title: "Prevent or Restrict Configuration Changes", baselines: [] }
+  - { code: "CM-4", category: "CM", objective: "CM-4", title: "Impact Analyses", baselines: [low, moderate, high] }
+  - { code: "CM-4(1)", category: "CM", objective: "CM-4", title: "Separate Test Environments", baselines: [high] }
+  - { code: "CM-4(2)", category: "CM", objective: "CM-4", title: "Verification of Controls", baselines: [moderate, high] }
+  - { code: "CM-5", category: "CM", objective: "CM-5", title: "Access Restrictions for Change", baselines: [low, moderate, high] }
+  - { code: "CM-5(1)", category: "CM", objective: "CM-5", title: "Automated Access Enforcement and Audit Records", baselines: [high] }
+  - { code: "CM-5(2)", category: "CM", objective: "CM-5", title: "Review System Changes", baselines: [] }
+  - { code: "CM-5(3)", category: "CM", objective: "CM-5", title: "Signed Components", baselines: [] }
+  - { code: "CM-5(4)", category: "CM", objective: "CM-5", title: "Dual Authorization", baselines: [] }
+  - { code: "CM-5(5)", category: "CM", objective: "CM-5", title: "Privilege Limitation for Production and Operation", baselines: [] }
+  - { code: "CM-5(6)", category: "CM", objective: "CM-5", title: "Limit Library Privileges", baselines: [] }
+  - { code: "CM-5(7)", category: "CM", objective: "CM-5", title: "Automatic Implementation of Security Safeguards", baselines: [] }
+  - { code: "CM-6", category: "CM", objective: "CM-6", title: "Configuration Settings", baselines: [low, moderate, high] }
+  - { code: "CM-6(1)", category: "CM", objective: "CM-6", title: "Automated Management, Application, and Verification", baselines: [high] }
+  - { code: "CM-6(2)", category: "CM", objective: "CM-6", title: "Respond to Unauthorized Changes", baselines: [high] }
+  - { code: "CM-6(3)", category: "CM", objective: "CM-6", title: "Unauthorized Change Detection", baselines: [] }
+  - { code: "CM-6(4)", category: "CM", objective: "CM-6", title: "Conformance Demonstration", baselines: [] }
+  - { code: "CM-7", category: "CM", objective: "CM-7", title: "Least Functionality", baselines: [low, moderate, high] }
+  - { code: "CM-7(1)", category: "CM", objective: "CM-7", title: "Periodic Review", baselines: [moderate, high] }
+  - { code: "CM-7(2)", category: "CM", objective: "CM-7", title: "Prevent Program Execution", baselines: [moderate, high] }
+  - { code: "CM-7(3)", category: "CM", objective: "CM-7", title: "Registration Compliance", baselines: [] }
+  - { code: "CM-7(4)", category: "CM", objective: "CM-7", title: "Unauthorized Software — Deny-by-exception", baselines: [] }
+  - { code: "CM-7(5)", category: "CM", objective: "CM-7", title: "Authorized Software — Allow-by-exception", baselines: [moderate, high] }
+  - { code: "CM-7(6)", category: "CM", objective: "CM-7", title: "Confined Environments with Limited Privileges", baselines: [] }
+  - { code: "CM-7(7)", category: "CM", objective: "CM-7", title: "Code Execution in Protected Environments", baselines: [] }
+  - { code: "CM-7(8)", category: "CM", objective: "CM-7", title: "Binary or Machine Executable Code", baselines: [] }
+  - { code: "CM-7(9)", category: "CM", objective: "CM-7", title: "Prohibiting The Use of Unauthorized Hardware", baselines: [] }
+  - { code: "CM-8", category: "CM", objective: "CM-8", title: "System Component Inventory", baselines: [low, moderate, high] }
+  - { code: "CM-8(1)", category: "CM", objective: "CM-8", title: "Updates During Installation and Removal", baselines: [moderate, high] }
+  - { code: "CM-8(2)", category: "CM", objective: "CM-8", title: "Automated Maintenance", baselines: [high] }
+  - { code: "CM-8(3)", category: "CM", objective: "CM-8", title: "Automated Unauthorized Component Detection", baselines: [moderate, high] }
+  - { code: "CM-8(4)", category: "CM", objective: "CM-8", title: "Accountability Information", baselines: [high] }
+  - { code: "CM-8(5)", category: "CM", objective: "CM-8", title: "No Duplicate Accounting of Components", baselines: [] }
+  - { code: "CM-8(6)", category: "CM", objective: "CM-8", title: "Assessed Configurations and Approved Deviations", baselines: [] }
+  - { code: "CM-8(7)", category: "CM", objective: "CM-8", title: "Centralized Repository", baselines: [] }
+  - { code: "CM-8(8)", category: "CM", objective: "CM-8", title: "Automated Location Tracking", baselines: [] }
+  - { code: "CM-8(9)", category: "CM", objective: "CM-8", title: "Assignment of Components to Systems", baselines: [] }
+  - { code: "CM-9", category: "CM", objective: "CM-9", title: "Configuration Management Plan", baselines: [moderate, high] }
+  - { code: "CM-9(1)", category: "CM", objective: "CM-9", title: "Assignment of Responsibility", baselines: [] }
+  - { code: "CM-10", category: "CM", objective: "CM-10", title: "Software Usage Restrictions", baselines: [low, moderate, high] }
+  - { code: "CM-10(1)", category: "CM", objective: "CM-10", title: "Open-source Software", baselines: [] }
+  - { code: "CM-11", category: "CM", objective: "CM-11", title: "User-installed Software", baselines: [low, moderate, high] }
+  - { code: "CM-11(1)", category: "CM", objective: "CM-11", title: "Alerts for Unauthorized Installations", baselines: [] }
+  - { code: "CM-11(2)", category: "CM", objective: "CM-11", title: "Software Installation with Privileged Status", baselines: [] }
+  - { code: "CM-11(3)", category: "CM", objective: "CM-11", title: "Automated Enforcement and Monitoring", baselines: [] }
+  - { code: "CM-12", category: "CM", objective: "CM-12", title: "Information Location", baselines: [moderate, high] }
+  - { code: "CM-12(1)", category: "CM", objective: "CM-12", title: "Automated Tools to Support Information Location", baselines: [moderate, high] }
+  - { code: "CM-13", category: "CM", objective: "CM-13", title: "Data Action Mapping", baselines: [] }
+  - { code: "CM-14", category: "CM", objective: "CM-14", title: "Signed Components", baselines: [] }
+  - { code: "CP-1", category: "CP", objective: "CP-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "CP-2", category: "CP", objective: "CP-2", title: "Contingency Plan", baselines: [low, moderate, high] }
+  - { code: "CP-2(1)", category: "CP", objective: "CP-2", title: "Coordinate with Related Plans", baselines: [moderate, high] }
+  - { code: "CP-2(2)", category: "CP", objective: "CP-2", title: "Capacity Planning", baselines: [high] }
+  - { code: "CP-2(3)", category: "CP", objective: "CP-2", title: "Resume Mission and Business Functions", baselines: [moderate, high] }
+  - { code: "CP-2(4)", category: "CP", objective: "CP-2", title: "Resume All Mission and Business Functions", baselines: [] }
+  - { code: "CP-2(5)", category: "CP", objective: "CP-2", title: "Continue Mission and Business Functions", baselines: [high] }
+  - { code: "CP-2(6)", category: "CP", objective: "CP-2", title: "Alternate Processing and Storage Sites", baselines: [] }
+  - { code: "CP-2(7)", category: "CP", objective: "CP-2", title: "Coordinate with External Service Providers", baselines: [] }
+  - { code: "CP-2(8)", category: "CP", objective: "CP-2", title: "Identify Critical Assets", baselines: [moderate, high] }
+  - { code: "CP-3", category: "CP", objective: "CP-3", title: "Contingency Training", baselines: [low, moderate, high] }
+  - { code: "CP-3(1)", category: "CP", objective: "CP-3", title: "Simulated Events", baselines: [high] }
+  - { code: "CP-3(2)", category: "CP", objective: "CP-3", title: "Mechanisms Used in Training Environments", baselines: [] }
+  - { code: "CP-4", category: "CP", objective: "CP-4", title: "Contingency Plan Testing", baselines: [low, moderate, high] }
+  - { code: "CP-4(1)", category: "CP", objective: "CP-4", title: "Coordinate with Related Plans", baselines: [moderate, high] }
+  - { code: "CP-4(2)", category: "CP", objective: "CP-4", title: "Alternate Processing Site", baselines: [high] }
+  - { code: "CP-4(3)", category: "CP", objective: "CP-4", title: "Automated Testing", baselines: [] }
+  - { code: "CP-4(4)", category: "CP", objective: "CP-4", title: "Full Recovery and Reconstitution", baselines: [] }
+  - { code: "CP-4(5)", category: "CP", objective: "CP-4", title: "Self-challenge", baselines: [] }
+  - { code: "CP-5", category: "CP", objective: "CP-5", title: "Contingency Plan Update", baselines: [] }
+  - { code: "CP-6", category: "CP", objective: "CP-6", title: "Alternate Storage Site", baselines: [moderate, high] }
+  - { code: "CP-6(1)", category: "CP", objective: "CP-6", title: "Separation from Primary Site", baselines: [moderate, high] }
+  - { code: "CP-6(2)", category: "CP", objective: "CP-6", title: "Recovery Time and Recovery Point Objectives", baselines: [high] }
+  - { code: "CP-6(3)", category: "CP", objective: "CP-6", title: "Accessibility", baselines: [moderate, high] }
+  - { code: "CP-7", category: "CP", objective: "CP-7", title: "Alternate Processing Site", baselines: [moderate, high] }
+  - { code: "CP-7(1)", category: "CP", objective: "CP-7", title: "Separation from Primary Site", baselines: [moderate, high] }
+  - { code: "CP-7(2)", category: "CP", objective: "CP-7", title: "Accessibility", baselines: [moderate, high] }
+  - { code: "CP-7(3)", category: "CP", objective: "CP-7", title: "Priority of Service", baselines: [moderate, high] }
+  - { code: "CP-7(4)", category: "CP", objective: "CP-7", title: "Preparation for Use", baselines: [high] }
+  - { code: "CP-7(5)", category: "CP", objective: "CP-7", title: "Equivalent Information Security Safeguards", baselines: [] }
+  - { code: "CP-7(6)", category: "CP", objective: "CP-7", title: "Inability to Return to Primary Site", baselines: [] }
+  - { code: "CP-8", category: "CP", objective: "CP-8", title: "Telecommunications Services", baselines: [moderate, high] }
+  - { code: "CP-8(1)", category: "CP", objective: "CP-8", title: "Priority of Service Provisions", baselines: [moderate, high] }
+  - { code: "CP-8(2)", category: "CP", objective: "CP-8", title: "Single Points of Failure", baselines: [moderate, high] }
+  - { code: "CP-8(3)", category: "CP", objective: "CP-8", title: "Separation of Primary and Alternate Providers", baselines: [high] }
+  - { code: "CP-8(4)", category: "CP", objective: "CP-8", title: "Provider Contingency Plan", baselines: [high] }
+  - { code: "CP-8(5)", category: "CP", objective: "CP-8", title: "Alternate Telecommunication Service Testing", baselines: [] }
+  - { code: "CP-9", category: "CP", objective: "CP-9", title: "System Backup", baselines: [low, moderate, high] }
+  - { code: "CP-9(1)", category: "CP", objective: "CP-9", title: "Testing for Reliability and Integrity", baselines: [moderate, high] }
+  - { code: "CP-9(2)", category: "CP", objective: "CP-9", title: "Test Restoration Using Sampling", baselines: [high] }
+  - { code: "CP-9(3)", category: "CP", objective: "CP-9", title: "Separate Storage for Critical Information", baselines: [high] }
+  - { code: "CP-9(4)", category: "CP", objective: "CP-9", title: "Protection from Unauthorized Modification", baselines: [] }
+  - { code: "CP-9(5)", category: "CP", objective: "CP-9", title: "Transfer to Alternate Storage Site", baselines: [high] }
+  - { code: "CP-9(6)", category: "CP", objective: "CP-9", title: "Redundant Secondary System", baselines: [] }
+  - { code: "CP-9(7)", category: "CP", objective: "CP-9", title: "Dual Authorization for Deletion or Destruction", baselines: [] }
+  - { code: "CP-9(8)", category: "CP", objective: "CP-9", title: "Cryptographic Protection", baselines: [moderate, high] }
+  - { code: "CP-10", category: "CP", objective: "CP-10", title: "System Recovery and Reconstitution", baselines: [low, moderate, high] }
+  - { code: "CP-10(1)", category: "CP", objective: "CP-10", title: "Contingency Plan Testing", baselines: [] }
+  - { code: "CP-10(2)", category: "CP", objective: "CP-10", title: "Transaction Recovery", baselines: [moderate, high] }
+  - { code: "CP-10(3)", category: "CP", objective: "CP-10", title: "Compensating Security Controls", baselines: [] }
+  - { code: "CP-10(4)", category: "CP", objective: "CP-10", title: "Restore Within Time Period", baselines: [high] }
+  - { code: "CP-10(5)", category: "CP", objective: "CP-10", title: "Failover Capability", baselines: [] }
+  - { code: "CP-10(6)", category: "CP", objective: "CP-10", title: "Component Protection", baselines: [] }
+  - { code: "CP-11", category: "CP", objective: "CP-11", title: "Alternate Communications Protocols", baselines: [] }
+  - { code: "CP-12", category: "CP", objective: "CP-12", title: "Safe Mode", baselines: [] }
+  - { code: "CP-13", category: "CP", objective: "CP-13", title: "Alternative Security Mechanisms", baselines: [] }
+  - { code: "IA-1", category: "IA", objective: "IA-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "IA-2", category: "IA", objective: "IA-2", title: "Identification and Authentication (Organizational Users)", baselines: [low, moderate, high] }
+  - { code: "IA-2(1)", category: "IA", objective: "IA-2", title: "Multi-factor Authentication to Privileged Accounts", baselines: [low, moderate, high] }
+  - { code: "IA-2(2)", category: "IA", objective: "IA-2", title: "Multi-factor Authentication to Non-privileged Accounts", baselines: [low, moderate, high] }
+  - { code: "IA-2(3)", category: "IA", objective: "IA-2", title: "Local Access to Privileged Accounts", baselines: [] }
+  - { code: "IA-2(4)", category: "IA", objective: "IA-2", title: "Local Access to Non-privileged Accounts", baselines: [] }
+  - { code: "IA-2(5)", category: "IA", objective: "IA-2", title: "Individual Authentication with Group Authentication", baselines: [high] }
+  - { code: "IA-2(6)", category: "IA", objective: "IA-2", title: "Access to Accounts —separate Device", baselines: [] }
+  - { code: "IA-2(7)", category: "IA", objective: "IA-2", title: "Network Access to Non-privileged Accounts — Separate Device", baselines: [] }
+  - { code: "IA-2(8)", category: "IA", objective: "IA-2", title: "Access to Accounts — Replay Resistant", baselines: [low, moderate, high] }
+  - { code: "IA-2(9)", category: "IA", objective: "IA-2", title: "Network Access to Non-privileged Accounts — Replay Resistant", baselines: [] }
+  - { code: "IA-2(10)", category: "IA", objective: "IA-2", title: "Single Sign-on", baselines: [] }
+  - { code: "IA-2(11)", category: "IA", objective: "IA-2", title: "Remote Access — Separate Device", baselines: [] }
+  - { code: "IA-2(12)", category: "IA", objective: "IA-2", title: "Acceptance of PIV Credentials", baselines: [low, moderate, high] }
+  - { code: "IA-2(13)", category: "IA", objective: "IA-2", title: "Out-of-band Authentication", baselines: [] }
+  - { code: "IA-3", category: "IA", objective: "IA-3", title: "Device Identification and Authentication", baselines: [moderate, high] }
+  - { code: "IA-3(1)", category: "IA", objective: "IA-3", title: "Cryptographic Bidirectional Authentication", baselines: [] }
+  - { code: "IA-3(2)", category: "IA", objective: "IA-3", title: "Cryptographic Bidirectional Network Authentication", baselines: [] }
+  - { code: "IA-3(3)", category: "IA", objective: "IA-3", title: "Dynamic Address Allocation", baselines: [] }
+  - { code: "IA-3(4)", category: "IA", objective: "IA-3", title: "Device Attestation", baselines: [] }
+  - { code: "IA-4", category: "IA", objective: "IA-4", title: "Identifier Management", baselines: [low, moderate, high] }
+  - { code: "IA-4(1)", category: "IA", objective: "IA-4", title: "Prohibit Account Identifiers as Public Identifiers", baselines: [] }
+  - { code: "IA-4(2)", category: "IA", objective: "IA-4", title: "Supervisor Authorization", baselines: [] }
+  - { code: "IA-4(3)", category: "IA", objective: "IA-4", title: "Multiple Forms of Certification", baselines: [] }
+  - { code: "IA-4(4)", category: "IA", objective: "IA-4", title: "Identify User Status", baselines: [moderate, high] }
+  - { code: "IA-4(5)", category: "IA", objective: "IA-4", title: "Dynamic Management", baselines: [] }
+  - { code: "IA-4(6)", category: "IA", objective: "IA-4", title: "Cross-organization Management", baselines: [] }
+  - { code: "IA-4(7)", category: "IA", objective: "IA-4", title: "In-person Registration", baselines: [] }
+  - { code: "IA-4(8)", category: "IA", objective: "IA-4", title: "Pairwise Pseudonymous Identifiers", baselines: [] }
+  - { code: "IA-4(9)", category: "IA", objective: "IA-4", title: "Attribute Maintenance and Protection", baselines: [] }
+  - { code: "IA-5", category: "IA", objective: "IA-5", title: "Authenticator Management", baselines: [low, moderate, high] }
+  - { code: "IA-5(1)", category: "IA", objective: "IA-5", title: "Password-based Authentication", baselines: [low, moderate, high] }
+  - { code: "IA-5(2)", category: "IA", objective: "IA-5", title: "Public Key-based Authentication", baselines: [moderate, high] }
+  - { code: "IA-5(3)", category: "IA", objective: "IA-5", title: "In-person or Trusted External Party Registration", baselines: [] }
+  - { code: "IA-5(4)", category: "IA", objective: "IA-5", title: "Automated Support for Password Strength Determination", baselines: [] }
+  - { code: "IA-5(5)", category: "IA", objective: "IA-5", title: "Change Authenticators Prior to Delivery", baselines: [] }
+  - { code: "IA-5(6)", category: "IA", objective: "IA-5", title: "Protection of Authenticators", baselines: [moderate, high] }
+  - { code: "IA-5(7)", category: "IA", objective: "IA-5", title: "No Embedded Unencrypted Static Authenticators", baselines: [] }
+  - { code: "IA-5(8)", category: "IA", objective: "IA-5", title: "Multiple System Accounts", baselines: [] }
+  - { code: "IA-5(9)", category: "IA", objective: "IA-5", title: "Federated Credential Management", baselines: [] }
+  - { code: "IA-5(10)", category: "IA", objective: "IA-5", title: "Dynamic Credential Binding", baselines: [] }
+  - { code: "IA-5(11)", category: "IA", objective: "IA-5", title: "Hardware Token-based Authentication", baselines: [] }
+  - { code: "IA-5(12)", category: "IA", objective: "IA-5", title: "Biometric Authentication Performance", baselines: [] }
+  - { code: "IA-5(13)", category: "IA", objective: "IA-5", title: "Expiration of Cached Authenticators", baselines: [] }
+  - { code: "IA-5(14)", category: "IA", objective: "IA-5", title: "Managing Content of PKI Trust Stores", baselines: [] }
+  - { code: "IA-5(15)", category: "IA", objective: "IA-5", title: "GSA-approved Products and Services", baselines: [] }
+  - { code: "IA-5(16)", category: "IA", objective: "IA-5", title: "In-person or Trusted External Party Authenticator Issuance", baselines: [] }
+  - { code: "IA-5(17)", category: "IA", objective: "IA-5", title: "Presentation Attack Detection for Biometric Authenticators", baselines: [] }
+  - { code: "IA-5(18)", category: "IA", objective: "IA-5", title: "Password Managers", baselines: [] }
+  - { code: "IA-6", category: "IA", objective: "IA-6", title: "Authentication Feedback", baselines: [low, moderate, high] }
+  - { code: "IA-7", category: "IA", objective: "IA-7", title: "Cryptographic Module Authentication", baselines: [low, moderate, high] }
+  - { code: "IA-8", category: "IA", objective: "IA-8", title: "Identification and Authentication (Non-organizational Users)", baselines: [low, moderate, high] }
+  - { code: "IA-8(1)", category: "IA", objective: "IA-8", title: "Acceptance of PIV Credentials from Other Agencies", baselines: [low, moderate, high] }
+  - { code: "IA-8(2)", category: "IA", objective: "IA-8", title: "Acceptance of External Authenticators", baselines: [low, moderate, high] }
+  - { code: "IA-8(3)", category: "IA", objective: "IA-8", title: "Use of FICAM-approved Products", baselines: [] }
+  - { code: "IA-8(4)", category: "IA", objective: "IA-8", title: "Use of Defined Profiles", baselines: [low, moderate, high] }
+  - { code: "IA-8(5)", category: "IA", objective: "IA-8", title: "Acceptance of PIV-I Credentials", baselines: [] }
+  - { code: "IA-8(6)", category: "IA", objective: "IA-8", title: "Disassociability", baselines: [] }
+  - { code: "IA-9", category: "IA", objective: "IA-9", title: "Service Identification and Authentication", baselines: [] }
+  - { code: "IA-9(1)", category: "IA", objective: "IA-9", title: "Information Exchange", baselines: [] }
+  - { code: "IA-9(2)", category: "IA", objective: "IA-9", title: "Transmission of Decisions", baselines: [] }
+  - { code: "IA-10", category: "IA", objective: "IA-10", title: "Adaptive Authentication", baselines: [] }
+  - { code: "IA-11", category: "IA", objective: "IA-11", title: "Re-authentication", baselines: [low, moderate, high] }
+  - { code: "IA-12", category: "IA", objective: "IA-12", title: "Identity Proofing", baselines: [moderate, high] }
+  - { code: "IA-12(1)", category: "IA", objective: "IA-12", title: "Supervisor Authorization", baselines: [] }
+  - { code: "IA-12(2)", category: "IA", objective: "IA-12", title: "Identity Evidence", baselines: [moderate, high] }
+  - { code: "IA-12(3)", category: "IA", objective: "IA-12", title: "Identity Evidence Validation and Verification", baselines: [moderate, high] }
+  - { code: "IA-12(4)", category: "IA", objective: "IA-12", title: "In-person Validation and Verification", baselines: [high] }
+  - { code: "IA-12(5)", category: "IA", objective: "IA-12", title: "Address Confirmation", baselines: [moderate, high] }
+  - { code: "IA-12(6)", category: "IA", objective: "IA-12", title: "Accept Externally-proofed Identities", baselines: [] }
+  - { code: "IA-13", category: "IA", objective: "IA-13", title: "Identity Providers and Authorization Servers", baselines: [] }
+  - { code: "IA-13(1)", category: "IA", objective: "IA-13", title: "Protection of Cryptographic Keys", baselines: [] }
+  - { code: "IA-13(2)", category: "IA", objective: "IA-13", title: "Verification of Identity Assertions and Access Tokens", baselines: [] }
+  - { code: "IA-13(3)", category: "IA", objective: "IA-13", title: "Token Management", baselines: [] }
+  - { code: "IR-1", category: "IR", objective: "IR-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "IR-2", category: "IR", objective: "IR-2", title: "Incident Response Training", baselines: [low, moderate, high] }
+  - { code: "IR-2(1)", category: "IR", objective: "IR-2", title: "Simulated Events", baselines: [high] }
+  - { code: "IR-2(2)", category: "IR", objective: "IR-2", title: "Automated Training Environments", baselines: [high] }
+  - { code: "IR-2(3)", category: "IR", objective: "IR-2", title: "Breach", baselines: [] }
+  - { code: "IR-3", category: "IR", objective: "IR-3", title: "Incident Response Testing", baselines: [moderate, high] }
+  - { code: "IR-3(1)", category: "IR", objective: "IR-3", title: "Automated Testing", baselines: [] }
+  - { code: "IR-3(2)", category: "IR", objective: "IR-3", title: "Coordination with Related Plans", baselines: [moderate, high] }
+  - { code: "IR-3(3)", category: "IR", objective: "IR-3", title: "Continuous Improvement", baselines: [] }
+  - { code: "IR-4", category: "IR", objective: "IR-4", title: "Incident Handling", baselines: [low, moderate, high] }
+  - { code: "IR-4(1)", category: "IR", objective: "IR-4", title: "Automated Incident Handling Processes", baselines: [moderate, high] }
+  - { code: "IR-4(2)", category: "IR", objective: "IR-4", title: "Dynamic Reconfiguration", baselines: [] }
+  - { code: "IR-4(3)", category: "IR", objective: "IR-4", title: "Continuity of Operations", baselines: [] }
+  - { code: "IR-4(4)", category: "IR", objective: "IR-4", title: "Information Correlation", baselines: [high] }
+  - { code: "IR-4(5)", category: "IR", objective: "IR-4", title: "Automatic Disabling of System", baselines: [] }
+  - { code: "IR-4(6)", category: "IR", objective: "IR-4", title: "Insider Threats", baselines: [] }
+  - { code: "IR-4(7)", category: "IR", objective: "IR-4", title: "Insider Threats — Intra-organization Coordination", baselines: [] }
+  - { code: "IR-4(8)", category: "IR", objective: "IR-4", title: "Correlation with External Organizations", baselines: [] }
+  - { code: "IR-4(9)", category: "IR", objective: "IR-4", title: "Dynamic Response Capability", baselines: [] }
+  - { code: "IR-4(10)", category: "IR", objective: "IR-4", title: "Supply Chain Coordination", baselines: [] }
+  - { code: "IR-4(11)", category: "IR", objective: "IR-4", title: "Integrated Incident Response Team", baselines: [high] }
+  - { code: "IR-4(12)", category: "IR", objective: "IR-4", title: "Malicious Code and Forensic Analysis", baselines: [] }
+  - { code: "IR-4(13)", category: "IR", objective: "IR-4", title: "Behavior Analysis", baselines: [] }
+  - { code: "IR-4(14)", category: "IR", objective: "IR-4", title: "Security Operations Center", baselines: [] }
+  - { code: "IR-4(15)", category: "IR", objective: "IR-4", title: "Public Relations and Reputation Repair", baselines: [] }
+  - { code: "IR-5", category: "IR", objective: "IR-5", title: "Incident Monitoring", baselines: [low, moderate, high] }
+  - { code: "IR-5(1)", category: "IR", objective: "IR-5", title: "Automated Tracking, Data Collection, and Analysis", baselines: [high] }
+  - { code: "IR-6", category: "IR", objective: "IR-6", title: "Incident Reporting", baselines: [low, moderate, high] }
+  - { code: "IR-6(1)", category: "IR", objective: "IR-6", title: "Automated Reporting", baselines: [moderate, high] }
+  - { code: "IR-6(2)", category: "IR", objective: "IR-6", title: "Vulnerabilities Related to Incidents", baselines: [] }
+  - { code: "IR-6(3)", category: "IR", objective: "IR-6", title: "Supply Chain Coordination", baselines: [moderate, high] }
+  - { code: "IR-7", category: "IR", objective: "IR-7", title: "Incident Response Assistance", baselines: [low, moderate, high] }
+  - { code: "IR-7(1)", category: "IR", objective: "IR-7", title: "Automation Support for Availability of Information and Support", baselines: [moderate, high] }
+  - { code: "IR-7(2)", category: "IR", objective: "IR-7", title: "Coordination with External Providers", baselines: [] }
+  - { code: "IR-8", category: "IR", objective: "IR-8", title: "Incident Response Plan", baselines: [low, moderate, high] }
+  - { code: "IR-8(1)", category: "IR", objective: "IR-8", title: "Breaches", baselines: [] }
+  - { code: "IR-9", category: "IR", objective: "IR-9", title: "Information Spillage Response", baselines: [] }
+  - { code: "IR-9(1)", category: "IR", objective: "IR-9", title: "Responsible Personnel", baselines: [] }
+  - { code: "IR-9(2)", category: "IR", objective: "IR-9", title: "Training", baselines: [] }
+  - { code: "IR-9(3)", category: "IR", objective: "IR-9", title: "Post-spill Operations", baselines: [] }
+  - { code: "IR-9(4)", category: "IR", objective: "IR-9", title: "Exposure to Unauthorized Personnel", baselines: [] }
+  - { code: "IR-10", category: "IR", objective: "IR-10", title: "Integrated Information Security Analysis Team", baselines: [] }
+  - { code: "MA-1", category: "MA", objective: "MA-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "MA-2", category: "MA", objective: "MA-2", title: "Controlled Maintenance", baselines: [low, moderate, high] }
+  - { code: "MA-2(1)", category: "MA", objective: "MA-2", title: "Record Content", baselines: [] }
+  - { code: "MA-2(2)", category: "MA", objective: "MA-2", title: "Automated Maintenance Activities", baselines: [high] }
+  - { code: "MA-3", category: "MA", objective: "MA-3", title: "Maintenance Tools", baselines: [moderate, high] }
+  - { code: "MA-3(1)", category: "MA", objective: "MA-3", title: "Inspect Tools", baselines: [moderate, high] }
+  - { code: "MA-3(2)", category: "MA", objective: "MA-3", title: "Inspect Media", baselines: [moderate, high] }
+  - { code: "MA-3(3)", category: "MA", objective: "MA-3", title: "Prevent Unauthorized Removal", baselines: [moderate, high] }
+  - { code: "MA-3(4)", category: "MA", objective: "MA-3", title: "Restricted Tool Use", baselines: [] }
+  - { code: "MA-3(5)", category: "MA", objective: "MA-3", title: "Execution with Privilege", baselines: [] }
+  - { code: "MA-3(6)", category: "MA", objective: "MA-3", title: "Software Updates and Patches", baselines: [] }
+  - { code: "MA-4", category: "MA", objective: "MA-4", title: "Nonlocal Maintenance", baselines: [low, moderate, high] }
+  - { code: "MA-4(1)", category: "MA", objective: "MA-4", title: "Logging and Review", baselines: [] }
+  - { code: "MA-4(2)", category: "MA", objective: "MA-4", title: "Document Nonlocal Maintenance", baselines: [] }
+  - { code: "MA-4(3)", category: "MA", objective: "MA-4", title: "Comparable Security and Sanitization", baselines: [high] }
+  - { code: "MA-4(4)", category: "MA", objective: "MA-4", title: "Authentication and Separation of Maintenance Sessions", baselines: [] }
+  - { code: "MA-4(5)", category: "MA", objective: "MA-4", title: "Approvals and Notifications", baselines: [] }
+  - { code: "MA-4(6)", category: "MA", objective: "MA-4", title: "Cryptographic Protection", baselines: [] }
+  - { code: "MA-4(7)", category: "MA", objective: "MA-4", title: "Disconnect Verification", baselines: [] }
+  - { code: "MA-5", category: "MA", objective: "MA-5", title: "Maintenance Personnel", baselines: [low, moderate, high] }
+  - { code: "MA-5(1)", category: "MA", objective: "MA-5", title: "Individuals Without Appropriate Access", baselines: [high] }
+  - { code: "MA-5(2)", category: "MA", objective: "MA-5", title: "Security Clearances for Classified Systems", baselines: [] }
+  - { code: "MA-5(3)", category: "MA", objective: "MA-5", title: "Citizenship Requirements for Classified Systems", baselines: [] }
+  - { code: "MA-5(4)", category: "MA", objective: "MA-5", title: "Foreign Nationals", baselines: [] }
+  - { code: "MA-5(5)", category: "MA", objective: "MA-5", title: "Non-system Maintenance", baselines: [] }
+  - { code: "MA-6", category: "MA", objective: "MA-6", title: "Timely Maintenance", baselines: [moderate, high] }
+  - { code: "MA-6(1)", category: "MA", objective: "MA-6", title: "Preventive Maintenance", baselines: [] }
+  - { code: "MA-6(2)", category: "MA", objective: "MA-6", title: "Predictive Maintenance", baselines: [] }
+  - { code: "MA-6(3)", category: "MA", objective: "MA-6", title: "Automated Support for Predictive Maintenance", baselines: [] }
+  - { code: "MA-7", category: "MA", objective: "MA-7", title: "Field Maintenance", baselines: [] }
+  - { code: "MP-1", category: "MP", objective: "MP-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "MP-2", category: "MP", objective: "MP-2", title: "Media Access", baselines: [low, moderate, high] }
+  - { code: "MP-2(1)", category: "MP", objective: "MP-2", title: "Automated Restricted Access", baselines: [] }
+  - { code: "MP-2(2)", category: "MP", objective: "MP-2", title: "Cryptographic Protection", baselines: [] }
+  - { code: "MP-3", category: "MP", objective: "MP-3", title: "Media Marking", baselines: [moderate, high] }
+  - { code: "MP-4", category: "MP", objective: "MP-4", title: "Media Storage", baselines: [moderate, high] }
+  - { code: "MP-4(1)", category: "MP", objective: "MP-4", title: "Cryptographic Protection", baselines: [] }
+  - { code: "MP-4(2)", category: "MP", objective: "MP-4", title: "Automated Restricted Access", baselines: [] }
+  - { code: "MP-5", category: "MP", objective: "MP-5", title: "Media Transport", baselines: [moderate, high] }
+  - { code: "MP-5(1)", category: "MP", objective: "MP-5", title: "Protection Outside of Controlled Areas", baselines: [] }
+  - { code: "MP-5(2)", category: "MP", objective: "MP-5", title: "Documentation of Activities", baselines: [] }
+  - { code: "MP-5(3)", category: "MP", objective: "MP-5", title: "Custodians", baselines: [] }
+  - { code: "MP-5(4)", category: "MP", objective: "MP-5", title: "Cryptographic Protection", baselines: [] }
+  - { code: "MP-6", category: "MP", objective: "MP-6", title: "Media Sanitization", baselines: [low, moderate, high] }
+  - { code: "MP-6(1)", category: "MP", objective: "MP-6", title: "Review, Approve, Track, Document, and Verify", baselines: [high] }
+  - { code: "MP-6(2)", category: "MP", objective: "MP-6", title: "Equipment Testing", baselines: [high] }
+  - { code: "MP-6(3)", category: "MP", objective: "MP-6", title: "Nondestructive Techniques", baselines: [high] }
+  - { code: "MP-6(4)", category: "MP", objective: "MP-6", title: "Controlled Unclassified Information", baselines: [] }
+  - { code: "MP-6(5)", category: "MP", objective: "MP-6", title: "Classified Information", baselines: [] }
+  - { code: "MP-6(6)", category: "MP", objective: "MP-6", title: "Media Destruction", baselines: [] }
+  - { code: "MP-6(7)", category: "MP", objective: "MP-6", title: "Dual Authorization", baselines: [] }
+  - { code: "MP-6(8)", category: "MP", objective: "MP-6", title: "Remote Purging or Wiping of Information", baselines: [] }
+  - { code: "MP-7", category: "MP", objective: "MP-7", title: "Media Use", baselines: [low, moderate, high] }
+  - { code: "MP-7(1)", category: "MP", objective: "MP-7", title: "Prohibit Use Without Owner", baselines: [] }
+  - { code: "MP-7(2)", category: "MP", objective: "MP-7", title: "Prohibit Use of Sanitization-resistant Media", baselines: [] }
+  - { code: "MP-8", category: "MP", objective: "MP-8", title: "Media Downgrading", baselines: [] }
+  - { code: "MP-8(1)", category: "MP", objective: "MP-8", title: "Documentation of Process", baselines: [] }
+  - { code: "MP-8(2)", category: "MP", objective: "MP-8", title: "Equipment Testing", baselines: [] }
+  - { code: "MP-8(3)", category: "MP", objective: "MP-8", title: "Controlled Unclassified Information", baselines: [] }
+  - { code: "MP-8(4)", category: "MP", objective: "MP-8", title: "Classified Information", baselines: [] }
+  - { code: "PE-1", category: "PE", objective: "PE-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "PE-2", category: "PE", objective: "PE-2", title: "Physical Access Authorizations", baselines: [low, moderate, high] }
+  - { code: "PE-2(1)", category: "PE", objective: "PE-2", title: "Access by Position or Role", baselines: [] }
+  - { code: "PE-2(2)", category: "PE", objective: "PE-2", title: "Two Forms of Identification", baselines: [] }
+  - { code: "PE-2(3)", category: "PE", objective: "PE-2", title: "Restrict Unescorted Access", baselines: [] }
+  - { code: "PE-3", category: "PE", objective: "PE-3", title: "Physical Access Control", baselines: [low, moderate, high] }
+  - { code: "PE-3(1)", category: "PE", objective: "PE-3", title: "System Access", baselines: [high] }
+  - { code: "PE-3(2)", category: "PE", objective: "PE-3", title: "Facility and Systems", baselines: [] }
+  - { code: "PE-3(3)", category: "PE", objective: "PE-3", title: "Continuous Guards", baselines: [] }
+  - { code: "PE-3(4)", category: "PE", objective: "PE-3", title: "Lockable Casings", baselines: [] }
+  - { code: "PE-3(5)", category: "PE", objective: "PE-3", title: "Tamper Protection", baselines: [] }
+  - { code: "PE-3(6)", category: "PE", objective: "PE-3", title: "Facility Penetration Testing", baselines: [] }
+  - { code: "PE-3(7)", category: "PE", objective: "PE-3", title: "Physical Barriers", baselines: [] }
+  - { code: "PE-3(8)", category: "PE", objective: "PE-3", title: "Access Control Vestibules", baselines: [] }
+  - { code: "PE-4", category: "PE", objective: "PE-4", title: "Access Control for Transmission", baselines: [moderate, high] }
+  - { code: "PE-5", category: "PE", objective: "PE-5", title: "Access Control for Output Devices", baselines: [moderate, high] }
+  - { code: "PE-5(1)", category: "PE", objective: "PE-5", title: "Access to Output by Authorized Individuals", baselines: [] }
+  - { code: "PE-5(2)", category: "PE", objective: "PE-5", title: "Link to Individual Identity", baselines: [] }
+  - { code: "PE-5(3)", category: "PE", objective: "PE-5", title: "Marking Output Devices", baselines: [] }
+  - { code: "PE-6", category: "PE", objective: "PE-6", title: "Monitoring Physical Access", baselines: [low, moderate, high] }
+  - { code: "PE-6(1)", category: "PE", objective: "PE-6", title: "Intrusion Alarms and Surveillance Equipment", baselines: [moderate, high] }
+  - { code: "PE-6(2)", category: "PE", objective: "PE-6", title: "Automated Intrusion Recognition and Responses", baselines: [] }
+  - { code: "PE-6(3)", category: "PE", objective: "PE-6", title: "Video Surveillance", baselines: [] }
+  - { code: "PE-6(4)", category: "PE", objective: "PE-6", title: "Monitoring Physical Access to Systems", baselines: [high] }
+  - { code: "PE-7", category: "PE", objective: "PE-7", title: "Visitor Control", baselines: [] }
+  - { code: "PE-8", category: "PE", objective: "PE-8", title: "Visitor Access Records", baselines: [low, moderate, high] }
+  - { code: "PE-8(1)", category: "PE", objective: "PE-8", title: "Automated Records Maintenance and Review", baselines: [high] }
+  - { code: "PE-8(2)", category: "PE", objective: "PE-8", title: "Physical Access Records", baselines: [] }
+  - { code: "PE-8(3)", category: "PE", objective: "PE-8", title: "Limit Personally Identifiable Information Elements", baselines: [] }
+  - { code: "PE-9", category: "PE", objective: "PE-9", title: "Power Equipment and Cabling", baselines: [moderate, high] }
+  - { code: "PE-9(1)", category: "PE", objective: "PE-9", title: "Redundant Cabling", baselines: [] }
+  - { code: "PE-9(2)", category: "PE", objective: "PE-9", title: "Automatic Voltage Controls", baselines: [] }
+  - { code: "PE-10", category: "PE", objective: "PE-10", title: "Emergency Shutoff", baselines: [moderate, high] }
+  - { code: "PE-10(1)", category: "PE", objective: "PE-10", title: "Accidental and Unauthorized Activation", baselines: [] }
+  - { code: "PE-11", category: "PE", objective: "PE-11", title: "Emergency Power", baselines: [moderate, high] }
+  - { code: "PE-11(1)", category: "PE", objective: "PE-11", title: "Alternate Power Supply — Minimal Operational Capability", baselines: [high] }
+  - { code: "PE-11(2)", category: "PE", objective: "PE-11", title: "Alternate Power Supply — Self-contained", baselines: [] }
+  - { code: "PE-12", category: "PE", objective: "PE-12", title: "Emergency Lighting", baselines: [low, moderate, high] }
+  - { code: "PE-12(1)", category: "PE", objective: "PE-12", title: "Essential Mission and Business Functions", baselines: [] }
+  - { code: "PE-13", category: "PE", objective: "PE-13", title: "Fire Protection", baselines: [low, moderate, high] }
+  - { code: "PE-13(1)", category: "PE", objective: "PE-13", title: "Detection Systems — Automatic Activation and Notification", baselines: [moderate, high] }
+  - { code: "PE-13(2)", category: "PE", objective: "PE-13", title: "Suppression Systems — Automatic Activation and Notification", baselines: [high] }
+  - { code: "PE-13(3)", category: "PE", objective: "PE-13", title: "Automatic Fire Suppression", baselines: [] }
+  - { code: "PE-13(4)", category: "PE", objective: "PE-13", title: "Inspections", baselines: [] }
+  - { code: "PE-14", category: "PE", objective: "PE-14", title: "Environmental Controls", baselines: [low, moderate, high] }
+  - { code: "PE-14(1)", category: "PE", objective: "PE-14", title: "Automatic Controls", baselines: [] }
+  - { code: "PE-14(2)", category: "PE", objective: "PE-14", title: "Monitoring with Alarms and Notifications", baselines: [] }
+  - { code: "PE-15", category: "PE", objective: "PE-15", title: "Water Damage Protection", baselines: [low, moderate, high] }
+  - { code: "PE-15(1)", category: "PE", objective: "PE-15", title: "Automation Support", baselines: [high] }
+  - { code: "PE-16", category: "PE", objective: "PE-16", title: "Delivery and Removal", baselines: [low, moderate, high] }
+  - { code: "PE-17", category: "PE", objective: "PE-17", title: "Alternate Work Site", baselines: [moderate, high] }
+  - { code: "PE-18", category: "PE", objective: "PE-18", title: "Location of System Components", baselines: [high] }
+  - { code: "PE-18(1)", category: "PE", objective: "PE-18", title: "Facility Site", baselines: [] }
+  - { code: "PE-19", category: "PE", objective: "PE-19", title: "Information Leakage", baselines: [] }
+  - { code: "PE-19(1)", category: "PE", objective: "PE-19", title: "National Emissions Policies and Procedures", baselines: [] }
+  - { code: "PE-20", category: "PE", objective: "PE-20", title: "Asset Monitoring and Tracking", baselines: [] }
+  - { code: "PE-21", category: "PE", objective: "PE-21", title: "Electromagnetic Pulse Protection", baselines: [] }
+  - { code: "PE-22", category: "PE", objective: "PE-22", title: "Component Marking", baselines: [] }
+  - { code: "PE-23", category: "PE", objective: "PE-23", title: "Facility Location", baselines: [] }
+  - { code: "PL-1", category: "PL", objective: "PL-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "PL-2", category: "PL", objective: "PL-2", title: "System Security and Privacy Plans", baselines: [low, moderate, high] }
+  - { code: "PL-2(1)", category: "PL", objective: "PL-2", title: "Concept of Operations", baselines: [] }
+  - { code: "PL-2(2)", category: "PL", objective: "PL-2", title: "Functional Architecture", baselines: [] }
+  - { code: "PL-2(3)", category: "PL", objective: "PL-2", title: "Plan and Coordinate with Other Organizational Entities", baselines: [] }
+  - { code: "PL-3", category: "PL", objective: "PL-3", title: "System Security Plan Update", baselines: [] }
+  - { code: "PL-4", category: "PL", objective: "PL-4", title: "Rules of Behavior", baselines: [low, moderate, high] }
+  - { code: "PL-4(1)", category: "PL", objective: "PL-4", title: "Social Media and External Site/Application Usage Restrictions", baselines: [low, moderate, high] }
+  - { code: "PL-5", category: "PL", objective: "PL-5", title: "Privacy Impact Assessment", baselines: [] }
+  - { code: "PL-6", category: "PL", objective: "PL-6", title: "Security-related Activity Planning", baselines: [] }
+  - { code: "PL-7", category: "PL", objective: "PL-7", title: "Concept of Operations", baselines: [] }
+  - { code: "PL-8", category: "PL", objective: "PL-8", title: "Security and Privacy Architectures", baselines: [moderate, high] }
+  - { code: "PL-8(1)", category: "PL", objective: "PL-8", title: "Defense in Depth", baselines: [] }
+  - { code: "PL-8(2)", category: "PL", objective: "PL-8", title: "Supplier Diversity", baselines: [] }
+  - { code: "PL-9", category: "PL", objective: "PL-9", title: "Central Management", baselines: [] }
+  - { code: "PL-10", category: "PL", objective: "PL-10", title: "Baseline Selection", baselines: [low, moderate, high] }
+  - { code: "PL-11", category: "PL", objective: "PL-11", title: "Baseline Tailoring", baselines: [low, moderate, high] }
+  - { code: "PM-1", category: "PM", objective: "PM-1", title: "Information Security Program Plan", baselines: [] }
+  - { code: "PM-2", category: "PM", objective: "PM-2", title: "Information Security Program Leadership Role", baselines: [] }
+  - { code: "PM-3", category: "PM", objective: "PM-3", title: "Information Security and Privacy Resources", baselines: [] }
+  - { code: "PM-4", category: "PM", objective: "PM-4", title: "Plan of Action and Milestones Process", baselines: [] }
+  - { code: "PM-5", category: "PM", objective: "PM-5", title: "System Inventory", baselines: [] }
+  - { code: "PM-5(1)", category: "PM", objective: "PM-5", title: "Inventory of Personally Identifiable Information", baselines: [] }
+  - { code: "PM-6", category: "PM", objective: "PM-6", title: "Measures of Performance", baselines: [] }
+  - { code: "PM-7", category: "PM", objective: "PM-7", title: "Enterprise Architecture", baselines: [] }
+  - { code: "PM-7(1)", category: "PM", objective: "PM-7", title: "Offloading", baselines: [] }
+  - { code: "PM-8", category: "PM", objective: "PM-8", title: "Critical Infrastructure Plan", baselines: [] }
+  - { code: "PM-9", category: "PM", objective: "PM-9", title: "Risk Management Strategy", baselines: [] }
+  - { code: "PM-10", category: "PM", objective: "PM-10", title: "Authorization Process", baselines: [] }
+  - { code: "PM-11", category: "PM", objective: "PM-11", title: "Mission and Business Process Definition", baselines: [] }
+  - { code: "PM-12", category: "PM", objective: "PM-12", title: "Insider Threat Program", baselines: [] }
+  - { code: "PM-13", category: "PM", objective: "PM-13", title: "Security and Privacy Workforce", baselines: [] }
+  - { code: "PM-14", category: "PM", objective: "PM-14", title: "Testing, Training, and Monitoring", baselines: [] }
+  - { code: "PM-15", category: "PM", objective: "PM-15", title: "Security and Privacy Groups and Associations", baselines: [] }
+  - { code: "PM-16", category: "PM", objective: "PM-16", title: "Threat Awareness Program", baselines: [] }
+  - { code: "PM-16(1)", category: "PM", objective: "PM-16", title: "Automated Means for Sharing Threat Intelligence", baselines: [] }
+  - { code: "PM-17", category: "PM", objective: "PM-17", title: "Protecting Controlled Unclassified Information on External Systems", baselines: [] }
+  - { code: "PM-18", category: "PM", objective: "PM-18", title: "Privacy Program Plan", baselines: [] }
+  - { code: "PM-19", category: "PM", objective: "PM-19", title: "Privacy Program Leadership Role", baselines: [] }
+  - { code: "PM-20", category: "PM", objective: "PM-20", title: "Dissemination of Privacy Program Information", baselines: [] }
+  - { code: "PM-20(1)", category: "PM", objective: "PM-20", title: "Privacy Policies on Websites, Applications, and Digital Services", baselines: [] }
+  - { code: "PM-21", category: "PM", objective: "PM-21", title: "Accounting of Disclosures", baselines: [] }
+  - { code: "PM-22", category: "PM", objective: "PM-22", title: "Personally Identifiable Information Quality Management", baselines: [] }
+  - { code: "PM-23", category: "PM", objective: "PM-23", title: "Data Governance Body", baselines: [] }
+  - { code: "PM-24", category: "PM", objective: "PM-24", title: "Data Integrity Board", baselines: [] }
+  - { code: "PM-25", category: "PM", objective: "PM-25", title: "Minimization of Personally Identifiable Information Used in Testing, Training, and Research", baselines: [] }
+  - { code: "PM-26", category: "PM", objective: "PM-26", title: "Complaint Management", baselines: [] }
+  - { code: "PM-27", category: "PM", objective: "PM-27", title: "Privacy Reporting", baselines: [] }
+  - { code: "PM-28", category: "PM", objective: "PM-28", title: "Risk Framing", baselines: [] }
+  - { code: "PM-29", category: "PM", objective: "PM-29", title: "Risk Management Program Leadership Roles", baselines: [] }
+  - { code: "PM-30", category: "PM", objective: "PM-30", title: "Supply Chain Risk Management Strategy", baselines: [] }
+  - { code: "PM-30(1)", category: "PM", objective: "PM-30", title: "Suppliers of Critical or Mission-essential Items", baselines: [] }
+  - { code: "PM-31", category: "PM", objective: "PM-31", title: "Continuous Monitoring Strategy", baselines: [] }
+  - { code: "PM-32", category: "PM", objective: "PM-32", title: "Purposing", baselines: [] }
+  - { code: "PS-1", category: "PS", objective: "PS-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "PS-2", category: "PS", objective: "PS-2", title: "Position Risk Designation", baselines: [low, moderate, high] }
+  - { code: "PS-3", category: "PS", objective: "PS-3", title: "Personnel Screening", baselines: [low, moderate, high] }
+  - { code: "PS-3(1)", category: "PS", objective: "PS-3", title: "Classified Information", baselines: [] }
+  - { code: "PS-3(2)", category: "PS", objective: "PS-3", title: "Formal Indoctrination", baselines: [] }
+  - { code: "PS-3(3)", category: "PS", objective: "PS-3", title: "Information Requiring Special Protective Measures", baselines: [] }
+  - { code: "PS-3(4)", category: "PS", objective: "PS-3", title: "Citizenship Requirements", baselines: [] }
+  - { code: "PS-4", category: "PS", objective: "PS-4", title: "Personnel Termination", baselines: [low, moderate, high] }
+  - { code: "PS-4(1)", category: "PS", objective: "PS-4", title: "Post-employment Requirements", baselines: [] }
+  - { code: "PS-4(2)", category: "PS", objective: "PS-4", title: "Automated Actions", baselines: [high] }
+  - { code: "PS-5", category: "PS", objective: "PS-5", title: "Personnel Transfer", baselines: [low, moderate, high] }
+  - { code: "PS-6", category: "PS", objective: "PS-6", title: "Access Agreements", baselines: [low, moderate, high] }
+  - { code: "PS-6(1)", category: "PS", objective: "PS-6", title: "Information Requiring Special Protection", baselines: [] }
+  - { code: "PS-6(2)", category: "PS", objective: "PS-6", title: "Classified Information Requiring Special Protection", baselines: [] }
+  - { code: "PS-6(3)", category: "PS", objective: "PS-6", title: "Post-employment Requirements", baselines: [] }
+  - { code: "PS-7", category: "PS", objective: "PS-7", title: "External Personnel Security", baselines: [low, moderate, high] }
+  - { code: "PS-8", category: "PS", objective: "PS-8", title: "Personnel Sanctions", baselines: [low, moderate, high] }
+  - { code: "PS-9", category: "PS", objective: "PS-9", title: "Position Descriptions", baselines: [low, moderate, high] }
+  - { code: "PT-1", category: "PT", objective: "PT-1", title: "Policy and Procedures", baselines: [] }
+  - { code: "PT-2", category: "PT", objective: "PT-2", title: "Authority to Process Personally Identifiable Information", baselines: [] }
+  - { code: "PT-2(1)", category: "PT", objective: "PT-2", title: "Data Tagging", baselines: [] }
+  - { code: "PT-2(2)", category: "PT", objective: "PT-2", title: "Automation", baselines: [] }
+  - { code: "PT-3", category: "PT", objective: "PT-3", title: "Personally Identifiable Information Processing Purposes", baselines: [] }
+  - { code: "PT-3(1)", category: "PT", objective: "PT-3", title: "Data Tagging", baselines: [] }
+  - { code: "PT-3(2)", category: "PT", objective: "PT-3", title: "Automation", baselines: [] }
+  - { code: "PT-4", category: "PT", objective: "PT-4", title: "Consent", baselines: [] }
+  - { code: "PT-4(1)", category: "PT", objective: "PT-4", title: "Tailored Consent", baselines: [] }
+  - { code: "PT-4(2)", category: "PT", objective: "PT-4", title: "Just-in-time Consent", baselines: [] }
+  - { code: "PT-4(3)", category: "PT", objective: "PT-4", title: "Revocation", baselines: [] }
+  - { code: "PT-5", category: "PT", objective: "PT-5", title: "Privacy Notice", baselines: [] }
+  - { code: "PT-5(1)", category: "PT", objective: "PT-5", title: "Just-in-time Notice", baselines: [] }
+  - { code: "PT-5(2)", category: "PT", objective: "PT-5", title: "Privacy Act Statements", baselines: [] }
+  - { code: "PT-6", category: "PT", objective: "PT-6", title: "System of Records Notice", baselines: [] }
+  - { code: "PT-6(1)", category: "PT", objective: "PT-6", title: "Routine Uses", baselines: [] }
+  - { code: "PT-6(2)", category: "PT", objective: "PT-6", title: "Exemption Rules", baselines: [] }
+  - { code: "PT-7", category: "PT", objective: "PT-7", title: "Specific Categories of Personally Identifiable Information", baselines: [] }
+  - { code: "PT-7(1)", category: "PT", objective: "PT-7", title: "Social Security Numbers", baselines: [] }
+  - { code: "PT-7(2)", category: "PT", objective: "PT-7", title: "First Amendment Information", baselines: [] }
+  - { code: "PT-8", category: "PT", objective: "PT-8", title: "Computer Matching Requirements", baselines: [] }
+  - { code: "RA-1", category: "RA", objective: "RA-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "RA-2", category: "RA", objective: "RA-2", title: "Security Categorization", baselines: [low, moderate, high] }
+  - { code: "RA-2(1)", category: "RA", objective: "RA-2", title: "Impact-level Prioritization", baselines: [] }
+  - { code: "RA-3", category: "RA", objective: "RA-3", title: "Risk Assessment", baselines: [low, moderate, high] }
+  - { code: "RA-3(1)", category: "RA", objective: "RA-3", title: "Supply Chain Risk Assessment", baselines: [low, moderate, high] }
+  - { code: "RA-3(2)", category: "RA", objective: "RA-3", title: "Use of All-source Intelligence", baselines: [] }
+  - { code: "RA-3(3)", category: "RA", objective: "RA-3", title: "Dynamic Threat Awareness", baselines: [] }
+  - { code: "RA-3(4)", category: "RA", objective: "RA-3", title: "Predictive Cyber Analytics", baselines: [] }
+  - { code: "RA-4", category: "RA", objective: "RA-4", title: "Risk Assessment Update", baselines: [] }
+  - { code: "RA-5", category: "RA", objective: "RA-5", title: "Vulnerability Monitoring and Scanning", baselines: [low, moderate, high] }
+  - { code: "RA-5(1)", category: "RA", objective: "RA-5", title: "Update Tool Capability", baselines: [] }
+  - { code: "RA-5(2)", category: "RA", objective: "RA-5", title: "Update Vulnerabilities to Be Scanned", baselines: [low, moderate, high] }
+  - { code: "RA-5(3)", category: "RA", objective: "RA-5", title: "Breadth and Depth of Coverage", baselines: [] }
+  - { code: "RA-5(4)", category: "RA", objective: "RA-5", title: "Discoverable Information", baselines: [high] }
+  - { code: "RA-5(5)", category: "RA", objective: "RA-5", title: "Privileged Access", baselines: [moderate, high] }
+  - { code: "RA-5(6)", category: "RA", objective: "RA-5", title: "Automated Trend Analyses", baselines: [] }
+  - { code: "RA-5(7)", category: "RA", objective: "RA-5", title: "Automated Detection and Notification of Unauthorized Components", baselines: [] }
+  - { code: "RA-5(8)", category: "RA", objective: "RA-5", title: "Review Historic Audit Logs", baselines: [] }
+  - { code: "RA-5(9)", category: "RA", objective: "RA-5", title: "Penetration Testing and Analyses", baselines: [] }
+  - { code: "RA-5(10)", category: "RA", objective: "RA-5", title: "Correlate Scanning Information", baselines: [] }
+  - { code: "RA-5(11)", category: "RA", objective: "RA-5", title: "Public Disclosure Program", baselines: [low, moderate, high] }
+  - { code: "RA-6", category: "RA", objective: "RA-6", title: "Technical Surveillance Countermeasures Survey", baselines: [] }
+  - { code: "RA-7", category: "RA", objective: "RA-7", title: "Risk Response", baselines: [low, moderate, high] }
+  - { code: "RA-8", category: "RA", objective: "RA-8", title: "Privacy Impact Assessments", baselines: [] }
+  - { code: "RA-9", category: "RA", objective: "RA-9", title: "Criticality Analysis", baselines: [moderate, high] }
+  - { code: "RA-10", category: "RA", objective: "RA-10", title: "Threat Hunting", baselines: [] }
+  - { code: "SA-1", category: "SA", objective: "SA-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "SA-2", category: "SA", objective: "SA-2", title: "Allocation of Resources", baselines: [low, moderate, high] }
+  - { code: "SA-3", category: "SA", objective: "SA-3", title: "System Development Life Cycle", baselines: [low, moderate, high] }
+  - { code: "SA-3(1)", category: "SA", objective: "SA-3", title: "Manage Preproduction Environment", baselines: [] }
+  - { code: "SA-3(2)", category: "SA", objective: "SA-3", title: "Use of Live or Operational Data", baselines: [] }
+  - { code: "SA-3(3)", category: "SA", objective: "SA-3", title: "Technology Refresh", baselines: [] }
+  - { code: "SA-4", category: "SA", objective: "SA-4", title: "Acquisition Process", baselines: [low, moderate, high] }
+  - { code: "SA-4(1)", category: "SA", objective: "SA-4", title: "Functional Properties of Controls", baselines: [moderate, high] }
+  - { code: "SA-4(2)", category: "SA", objective: "SA-4", title: "Design and Implementation Information for Controls", baselines: [moderate, high] }
+  - { code: "SA-4(3)", category: "SA", objective: "SA-4", title: "Development Methods, Techniques, and Practices", baselines: [] }
+  - { code: "SA-4(4)", category: "SA", objective: "SA-4", title: "Assignment of Components to Systems", baselines: [] }
+  - { code: "SA-4(5)", category: "SA", objective: "SA-4", title: "System, Component, and Service Configurations", baselines: [high] }
+  - { code: "SA-4(6)", category: "SA", objective: "SA-4", title: "Use of Information Assurance Products", baselines: [] }
+  - { code: "SA-4(7)", category: "SA", objective: "SA-4", title: "NIAP-approved Protection Profiles ", baselines: [] }
+  - { code: "SA-4(8)", category: "SA", objective: "SA-4", title: "Continuous Monitoring Plan for Controls", baselines: [] }
+  - { code: "SA-4(9)", category: "SA", objective: "SA-4", title: "Functions, Ports, Protocols, and Services in Use", baselines: [moderate, high] }
+  - { code: "SA-4(10)", category: "SA", objective: "SA-4", title: "Use of Approved PIV Products", baselines: [low, moderate, high] }
+  - { code: "SA-4(11)", category: "SA", objective: "SA-4", title: "System of Records", baselines: [] }
+  - { code: "SA-4(12)", category: "SA", objective: "SA-4", title: "Data Ownership", baselines: [] }
+  - { code: "SA-5", category: "SA", objective: "SA-5", title: "System Documentation", baselines: [low, moderate, high] }
+  - { code: "SA-5(1)", category: "SA", objective: "SA-5", title: "Functional Properties of Security Controls", baselines: [] }
+  - { code: "SA-5(2)", category: "SA", objective: "SA-5", title: "Security-relevant External System Interfaces", baselines: [] }
+  - { code: "SA-5(3)", category: "SA", objective: "SA-5", title: "High-level Design", baselines: [] }
+  - { code: "SA-5(4)", category: "SA", objective: "SA-5", title: "Low-level Design", baselines: [] }
+  - { code: "SA-5(5)", category: "SA", objective: "SA-5", title: "Source Code", baselines: [] }
+  - { code: "SA-6", category: "SA", objective: "SA-6", title: "Software Usage Restrictions", baselines: [] }
+  - { code: "SA-7", category: "SA", objective: "SA-7", title: "User-installed Software", baselines: [] }
+  - { code: "SA-8", category: "SA", objective: "SA-8", title: "Security and Privacy Engineering Principles", baselines: [low, moderate, high] }
+  - { code: "SA-8(1)", category: "SA", objective: "SA-8", title: "Clear Abstractions", baselines: [] }
+  - { code: "SA-8(2)", category: "SA", objective: "SA-8", title: "Least Common Mechanism", baselines: [] }
+  - { code: "SA-8(3)", category: "SA", objective: "SA-8", title: "Modularity and Layering", baselines: [] }
+  - { code: "SA-8(4)", category: "SA", objective: "SA-8", title: "Partially Ordered Dependencies", baselines: [] }
+  - { code: "SA-8(5)", category: "SA", objective: "SA-8", title: "Efficiently Mediated Access", baselines: [] }
+  - { code: "SA-8(6)", category: "SA", objective: "SA-8", title: "Minimized Sharing", baselines: [] }
+  - { code: "SA-8(7)", category: "SA", objective: "SA-8", title: "Reduced Complexity", baselines: [] }
+  - { code: "SA-8(8)", category: "SA", objective: "SA-8", title: "Secure Evolvability", baselines: [] }
+  - { code: "SA-8(9)", category: "SA", objective: "SA-8", title: "Trusted Components", baselines: [] }
+  - { code: "SA-8(10)", category: "SA", objective: "SA-8", title: "Hierarchical Trust", baselines: [] }
+  - { code: "SA-8(11)", category: "SA", objective: "SA-8", title: "Inverse Modification Threshold", baselines: [] }
+  - { code: "SA-8(12)", category: "SA", objective: "SA-8", title: "Hierarchical Protection", baselines: [] }
+  - { code: "SA-8(13)", category: "SA", objective: "SA-8", title: "Minimized Security Elements", baselines: [] }
+  - { code: "SA-8(14)", category: "SA", objective: "SA-8", title: "Least Privilege", baselines: [] }
+  - { code: "SA-8(15)", category: "SA", objective: "SA-8", title: "Predicate Permission", baselines: [] }
+  - { code: "SA-8(16)", category: "SA", objective: "SA-8", title: "Self-reliant Trustworthiness", baselines: [] }
+  - { code: "SA-8(17)", category: "SA", objective: "SA-8", title: "Secure Distributed Composition", baselines: [] }
+  - { code: "SA-8(18)", category: "SA", objective: "SA-8", title: "Trusted Communications Channels", baselines: [] }
+  - { code: "SA-8(19)", category: "SA", objective: "SA-8", title: "Continuous Protection", baselines: [] }
+  - { code: "SA-8(20)", category: "SA", objective: "SA-8", title: "Secure Metadata Management", baselines: [] }
+  - { code: "SA-8(21)", category: "SA", objective: "SA-8", title: "Self-analysis", baselines: [] }
+  - { code: "SA-8(22)", category: "SA", objective: "SA-8", title: "Accountability and Traceability", baselines: [] }
+  - { code: "SA-8(23)", category: "SA", objective: "SA-8", title: "Secure Defaults", baselines: [] }
+  - { code: "SA-8(24)", category: "SA", objective: "SA-8", title: "Secure Failure and Recovery", baselines: [] }
+  - { code: "SA-8(25)", category: "SA", objective: "SA-8", title: "Economic Security", baselines: [] }
+  - { code: "SA-8(26)", category: "SA", objective: "SA-8", title: "Performance Security", baselines: [] }
+  - { code: "SA-8(27)", category: "SA", objective: "SA-8", title: "Human Factored Security", baselines: [] }
+  - { code: "SA-8(28)", category: "SA", objective: "SA-8", title: "Acceptable Security", baselines: [] }
+  - { code: "SA-8(29)", category: "SA", objective: "SA-8", title: "Repeatable and Documented Procedures", baselines: [] }
+  - { code: "SA-8(30)", category: "SA", objective: "SA-8", title: "Procedural Rigor", baselines: [] }
+  - { code: "SA-8(31)", category: "SA", objective: "SA-8", title: "Secure System Modification", baselines: [] }
+  - { code: "SA-8(32)", category: "SA", objective: "SA-8", title: "Sufficient Documentation", baselines: [] }
+  - { code: "SA-8(33)", category: "SA", objective: "SA-8", title: "Minimization", baselines: [] }
+  - { code: "SA-9", category: "SA", objective: "SA-9", title: "External System Services", baselines: [low, moderate, high] }
+  - { code: "SA-9(1)", category: "SA", objective: "SA-9", title: "Risk Assessments and Organizational Approvals", baselines: [] }
+  - { code: "SA-9(2)", category: "SA", objective: "SA-9", title: "Identification of Functions, Ports, Protocols, and Services", baselines: [moderate, high] }
+  - { code: "SA-9(3)", category: "SA", objective: "SA-9", title: "Establish and Maintain Trust Relationship with Providers", baselines: [] }
+  - { code: "SA-9(4)", category: "SA", objective: "SA-9", title: "Consistent Interests of Consumers and Providers", baselines: [] }
+  - { code: "SA-9(5)", category: "SA", objective: "SA-9", title: "Processing, Storage, and Service Location", baselines: [] }
+  - { code: "SA-9(6)", category: "SA", objective: "SA-9", title: "Organization-controlled Cryptographic Keys", baselines: [] }
+  - { code: "SA-9(7)", category: "SA", objective: "SA-9", title: "Organization-controlled Integrity Checking", baselines: [] }
+  - { code: "SA-9(8)", category: "SA", objective: "SA-9", title: "Processing and Storage Location — U.S. Jurisdiction", baselines: [] }
+  - { code: "SA-10", category: "SA", objective: "SA-10", title: "Developer Configuration Management", baselines: [moderate, high] }
+  - { code: "SA-10(1)", category: "SA", objective: "SA-10", title: "Software and Firmware Integrity Verification", baselines: [] }
+  - { code: "SA-10(2)", category: "SA", objective: "SA-10", title: "Alternative Configuration Management Processes", baselines: [] }
+  - { code: "SA-10(3)", category: "SA", objective: "SA-10", title: "Hardware Integrity Verification", baselines: [] }
+  - { code: "SA-10(4)", category: "SA", objective: "SA-10", title: "Trusted Generation", baselines: [] }
+  - { code: "SA-10(5)", category: "SA", objective: "SA-10", title: "Mapping Integrity for Version Control", baselines: [] }
+  - { code: "SA-10(6)", category: "SA", objective: "SA-10", title: "Trusted Distribution", baselines: [] }
+  - { code: "SA-10(7)", category: "SA", objective: "SA-10", title: "Security and Privacy Representatives", baselines: [] }
+  - { code: "SA-11", category: "SA", objective: "SA-11", title: "Developer Testing and Evaluation", baselines: [moderate, high] }
+  - { code: "SA-11(1)", category: "SA", objective: "SA-11", title: "Static Code Analysis", baselines: [] }
+  - { code: "SA-11(2)", category: "SA", objective: "SA-11", title: "Threat Modeling and Vulnerability Analyses", baselines: [] }
+  - { code: "SA-11(3)", category: "SA", objective: "SA-11", title: "Independent Verification of Assessment Plans and Evidence", baselines: [] }
+  - { code: "SA-11(4)", category: "SA", objective: "SA-11", title: "Manual Code Reviews", baselines: [] }
+  - { code: "SA-11(5)", category: "SA", objective: "SA-11", title: "Penetration Testing", baselines: [] }
+  - { code: "SA-11(6)", category: "SA", objective: "SA-11", title: "Attack Surface Reviews", baselines: [] }
+  - { code: "SA-11(7)", category: "SA", objective: "SA-11", title: "Verify Scope of Testing and Evaluation", baselines: [] }
+  - { code: "SA-11(8)", category: "SA", objective: "SA-11", title: "Dynamic Code Analysis", baselines: [] }
+  - { code: "SA-11(9)", category: "SA", objective: "SA-11", title: "Interactive Application Security Testing", baselines: [] }
+  - { code: "SA-12", category: "SA", objective: "SA-12", title: "Supply Chain Protection", baselines: [] }
+  - { code: "SA-12(1)", category: "SA", objective: "SA-12", title: "Acquisition Strategies / Tools / Methods", baselines: [] }
+  - { code: "SA-12(2)", category: "SA", objective: "SA-12", title: "Supplier Reviews", baselines: [] }
+  - { code: "SA-12(3)", category: "SA", objective: "SA-12", title: "Trusted Shipping and Warehousing", baselines: [] }
+  - { code: "SA-12(4)", category: "SA", objective: "SA-12", title: "Diversity of Suppliers", baselines: [] }
+  - { code: "SA-12(5)", category: "SA", objective: "SA-12", title: "Limitation of Harm", baselines: [] }
+  - { code: "SA-12(6)", category: "SA", objective: "SA-12", title: "Minimizing Procurement Time", baselines: [] }
+  - { code: "SA-12(7)", category: "SA", objective: "SA-12", title: "Assessments Prior to Selection / Acceptance / Update", baselines: [] }
+  - { code: "SA-12(8)", category: "SA", objective: "SA-12", title: "Use of All-source Intelligence", baselines: [] }
+  - { code: "SA-12(9)", category: "SA", objective: "SA-12", title: "Operations Security", baselines: [] }
+  - { code: "SA-12(10)", category: "SA", objective: "SA-12", title: "Validate as Genuine and Not Altered", baselines: [] }
+  - { code: "SA-12(11)", category: "SA", objective: "SA-12", title: "Penetration Testing / Analysis of Elements, Processes, and Actors", baselines: [] }
+  - { code: "SA-12(12)", category: "SA", objective: "SA-12", title: "Inter-organizational Agreements", baselines: [] }
+  - { code: "SA-12(13)", category: "SA", objective: "SA-12", title: "Critical Information System Components", baselines: [] }
+  - { code: "SA-12(14)", category: "SA", objective: "SA-12", title: "Identity and Traceability", baselines: [] }
+  - { code: "SA-12(15)", category: "SA", objective: "SA-12", title: "Processes to Address Weaknesses or Deficiencies", baselines: [] }
+  - { code: "SA-13", category: "SA", objective: "SA-13", title: "Trustworthiness", baselines: [] }
+  - { code: "SA-14", category: "SA", objective: "SA-14", title: "Criticality Analysis", baselines: [] }
+  - { code: "SA-14(1)", category: "SA", objective: "SA-14", title: "Critical Components with No Viable Alternative Sourcing", baselines: [] }
+  - { code: "SA-15", category: "SA", objective: "SA-15", title: "Development Process, Standards, and Tools", baselines: [moderate, high] }
+  - { code: "SA-15(1)", category: "SA", objective: "SA-15", title: "Quality Metrics", baselines: [] }
+  - { code: "SA-15(2)", category: "SA", objective: "SA-15", title: "Security and Privacy Tracking Tools", baselines: [] }
+  - { code: "SA-15(3)", category: "SA", objective: "SA-15", title: "Criticality Analysis", baselines: [moderate, high] }
+  - { code: "SA-15(4)", category: "SA", objective: "SA-15", title: "Threat Modeling and Vulnerability Analysis", baselines: [] }
+  - { code: "SA-15(5)", category: "SA", objective: "SA-15", title: "Attack Surface Reduction", baselines: [] }
+  - { code: "SA-15(6)", category: "SA", objective: "SA-15", title: "Continuous Improvement", baselines: [] }
+  - { code: "SA-15(7)", category: "SA", objective: "SA-15", title: "Automated Vulnerability Analysis", baselines: [] }
+  - { code: "SA-15(8)", category: "SA", objective: "SA-15", title: "Reuse of Threat and Vulnerability Information", baselines: [] }
+  - { code: "SA-15(9)", category: "SA", objective: "SA-15", title: "Use of Live Data", baselines: [] }
+  - { code: "SA-15(10)", category: "SA", objective: "SA-15", title: "Incident Response Plan", baselines: [] }
+  - { code: "SA-15(11)", category: "SA", objective: "SA-15", title: "Archive System or Component", baselines: [] }
+  - { code: "SA-15(12)", category: "SA", objective: "SA-15", title: "Minimize Personally Identifiable Information", baselines: [] }
+  - { code: "SA-15(13)", category: "SA", objective: "SA-15", title: "Logging Syntax", baselines: [] }
+  - { code: "SA-16", category: "SA", objective: "SA-16", title: "Developer-provided Training", baselines: [high] }
+  - { code: "SA-17", category: "SA", objective: "SA-17", title: "Developer Security and Privacy Architecture and Design", baselines: [high] }
+  - { code: "SA-17(1)", category: "SA", objective: "SA-17", title: "Formal Policy Model", baselines: [] }
+  - { code: "SA-17(2)", category: "SA", objective: "SA-17", title: "Security-relevant Components", baselines: [] }
+  - { code: "SA-17(3)", category: "SA", objective: "SA-17", title: "Formal Correspondence", baselines: [] }
+  - { code: "SA-17(4)", category: "SA", objective: "SA-17", title: "Informal Correspondence", baselines: [] }
+  - { code: "SA-17(5)", category: "SA", objective: "SA-17", title: "Conceptually Simple Design", baselines: [] }
+  - { code: "SA-17(6)", category: "SA", objective: "SA-17", title: "Structure for Testing", baselines: [] }
+  - { code: "SA-17(7)", category: "SA", objective: "SA-17", title: "Structure for Least Privilege", baselines: [] }
+  - { code: "SA-17(8)", category: "SA", objective: "SA-17", title: "Orchestration", baselines: [] }
+  - { code: "SA-17(9)", category: "SA", objective: "SA-17", title: "Design Diversity", baselines: [] }
+  - { code: "SA-18", category: "SA", objective: "SA-18", title: "Tamper Resistance and Detection", baselines: [] }
+  - { code: "SA-18(1)", category: "SA", objective: "SA-18", title: "Multiple Phases of System Development Life Cycle", baselines: [] }
+  - { code: "SA-18(2)", category: "SA", objective: "SA-18", title: "Inspection of Systems or Components", baselines: [] }
+  - { code: "SA-19", category: "SA", objective: "SA-19", title: "Component Authenticity", baselines: [] }
+  - { code: "SA-19(1)", category: "SA", objective: "SA-19", title: "Anti-counterfeit Training", baselines: [] }
+  - { code: "SA-19(2)", category: "SA", objective: "SA-19", title: "Configuration Control for Component Service and Repair", baselines: [] }
+  - { code: "SA-19(3)", category: "SA", objective: "SA-19", title: "Component Disposal", baselines: [] }
+  - { code: "SA-19(4)", category: "SA", objective: "SA-19", title: "Anti-counterfeit Scanning", baselines: [] }
+  - { code: "SA-20", category: "SA", objective: "SA-20", title: "Customized Development of Critical Components", baselines: [] }
+  - { code: "SA-21", category: "SA", objective: "SA-21", title: "Developer Screening", baselines: [high] }
+  - { code: "SA-21(1)", category: "SA", objective: "SA-21", title: "Validation of Screening", baselines: [] }
+  - { code: "SA-22", category: "SA", objective: "SA-22", title: "Unsupported System Components", baselines: [low, moderate, high] }
+  - { code: "SA-22(1)", category: "SA", objective: "SA-22", title: "Alternative Sources for Continued Support", baselines: [] }
+  - { code: "SA-23", category: "SA", objective: "SA-23", title: "Specialization", baselines: [] }
+  - { code: "SA-24", category: "SA", objective: "SA-24", title: "Design For Cyber Resiliency", baselines: [] }
+  - { code: "SC-1", category: "SC", objective: "SC-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "SC-2", category: "SC", objective: "SC-2", title: "Separation of System and User Functionality", baselines: [moderate, high] }
+  - { code: "SC-2(1)", category: "SC", objective: "SC-2", title: "Interfaces for Non-privileged Users", baselines: [] }
+  - { code: "SC-2(2)", category: "SC", objective: "SC-2", title: "Disassociability", baselines: [] }
+  - { code: "SC-3", category: "SC", objective: "SC-3", title: "Security Function Isolation", baselines: [high] }
+  - { code: "SC-3(1)", category: "SC", objective: "SC-3", title: "Hardware Separation", baselines: [] }
+  - { code: "SC-3(2)", category: "SC", objective: "SC-3", title: "Access and Flow Control Functions", baselines: [] }
+  - { code: "SC-3(3)", category: "SC", objective: "SC-3", title: "Minimize Nonsecurity Functionality", baselines: [] }
+  - { code: "SC-3(4)", category: "SC", objective: "SC-3", title: "Module Coupling and Cohesiveness", baselines: [] }
+  - { code: "SC-3(5)", category: "SC", objective: "SC-3", title: "Layered Structures", baselines: [] }
+  - { code: "SC-4", category: "SC", objective: "SC-4", title: "Information in Shared System Resources", baselines: [moderate, high] }
+  - { code: "SC-4(1)", category: "SC", objective: "SC-4", title: "Security Levels", baselines: [] }
+  - { code: "SC-4(2)", category: "SC", objective: "SC-4", title: "Multilevel or Periods Processing", baselines: [] }
+  - { code: "SC-5", category: "SC", objective: "SC-5", title: "Denial-of-service Protection", baselines: [low, moderate, high] }
+  - { code: "SC-5(1)", category: "SC", objective: "SC-5", title: "Restrict Ability to Attack Other Systems", baselines: [] }
+  - { code: "SC-5(2)", category: "SC", objective: "SC-5", title: "Capacity, Bandwidth, and Redundancy", baselines: [] }
+  - { code: "SC-5(3)", category: "SC", objective: "SC-5", title: "Detection and Monitoring", baselines: [] }
+  - { code: "SC-6", category: "SC", objective: "SC-6", title: "Resource Availability", baselines: [] }
+  - { code: "SC-7", category: "SC", objective: "SC-7", title: "Boundary Protection", baselines: [low, moderate, high] }
+  - { code: "SC-7(1)", category: "SC", objective: "SC-7", title: "Physically Separated Subnetworks", baselines: [] }
+  - { code: "SC-7(2)", category: "SC", objective: "SC-7", title: "Public Access", baselines: [] }
+  - { code: "SC-7(3)", category: "SC", objective: "SC-7", title: "Access Points", baselines: [moderate, high] }
+  - { code: "SC-7(4)", category: "SC", objective: "SC-7", title: "External Telecommunications Services", baselines: [moderate, high] }
+  - { code: "SC-7(5)", category: "SC", objective: "SC-7", title: "Deny by Default — Allow by Exception", baselines: [moderate, high] }
+  - { code: "SC-7(6)", category: "SC", objective: "SC-7", title: "Response to Recognized Failures", baselines: [] }
+  - { code: "SC-7(7)", category: "SC", objective: "SC-7", title: "Split Tunneling for Remote Devices", baselines: [moderate, high] }
+  - { code: "SC-7(8)", category: "SC", objective: "SC-7", title: "Route Traffic to Authenticated Proxy Servers", baselines: [moderate, high] }
+  - { code: "SC-7(9)", category: "SC", objective: "SC-7", title: "Restrict Threatening Outgoing Communications Traffic", baselines: [] }
+  - { code: "SC-7(10)", category: "SC", objective: "SC-7", title: "Prevent Exfiltration", baselines: [] }
+  - { code: "SC-7(11)", category: "SC", objective: "SC-7", title: "Restrict Incoming Communications Traffic", baselines: [] }
+  - { code: "SC-7(12)", category: "SC", objective: "SC-7", title: "Host-based Protection", baselines: [] }
+  - { code: "SC-7(13)", category: "SC", objective: "SC-7", title: "Isolation of Security Tools, Mechanisms, and Support Components", baselines: [] }
+  - { code: "SC-7(14)", category: "SC", objective: "SC-7", title: "Protect Against Unauthorized Physical Connections", baselines: [] }
+  - { code: "SC-7(15)", category: "SC", objective: "SC-7", title: "Networked Privileged Accesses", baselines: [] }
+  - { code: "SC-7(16)", category: "SC", objective: "SC-7", title: "Prevent Discovery of System Components", baselines: [] }
+  - { code: "SC-7(17)", category: "SC", objective: "SC-7", title: "Automated Enforcement of Protocol Formats", baselines: [] }
+  - { code: "SC-7(18)", category: "SC", objective: "SC-7", title: "Fail Secure", baselines: [high] }
+  - { code: "SC-7(19)", category: "SC", objective: "SC-7", title: "Block Communication from Non-organizationally Configured Hosts", baselines: [] }
+  - { code: "SC-7(20)", category: "SC", objective: "SC-7", title: "Dynamic Isolation and Segregation", baselines: [] }
+  - { code: "SC-7(21)", category: "SC", objective: "SC-7", title: "Isolation of System Components", baselines: [high] }
+  - { code: "SC-7(22)", category: "SC", objective: "SC-7", title: "Separate Subnets for Connecting to Different Security Domains", baselines: [] }
+  - { code: "SC-7(23)", category: "SC", objective: "SC-7", title: "Disable Sender Feedback on Protocol Validation Failure", baselines: [] }
+  - { code: "SC-7(24)", category: "SC", objective: "SC-7", title: "Personally Identifiable Information", baselines: [] }
+  - { code: "SC-7(25)", category: "SC", objective: "SC-7", title: "Unclassified National Security System Connections", baselines: [] }
+  - { code: "SC-7(26)", category: "SC", objective: "SC-7", title: "Classified National Security System Connections", baselines: [] }
+  - { code: "SC-7(27)", category: "SC", objective: "SC-7", title: "Unclassified Non-national Security System Connections", baselines: [] }
+  - { code: "SC-7(28)", category: "SC", objective: "SC-7", title: "Connections to Public Networks", baselines: [] }
+  - { code: "SC-7(29)", category: "SC", objective: "SC-7", title: "Separate Subnets to Isolate Functions", baselines: [] }
+  - { code: "SC-8", category: "SC", objective: "SC-8", title: "Transmission Confidentiality and Integrity", baselines: [moderate, high] }
+  - { code: "SC-8(1)", category: "SC", objective: "SC-8", title: "Cryptographic Protection", baselines: [moderate, high] }
+  - { code: "SC-8(2)", category: "SC", objective: "SC-8", title: "Pre- and Post-transmission Handling", baselines: [] }
+  - { code: "SC-8(3)", category: "SC", objective: "SC-8", title: "Cryptographic Protection for Message Externals", baselines: [] }
+  - { code: "SC-8(4)", category: "SC", objective: "SC-8", title: "Conceal or Randomize Communications", baselines: [] }
+  - { code: "SC-8(5)", category: "SC", objective: "SC-8", title: "Protected Distribution System", baselines: [] }
+  - { code: "SC-9", category: "SC", objective: "SC-9", title: "Transmission Confidentiality", baselines: [] }
+  - { code: "SC-10", category: "SC", objective: "SC-10", title: "Network Disconnect", baselines: [moderate, high] }
+  - { code: "SC-11", category: "SC", objective: "SC-11", title: "Trusted Path", baselines: [] }
+  - { code: "SC-11(1)", category: "SC", objective: "SC-11", title: "Irrefutable Communications Path", baselines: [] }
+  - { code: "SC-12", category: "SC", objective: "SC-12", title: "Cryptographic Key Establishment and Management", baselines: [low, moderate, high] }
+  - { code: "SC-12(1)", category: "SC", objective: "SC-12", title: "Availability", baselines: [high] }
+  - { code: "SC-12(2)", category: "SC", objective: "SC-12", title: "Symmetric Keys", baselines: [] }
+  - { code: "SC-12(3)", category: "SC", objective: "SC-12", title: "Asymmetric Keys", baselines: [] }
+  - { code: "SC-12(4)", category: "SC", objective: "SC-12", title: "PKI Certificates", baselines: [] }
+  - { code: "SC-12(5)", category: "SC", objective: "SC-12", title: "PKI Certificates / Hardware Tokens", baselines: [] }
+  - { code: "SC-12(6)", category: "SC", objective: "SC-12", title: "Physical Control of Keys", baselines: [] }
+  - { code: "SC-13", category: "SC", objective: "SC-13", title: "Cryptographic Protection", baselines: [low, moderate, high] }
+  - { code: "SC-13(1)", category: "SC", objective: "SC-13", title: "FIPS-validated Cryptography", baselines: [] }
+  - { code: "SC-13(2)", category: "SC", objective: "SC-13", title: "NSA-approved Cryptography", baselines: [] }
+  - { code: "SC-13(3)", category: "SC", objective: "SC-13", title: "Individuals Without Formal Access Approvals", baselines: [] }
+  - { code: "SC-13(4)", category: "SC", objective: "SC-13", title: "Digital Signatures", baselines: [] }
+  - { code: "SC-14", category: "SC", objective: "SC-14", title: "Public Access Protections", baselines: [] }
+  - { code: "SC-15", category: "SC", objective: "SC-15", title: "Collaborative Computing Devices and Applications", baselines: [low, moderate, high] }
+  - { code: "SC-15(1)", category: "SC", objective: "SC-15", title: "Physical or Logical Disconnect", baselines: [] }
+  - { code: "SC-15(2)", category: "SC", objective: "SC-15", title: "Blocking Inbound and Outbound Communications Traffic", baselines: [] }
+  - { code: "SC-15(3)", category: "SC", objective: "SC-15", title: "Disabling and Removal in Secure Work Areas", baselines: [] }
+  - { code: "SC-15(4)", category: "SC", objective: "SC-15", title: "Explicitly Indicate Current Participants", baselines: [] }
+  - { code: "SC-16", category: "SC", objective: "SC-16", title: "Transmission of Security and Privacy Attributes", baselines: [] }
+  - { code: "SC-16(1)", category: "SC", objective: "SC-16", title: "Integrity Verification", baselines: [] }
+  - { code: "SC-16(2)", category: "SC", objective: "SC-16", title: "Anti-spoofing Mechanisms", baselines: [] }
+  - { code: "SC-16(3)", category: "SC", objective: "SC-16", title: "Cryptographic Binding", baselines: [] }
+  - { code: "SC-17", category: "SC", objective: "SC-17", title: "Public Key Infrastructure Certificates", baselines: [moderate, high] }
+  - { code: "SC-18", category: "SC", objective: "SC-18", title: "Mobile Code", baselines: [moderate, high] }
+  - { code: "SC-18(1)", category: "SC", objective: "SC-18", title: "Identify Unacceptable Code and Take Corrective Actions", baselines: [] }
+  - { code: "SC-18(2)", category: "SC", objective: "SC-18", title: "Acquisition, Development, and Use", baselines: [] }
+  - { code: "SC-18(3)", category: "SC", objective: "SC-18", title: "Prevent Downloading and Execution", baselines: [] }
+  - { code: "SC-18(4)", category: "SC", objective: "SC-18", title: "Prevent Automatic Execution", baselines: [] }
+  - { code: "SC-18(5)", category: "SC", objective: "SC-18", title: "Allow Execution Only in Confined Environments", baselines: [] }
+  - { code: "SC-19", category: "SC", objective: "SC-19", title: "Voice Over Internet Protocol", baselines: [] }
+  - { code: "SC-20", category: "SC", objective: "SC-20", title: "Secure Name/Address Resolution Service (Authoritative Source)", baselines: [low, moderate, high] }
+  - { code: "SC-20(1)", category: "SC", objective: "SC-20", title: "Child Subspaces", baselines: [] }
+  - { code: "SC-20(2)", category: "SC", objective: "SC-20", title: "Data Origin and Integrity", baselines: [] }
+  - { code: "SC-21", category: "SC", objective: "SC-21", title: "Secure Name/Address Resolution Service (Recursive or Caching Resolver)", baselines: [low, moderate, high] }
+  - { code: "SC-21(1)", category: "SC", objective: "SC-21", title: "Data Origin and Integrity", baselines: [] }
+  - { code: "SC-22", category: "SC", objective: "SC-22", title: "Architecture and Provisioning for Name/Address Resolution Service", baselines: [low, moderate, high] }
+  - { code: "SC-23", category: "SC", objective: "SC-23", title: "Session Authenticity", baselines: [moderate, high] }
+  - { code: "SC-23(1)", category: "SC", objective: "SC-23", title: "Invalidate Session Identifiers at Logout", baselines: [] }
+  - { code: "SC-23(2)", category: "SC", objective: "SC-23", title: "User-initiated Logouts and Message Displays", baselines: [] }
+  - { code: "SC-23(3)", category: "SC", objective: "SC-23", title: "Unique System-generated Session Identifiers", baselines: [] }
+  - { code: "SC-23(4)", category: "SC", objective: "SC-23", title: "Unique Session Identifiers with Randomization", baselines: [] }
+  - { code: "SC-23(5)", category: "SC", objective: "SC-23", title: "Allowed Certificate Authorities", baselines: [] }
+  - { code: "SC-24", category: "SC", objective: "SC-24", title: "Fail in Known State", baselines: [high] }
+  - { code: "SC-25", category: "SC", objective: "SC-25", title: "Thin Nodes", baselines: [] }
+  - { code: "SC-26", category: "SC", objective: "SC-26", title: "Decoys", baselines: [] }
+  - { code: "SC-26(1)", category: "SC", objective: "SC-26", title: "Detection of Malicious Code", baselines: [] }
+  - { code: "SC-27", category: "SC", objective: "SC-27", title: "Platform-independent Applications", baselines: [] }
+  - { code: "SC-28", category: "SC", objective: "SC-28", title: "Protection of Information at Rest", baselines: [moderate, high] }
+  - { code: "SC-28(1)", category: "SC", objective: "SC-28", title: "Cryptographic Protection", baselines: [moderate, high] }
+  - { code: "SC-28(2)", category: "SC", objective: "SC-28", title: "Offline Storage", baselines: [] }
+  - { code: "SC-28(3)", category: "SC", objective: "SC-28", title: "Cryptographic Keys", baselines: [] }
+  - { code: "SC-29", category: "SC", objective: "SC-29", title: "Heterogeneity", baselines: [] }
+  - { code: "SC-29(1)", category: "SC", objective: "SC-29", title: "Virtualization Techniques", baselines: [] }
+  - { code: "SC-30", category: "SC", objective: "SC-30", title: "Concealment and Misdirection", baselines: [] }
+  - { code: "SC-30(1)", category: "SC", objective: "SC-30", title: "Virtualization Techniques", baselines: [] }
+  - { code: "SC-30(2)", category: "SC", objective: "SC-30", title: "Randomness", baselines: [] }
+  - { code: "SC-30(3)", category: "SC", objective: "SC-30", title: "Change Processing and Storage Locations", baselines: [] }
+  - { code: "SC-30(4)", category: "SC", objective: "SC-30", title: "Misleading Information", baselines: [] }
+  - { code: "SC-30(5)", category: "SC", objective: "SC-30", title: "Concealment of System Components", baselines: [] }
+  - { code: "SC-31", category: "SC", objective: "SC-31", title: "Covert Channel Analysis", baselines: [] }
+  - { code: "SC-31(1)", category: "SC", objective: "SC-31", title: "Test Covert Channels for Exploitability", baselines: [] }
+  - { code: "SC-31(2)", category: "SC", objective: "SC-31", title: "Maximum Bandwidth", baselines: [] }
+  - { code: "SC-31(3)", category: "SC", objective: "SC-31", title: "Measure Bandwidth in Operational Environments", baselines: [] }
+  - { code: "SC-32", category: "SC", objective: "SC-32", title: "System Partitioning", baselines: [] }
+  - { code: "SC-32(1)", category: "SC", objective: "SC-32", title: "Separate Physical Domains for Privileged Functions", baselines: [] }
+  - { code: "SC-33", category: "SC", objective: "SC-33", title: "Transmission Preparation Integrity", baselines: [] }
+  - { code: "SC-34", category: "SC", objective: "SC-34", title: "Non-modifiable Executable Programs", baselines: [] }
+  - { code: "SC-34(1)", category: "SC", objective: "SC-34", title: "No Writable Storage", baselines: [] }
+  - { code: "SC-34(2)", category: "SC", objective: "SC-34", title: "Integrity Protection on Read-only Media", baselines: [] }
+  - { code: "SC-34(3)", category: "SC", objective: "SC-34", title: "Hardware-based Protection", baselines: [] }
+  - { code: "SC-35", category: "SC", objective: "SC-35", title: "External Malicious Code Identification", baselines: [] }
+  - { code: "SC-36", category: "SC", objective: "SC-36", title: "Distributed Processing and Storage", baselines: [] }
+  - { code: "SC-36(1)", category: "SC", objective: "SC-36", title: "Polling Techniques", baselines: [] }
+  - { code: "SC-36(2)", category: "SC", objective: "SC-36", title: "Synchronization", baselines: [] }
+  - { code: "SC-37", category: "SC", objective: "SC-37", title: "Out-of-band Channels", baselines: [] }
+  - { code: "SC-37(1)", category: "SC", objective: "SC-37", title: "Ensure Delivery and Transmission", baselines: [] }
+  - { code: "SC-38", category: "SC", objective: "SC-38", title: "Operations Security", baselines: [] }
+  - { code: "SC-39", category: "SC", objective: "SC-39", title: "Process Isolation", baselines: [low, moderate, high] }
+  - { code: "SC-39(1)", category: "SC", objective: "SC-39", title: "Hardware Separation", baselines: [] }
+  - { code: "SC-39(2)", category: "SC", objective: "SC-39", title: "Separate Execution Domain Per Thread", baselines: [] }
+  - { code: "SC-40", category: "SC", objective: "SC-40", title: "Wireless Link Protection", baselines: [] }
+  - { code: "SC-40(1)", category: "SC", objective: "SC-40", title: "Electromagnetic Interference", baselines: [] }
+  - { code: "SC-40(2)", category: "SC", objective: "SC-40", title: "Reduce Detection Potential", baselines: [] }
+  - { code: "SC-40(3)", category: "SC", objective: "SC-40", title: "Imitative or Manipulative Communications Deception", baselines: [] }
+  - { code: "SC-40(4)", category: "SC", objective: "SC-40", title: "Signal Parameter Identification", baselines: [] }
+  - { code: "SC-41", category: "SC", objective: "SC-41", title: "Port and I/O Device Access", baselines: [] }
+  - { code: "SC-42", category: "SC", objective: "SC-42", title: "Sensor Capability and Data", baselines: [] }
+  - { code: "SC-42(1)", category: "SC", objective: "SC-42", title: "Reporting to Authorized Individuals or Roles", baselines: [] }
+  - { code: "SC-42(2)", category: "SC", objective: "SC-42", title: "Authorized Use", baselines: [] }
+  - { code: "SC-42(3)", category: "SC", objective: "SC-42", title: "Prohibit Use of Devices", baselines: [] }
+  - { code: "SC-42(4)", category: "SC", objective: "SC-42", title: "Notice of Collection", baselines: [] }
+  - { code: "SC-42(5)", category: "SC", objective: "SC-42", title: "Collection Minimization", baselines: [] }
+  - { code: "SC-43", category: "SC", objective: "SC-43", title: "Usage Restrictions", baselines: [] }
+  - { code: "SC-44", category: "SC", objective: "SC-44", title: "Detonation Chambers", baselines: [] }
+  - { code: "SC-45", category: "SC", objective: "SC-45", title: "System Time Synchronization", baselines: [] }
+  - { code: "SC-45(1)", category: "SC", objective: "SC-45", title: "Synchronization with Authoritative Time Source", baselines: [] }
+  - { code: "SC-45(2)", category: "SC", objective: "SC-45", title: "Secondary Authoritative Time Source", baselines: [] }
+  - { code: "SC-46", category: "SC", objective: "SC-46", title: "Cross Domain Policy Enforcement", baselines: [] }
+  - { code: "SC-47", category: "SC", objective: "SC-47", title: "Alternate Communications Paths", baselines: [] }
+  - { code: "SC-48", category: "SC", objective: "SC-48", title: "Sensor Relocation", baselines: [] }
+  - { code: "SC-48(1)", category: "SC", objective: "SC-48", title: "Dynamic Relocation of Sensors or Monitoring Capabilities", baselines: [] }
+  - { code: "SC-49", category: "SC", objective: "SC-49", title: "Hardware-enforced Separation and Policy Enforcement", baselines: [] }
+  - { code: "SC-50", category: "SC", objective: "SC-50", title: "Software-enforced Separation and Policy Enforcement", baselines: [] }
+  - { code: "SC-51", category: "SC", objective: "SC-51", title: "Hardware-based Protection", baselines: [] }
+  - { code: "SI-1", category: "SI", objective: "SI-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "SI-2", category: "SI", objective: "SI-2", title: "Flaw Remediation", baselines: [low, moderate, high] }
+  - { code: "SI-2(1)", category: "SI", objective: "SI-2", title: "Central Management", baselines: [] }
+  - { code: "SI-2(2)", category: "SI", objective: "SI-2", title: "Automated Flaw Remediation Status", baselines: [moderate, high] }
+  - { code: "SI-2(3)", category: "SI", objective: "SI-2", title: "Time to Remediate Flaws and Benchmarks for Corrective Actions", baselines: [] }
+  - { code: "SI-2(4)", category: "SI", objective: "SI-2", title: "Automated Patch Management Tools", baselines: [] }
+  - { code: "SI-2(5)", category: "SI", objective: "SI-2", title: "Automatic Software and Firmware Updates", baselines: [] }
+  - { code: "SI-2(6)", category: "SI", objective: "SI-2", title: "Removal of Previous Versions of Software and Firmware", baselines: [] }
+  - { code: "SI-2(7)", category: "SI", objective: "SI-2", title: "Root Cause Analysis", baselines: [] }
+  - { code: "SI-3", category: "SI", objective: "SI-3", title: "Malicious Code Protection", baselines: [low, moderate, high] }
+  - { code: "SI-3(1)", category: "SI", objective: "SI-3", title: "Central Management", baselines: [] }
+  - { code: "SI-3(2)", category: "SI", objective: "SI-3", title: "Automatic Updates", baselines: [] }
+  - { code: "SI-3(3)", category: "SI", objective: "SI-3", title: "Non-privileged Users", baselines: [] }
+  - { code: "SI-3(4)", category: "SI", objective: "SI-3", title: "Updates Only by Privileged Users", baselines: [] }
+  - { code: "SI-3(5)", category: "SI", objective: "SI-3", title: "Portable Storage Devices", baselines: [] }
+  - { code: "SI-3(6)", category: "SI", objective: "SI-3", title: "Testing and Verification", baselines: [] }
+  - { code: "SI-3(7)", category: "SI", objective: "SI-3", title: "Nonsignature-based Detection", baselines: [] }
+  - { code: "SI-3(8)", category: "SI", objective: "SI-3", title: "Detect Unauthorized Commands", baselines: [] }
+  - { code: "SI-3(9)", category: "SI", objective: "SI-3", title: "Authenticate Remote Commands", baselines: [] }
+  - { code: "SI-3(10)", category: "SI", objective: "SI-3", title: "Malicious Code Analysis", baselines: [] }
+  - { code: "SI-4", category: "SI", objective: "SI-4", title: "System Monitoring", baselines: [low, moderate, high] }
+  - { code: "SI-4(1)", category: "SI", objective: "SI-4", title: "System-wide Intrusion Detection System", baselines: [] }
+  - { code: "SI-4(2)", category: "SI", objective: "SI-4", title: "Automated Tools and Mechanisms for Real-time Analysis", baselines: [moderate, high] }
+  - { code: "SI-4(3)", category: "SI", objective: "SI-4", title: "Automated Tool and Mechanism Integration", baselines: [] }
+  - { code: "SI-4(4)", category: "SI", objective: "SI-4", title: "Inbound and Outbound Communications Traffic", baselines: [moderate, high] }
+  - { code: "SI-4(5)", category: "SI", objective: "SI-4", title: "System-generated Alerts", baselines: [moderate, high] }
+  - { code: "SI-4(6)", category: "SI", objective: "SI-4", title: "Restrict Non-privileged Users", baselines: [] }
+  - { code: "SI-4(7)", category: "SI", objective: "SI-4", title: "Automated Response to Suspicious Events", baselines: [] }
+  - { code: "SI-4(8)", category: "SI", objective: "SI-4", title: "Protection of Monitoring Information", baselines: [] }
+  - { code: "SI-4(9)", category: "SI", objective: "SI-4", title: "Testing of Monitoring Tools and Mechanisms", baselines: [] }
+  - { code: "SI-4(10)", category: "SI", objective: "SI-4", title: "Visibility of Encrypted Communications", baselines: [high] }
+  - { code: "SI-4(11)", category: "SI", objective: "SI-4", title: "Analyze Communications Traffic Anomalies", baselines: [] }
+  - { code: "SI-4(12)", category: "SI", objective: "SI-4", title: "Automated Organization-generated Alerts", baselines: [high] }
+  - { code: "SI-4(13)", category: "SI", objective: "SI-4", title: "Analyze Traffic and Event Patterns", baselines: [] }
+  - { code: "SI-4(14)", category: "SI", objective: "SI-4", title: "Wireless Intrusion Detection", baselines: [high] }
+  - { code: "SI-4(15)", category: "SI", objective: "SI-4", title: "Wireless to Wireline Communications", baselines: [] }
+  - { code: "SI-4(16)", category: "SI", objective: "SI-4", title: "Correlate Monitoring Information", baselines: [] }
+  - { code: "SI-4(17)", category: "SI", objective: "SI-4", title: "Integrated Situational Awareness", baselines: [] }
+  - { code: "SI-4(18)", category: "SI", objective: "SI-4", title: "Analyze Traffic and Covert Exfiltration", baselines: [] }
+  - { code: "SI-4(19)", category: "SI", objective: "SI-4", title: "Risk for Individuals", baselines: [] }
+  - { code: "SI-4(20)", category: "SI", objective: "SI-4", title: "Privileged Users", baselines: [high] }
+  - { code: "SI-4(21)", category: "SI", objective: "SI-4", title: "Probationary Periods", baselines: [] }
+  - { code: "SI-4(22)", category: "SI", objective: "SI-4", title: "Unauthorized Network Services", baselines: [high] }
+  - { code: "SI-4(23)", category: "SI", objective: "SI-4", title: "Host-based Devices", baselines: [] }
+  - { code: "SI-4(24)", category: "SI", objective: "SI-4", title: "Indicators of Compromise", baselines: [] }
+  - { code: "SI-4(25)", category: "SI", objective: "SI-4", title: "Optimize Network Traffic Analysis", baselines: [] }
+  - { code: "SI-5", category: "SI", objective: "SI-5", title: "Security Alerts, Advisories, and Directives", baselines: [low, moderate, high] }
+  - { code: "SI-5(1)", category: "SI", objective: "SI-5", title: "Automated Alerts and Advisories", baselines: [high] }
+  - { code: "SI-6", category: "SI", objective: "SI-6", title: "Security and Privacy Function Verification", baselines: [high] }
+  - { code: "SI-6(1)", category: "SI", objective: "SI-6", title: "Notification of Failed Security Tests", baselines: [] }
+  - { code: "SI-6(2)", category: "SI", objective: "SI-6", title: "Automation Support for Distributed Testing", baselines: [] }
+  - { code: "SI-6(3)", category: "SI", objective: "SI-6", title: "Report Verification Results", baselines: [] }
+  - { code: "SI-7", category: "SI", objective: "SI-7", title: "Software, Firmware, and Information Integrity", baselines: [moderate, high] }
+  - { code: "SI-7(1)", category: "SI", objective: "SI-7", title: "Integrity Checks", baselines: [moderate, high] }
+  - { code: "SI-7(2)", category: "SI", objective: "SI-7", title: "Automated Notifications of Integrity Violations", baselines: [high] }
+  - { code: "SI-7(3)", category: "SI", objective: "SI-7", title: "Centrally Managed Integrity Tools", baselines: [] }
+  - { code: "SI-7(4)", category: "SI", objective: "SI-7", title: "Tamper-evident Packaging", baselines: [] }
+  - { code: "SI-7(5)", category: "SI", objective: "SI-7", title: "Automated Response to Integrity Violations", baselines: [high] }
+  - { code: "SI-7(6)", category: "SI", objective: "SI-7", title: "Cryptographic Protection", baselines: [] }
+  - { code: "SI-7(7)", category: "SI", objective: "SI-7", title: "Integration of Detection and Response", baselines: [moderate, high] }
+  - { code: "SI-7(8)", category: "SI", objective: "SI-7", title: "Auditing Capability for Significant Events", baselines: [] }
+  - { code: "SI-7(9)", category: "SI", objective: "SI-7", title: "Verify Boot Process", baselines: [] }
+  - { code: "SI-7(10)", category: "SI", objective: "SI-7", title: "Protection of Boot Firmware", baselines: [] }
+  - { code: "SI-7(11)", category: "SI", objective: "SI-7", title: "Confined Environments with Limited Privileges", baselines: [] }
+  - { code: "SI-7(12)", category: "SI", objective: "SI-7", title: "Integrity Verification", baselines: [] }
+  - { code: "SI-7(13)", category: "SI", objective: "SI-7", title: "Code Execution in Protected Environments", baselines: [] }
+  - { code: "SI-7(14)", category: "SI", objective: "SI-7", title: "Binary or Machine Executable Code", baselines: [] }
+  - { code: "SI-7(15)", category: "SI", objective: "SI-7", title: "Code Authentication", baselines: [high] }
+  - { code: "SI-7(16)", category: "SI", objective: "SI-7", title: "Time Limit on Process Execution Without Supervision", baselines: [] }
+  - { code: "SI-7(17)", category: "SI", objective: "SI-7", title: "Runtime Application Self-protection", baselines: [] }
+  - { code: "SI-8", category: "SI", objective: "SI-8", title: "Spam Protection", baselines: [moderate, high] }
+  - { code: "SI-8(1)", category: "SI", objective: "SI-8", title: "Central Management", baselines: [] }
+  - { code: "SI-8(2)", category: "SI", objective: "SI-8", title: "Automatic Updates", baselines: [moderate, high] }
+  - { code: "SI-8(3)", category: "SI", objective: "SI-8", title: "Continuous Learning Capability", baselines: [] }
+  - { code: "SI-9", category: "SI", objective: "SI-9", title: "Information Input Restrictions", baselines: [] }
+  - { code: "SI-10", category: "SI", objective: "SI-10", title: "Information Input Validation", baselines: [moderate, high] }
+  - { code: "SI-10(1)", category: "SI", objective: "SI-10", title: "Manual Override Capability", baselines: [] }
+  - { code: "SI-10(2)", category: "SI", objective: "SI-10", title: "Review and Resolve Errors", baselines: [] }
+  - { code: "SI-10(3)", category: "SI", objective: "SI-10", title: "Predictable Behavior", baselines: [] }
+  - { code: "SI-10(4)", category: "SI", objective: "SI-10", title: "Timing Interactions", baselines: [] }
+  - { code: "SI-10(5)", category: "SI", objective: "SI-10", title: "Restrict Inputs to Trusted Sources and Approved Formats", baselines: [] }
+  - { code: "SI-10(6)", category: "SI", objective: "SI-10", title: "Injection Prevention", baselines: [] }
+  - { code: "SI-11", category: "SI", objective: "SI-11", title: "Error Handling", baselines: [moderate, high] }
+  - { code: "SI-12", category: "SI", objective: "SI-12", title: "Information Management and Retention", baselines: [low, moderate, high] }
+  - { code: "SI-12(1)", category: "SI", objective: "SI-12", title: "Limit Personally Identifiable Information Elements", baselines: [] }
+  - { code: "SI-12(2)", category: "SI", objective: "SI-12", title: "Minimize Personally Identifiable Information in Testing, Training, and Research", baselines: [] }
+  - { code: "SI-12(3)", category: "SI", objective: "SI-12", title: "Information Disposal", baselines: [] }
+  - { code: "SI-13", category: "SI", objective: "SI-13", title: "Predictable Failure Prevention", baselines: [] }
+  - { code: "SI-13(1)", category: "SI", objective: "SI-13", title: "Transferring Component Responsibilities", baselines: [] }
+  - { code: "SI-13(2)", category: "SI", objective: "SI-13", title: "Time Limit on Process Execution Without Supervision", baselines: [] }
+  - { code: "SI-13(3)", category: "SI", objective: "SI-13", title: "Manual Transfer Between Components", baselines: [] }
+  - { code: "SI-13(4)", category: "SI", objective: "SI-13", title: "Standby Component Installation and Notification", baselines: [] }
+  - { code: "SI-13(5)", category: "SI", objective: "SI-13", title: "Failover Capability", baselines: [] }
+  - { code: "SI-14", category: "SI", objective: "SI-14", title: "Non-persistence", baselines: [] }
+  - { code: "SI-14(1)", category: "SI", objective: "SI-14", title: "Refresh from Trusted Sources", baselines: [] }
+  - { code: "SI-14(2)", category: "SI", objective: "SI-14", title: "Non-persistent Information", baselines: [] }
+  - { code: "SI-14(3)", category: "SI", objective: "SI-14", title: "Non-persistent Connectivity", baselines: [] }
+  - { code: "SI-15", category: "SI", objective: "SI-15", title: "Information Output Filtering", baselines: [] }
+  - { code: "SI-16", category: "SI", objective: "SI-16", title: "Memory Protection", baselines: [moderate, high] }
+  - { code: "SI-17", category: "SI", objective: "SI-17", title: "Fail-safe Procedures", baselines: [] }
+  - { code: "SI-18", category: "SI", objective: "SI-18", title: "Personally Identifiable Information Quality Operations", baselines: [] }
+  - { code: "SI-18(1)", category: "SI", objective: "SI-18", title: "Automation Support", baselines: [] }
+  - { code: "SI-18(2)", category: "SI", objective: "SI-18", title: "Data Tags", baselines: [] }
+  - { code: "SI-18(3)", category: "SI", objective: "SI-18", title: "Collection", baselines: [] }
+  - { code: "SI-18(4)", category: "SI", objective: "SI-18", title: "Individual Requests", baselines: [] }
+  - { code: "SI-18(5)", category: "SI", objective: "SI-18", title: "Notice of Correction or Deletion", baselines: [] }
+  - { code: "SI-19", category: "SI", objective: "SI-19", title: "De-identification", baselines: [] }
+  - { code: "SI-19(1)", category: "SI", objective: "SI-19", title: "Collection", baselines: [] }
+  - { code: "SI-19(2)", category: "SI", objective: "SI-19", title: "Archiving", baselines: [] }
+  - { code: "SI-19(3)", category: "SI", objective: "SI-19", title: "Release", baselines: [] }
+  - { code: "SI-19(4)", category: "SI", objective: "SI-19", title: "Removal, Masking, Encryption, Hashing, or Replacement of Direct Identifiers", baselines: [] }
+  - { code: "SI-19(5)", category: "SI", objective: "SI-19", title: "Statistical Disclosure Control", baselines: [] }
+  - { code: "SI-19(6)", category: "SI", objective: "SI-19", title: "Differential Privacy", baselines: [] }
+  - { code: "SI-19(7)", category: "SI", objective: "SI-19", title: "Validated Algorithms and Software", baselines: [] }
+  - { code: "SI-19(8)", category: "SI", objective: "SI-19", title: "Motivated Intruder", baselines: [] }
+  - { code: "SI-20", category: "SI", objective: "SI-20", title: "Tainting", baselines: [] }
+  - { code: "SI-21", category: "SI", objective: "SI-21", title: "Information Refresh", baselines: [] }
+  - { code: "SI-22", category: "SI", objective: "SI-22", title: "Information Diversity", baselines: [] }
+  - { code: "SI-23", category: "SI", objective: "SI-23", title: "Information Fragmentation", baselines: [] }
+  - { code: "SR-1", category: "SR", objective: "SR-1", title: "Policy and Procedures", baselines: [low, moderate, high] }
+  - { code: "SR-2", category: "SR", objective: "SR-2", title: "Supply Chain Risk Management Plan", baselines: [low, moderate, high] }
+  - { code: "SR-2(1)", category: "SR", objective: "SR-2", title: "Establish SCRM Team", baselines: [low, moderate, high] }
+  - { code: "SR-3", category: "SR", objective: "SR-3", title: "Supply Chain Controls and Processes", baselines: [low, moderate, high] }
+  - { code: "SR-3(1)", category: "SR", objective: "SR-3", title: "Diverse Supply Base", baselines: [] }
+  - { code: "SR-3(2)", category: "SR", objective: "SR-3", title: "Limitation of Harm", baselines: [] }
+  - { code: "SR-3(3)", category: "SR", objective: "SR-3", title: "Sub-tier Flow Down", baselines: [] }
+  - { code: "SR-4", category: "SR", objective: "SR-4", title: "Provenance", baselines: [] }
+  - { code: "SR-4(1)", category: "SR", objective: "SR-4", title: "Identity", baselines: [] }
+  - { code: "SR-4(2)", category: "SR", objective: "SR-4", title: "Track and Trace", baselines: [] }
+  - { code: "SR-4(3)", category: "SR", objective: "SR-4", title: "Validate as Genuine and Not Altered", baselines: [] }
+  - { code: "SR-4(4)", category: "SR", objective: "SR-4", title: "Supply Chain Integrity — Pedigree", baselines: [] }
+  - { code: "SR-5", category: "SR", objective: "SR-5", title: "Acquisition Strategies, Tools, and Methods", baselines: [low, moderate, high] }
+  - { code: "SR-5(1)", category: "SR", objective: "SR-5", title: "Adequate Supply", baselines: [] }
+  - { code: "SR-5(2)", category: "SR", objective: "SR-5", title: "Assessments Prior to Selection, Acceptance, Modification, or Update", baselines: [] }
+  - { code: "SR-6", category: "SR", objective: "SR-6", title: "Supplier Assessments and Reviews", baselines: [moderate, high] }
+  - { code: "SR-6(1)", category: "SR", objective: "SR-6", title: "Testing and Analysis", baselines: [] }
+  - { code: "SR-7", category: "SR", objective: "SR-7", title: "Supply Chain Operations Security", baselines: [] }
+  - { code: "SR-8", category: "SR", objective: "SR-8", title: "Notification Agreements", baselines: [low, moderate, high] }
+  - { code: "SR-9", category: "SR", objective: "SR-9", title: "Tamper Resistance and Detection", baselines: [high] }
+  - { code: "SR-9(1)", category: "SR", objective: "SR-9", title: "Multiple Stages of System Development Life Cycle", baselines: [high] }
+  - { code: "SR-10", category: "SR", objective: "SR-10", title: "Inspection of Systems or Components", baselines: [low, moderate, high] }
+  - { code: "SR-11", category: "SR", objective: "SR-11", title: "Component Authenticity", baselines: [low, moderate, high] }
+  - { code: "SR-11(1)", category: "SR", objective: "SR-11", title: "Anti-counterfeit Training", baselines: [low, moderate, high] }
+  - { code: "SR-11(2)", category: "SR", objective: "SR-11", title: "Configuration Control for Component Service and Repair", baselines: [low, moderate, high] }
+  - { code: "SR-11(3)", category: "SR", objective: "SR-11", title: "Anti-counterfeit Scanning", baselines: [] }
+  - { code: "SR-12", category: "SR", objective: "SR-12", title: "Component Disposal", baselines: [low, moderate, high] }

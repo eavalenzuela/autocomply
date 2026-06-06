@@ -17,7 +17,7 @@ npm run dev:all             # web (:5173) + api (:3001) together
 # open http://localhost:5173 → log in (quick-login buttons; pw: autocomply)
 ```
 **Accounts** (all pw `autocomply`, `@autocomply.local`): `admin`, `cm`, `owner` (assigned
-01.a/01.q/09.aa/10.f), `auditor` (30-day time-boxed), `viewer`. Log in as the Control Owner
+AC-1/AC-2/AU-2/CM-2), `auditor` (30-day time-boxed), `viewer`. Log in as the Control Owner
 and try attesting an unassigned control to see the 403 scoping; as Admin, visit Admin to
 manage roles/assignments.
 **Heads-up:** the sandbox reclaimed the Docker container between runs at least once this
@@ -29,26 +29,28 @@ neighbor project's Postgres on :5432.)
 ## Phase 0 — Walking skeleton ✅ (complete + verified)
 - **Postgres + Drizzle schema** (`server/src/db/schema.ts`): structural CCF library,
   frameworks/crosswalk, auth baseline, evidence/attestation, checks/findings.
-- **Source-agnostic loader** (`server/src/loader.ts`) → `seed.ts` seeds `data/*.yaml`.
-  Verified: 14 categories / 49 objectives / 156 controls / 184 requirements / 348 mappings.
+- **Source-agnostic loader** (`server/src/loader.ts`) → `seed.ts` seeds `data/*.yaml`
+  (the generated OSCAL catalog). Verified: 20 families / 324 base controls / 1196 controls /
+  184 requirements / 301 mappings.
 - **Fastify API** (`server/src/app.ts`): `/api/health`, `/api/matrix`, `/api/control/:code`,
   `/api/attest`, `/api/worklist`, `/api/me`.
 - **Matrix UI wired to the live API** (`src/api.ts`, `src/App.tsx`) — replaced the mock.
-  Real 156 controls grouped by the 14 categories, real crosswalk badges, unrated cells,
+  Real 1196 controls grouped by the 20 families, real crosswalk badges, unrated cells,
   KPI strip showing real totals. Verified end-to-end through the Vite proxy.
 - **Baseline auth + RBAC** (`server/src/auth.ts`): 5 roles, write-role gating +
   control-owner assignment scoping on `/api/attest`; dev identifies user via `x-user-email`
   (full SSO is Phase 3). Append-only **audit log** writing on seed + attest.
 
-## Phase 1 — e1/i1 slice 🟡 (in progress)
+## Phase 1 — Implemented-dimension slice 🟡 (in progress)
 - **Attestation flow** (append-only) — `/api/attest`; matrix recomputes scores/cells live.
-  Verified: attesting `01.a impl=fc` → score 100, impl cell filled.
+  Verified: attesting `AC-1 impl=fc` → score 100, impl cell filled.
 - **Scoring** (`server/src/scoring.ts`) — normalized weighted maturity score (Implemented
-  40% etc.); domain roll-up + gate (0–5, fail <3.0). Simplified vs Phase-4 r2 scoring.
+  40% etc.); family roll-up + gate (0–5, fail <3.0). Simplified vs Phase-4 full-maturity scoring.
 - **Simulated AWS collector** (`server/src/collectors/simulate.ts`) — Check / CheckRun /
   AutomatedFinding + completeness + rubric → AWS-suggested `impl` attestations (marker
   `aws`), incl. one coverage-gap → NC case. Exercises the real P1 pipeline w/o AWS creds.
 - **Worklist v1** — `/api/worklist`: clock-starter (unrated impl) + confirm-aws tasks.
+- *Default seeded assessment period:* "NIST 800-53 Rev 5 — Moderate baseline 2026".
 
 ## Phase 0/1 UI shell ✅ (added this session)
 - **Global nav shell** (`src/components/shell.tsx`): left sidebar with the full IA
@@ -63,14 +65,15 @@ neighbor project's Postgres on :5432.)
 - Frontend build clean (38 modules, strict tsc).
 
 ## Current demo state (after seed + collect)
-- 156 controls, 3 domains scored: Access Control 38% (gate 1.9 — FAILING, due to the
-  `01.r` coverage-gap→NC), Comms/Ops 83% (gate 4.2), ISADM 88% (gate 4.4). Worklist 155.
+- 1196 controls, 3 families scored: Access Control (AC) 38% (gate 1.9 — FAILING, due to an
+  AC coverage-gap→NC), Audit & Accountability (AU) 83% (gate 4.2), Config Management (CM) 88%
+  (gate 4.4). Worklist populated.
 - 7 controls have AWS-fed Implemented ratings (markers visible on the matrix).
 
 ## Phase 2 — Continuous monitoring + remediation ✅ (added this session)
 - **Document evidence + drift detection**: `db:docs` seeds linked policy/procedure docs
   (snapshot-hashed) + the matching human Policy/Process attestations. `db:monitor`
-  performs a monitoring tick — detects a changed source hash on `01.q`'s policy doc →
+  performs a monitoring tick — detects a changed source hash on `AC-2`'s policy doc →
   flags `drifted`, marks the backing attestation `marker=drift`, audit-logs the event.
   The matrix shows the drift marker; the evidence page shows current vs drifted.
 - **Exceptions / risk acceptance with enforced SoD**: `exceptions` table; `/api/exception`
@@ -109,8 +112,8 @@ neighbor project's Postgres on :5432.)
   tiles, gaps-only filter, gap highlighting. Verified: SOC 2 = 51 covered / 10 gaps /
   readiness 81; ISO = 87 covered / 36 gaps. The gaps match exactly what `gen_crosswalk.py`
   predicted (ISMS clauses + new-2022 controls + COSO/privacy criteria).
-- **Dashboard** (org posture landing): controls/domains/gates/crosswalk tiles, per-framework
-  readiness cards (→ Requirements), gate-failing domains (→ Matrix), alerts feed.
+- **Dashboard** (org posture landing): controls/families/gates/crosswalk tiles, per-framework
+  readiness cards (→ Requirements), gate-failing families (→ Matrix), alerts feed.
 - Nav: dashboard / requirements now live. 7 of 11 IA sections are live.
 
 ## Phase 5 — reporting + auditor view (added this session)
@@ -130,11 +133,11 @@ neighbor project's Postgres on :5432.)
 - **Integrations page** (`/api/integrations`): connector/collector health derived from
   Checks/CheckRuns/Findings — per source-kind status (healthy/degraded from CheckRun
   completeness), checks, pass rate, coverage; plus a document-sources card with drift count.
-- **Controls (CCF) library page** (`/api/controls`): all 156 with category, objective,
+- **Controls (CCF) library page** (`/api/controls`): all 1196 with family, base control,
   per-framework crosswalk counts, current score; client-side filter.
 - **Assessment Periods page** (`assessment_periods` table + `/api/periods` CRUD + status
   cycle): period lifecycle (planning→active→closed) + **SOC 2 TSC category selection**.
-  Seeded a HITRUST r2 active period + a SOC 2 Type II planning period.
+  Seeded a NIST 800-53 Moderate active period + a SOC 2 Type II planning period.
 - Refactored `computeRequirements()` shared by `/api/requirements` and `/api/report`.
 
 ## SSO (added this session) — GitHub + Google OAuth/OIDC
@@ -188,7 +191,7 @@ neighbor project's Postgres on :5432.)
   (`contracts/grcen_catalog_export.schema.json`; see `GRCEN_CATALOG_EXPORT.md`). Requirement
   refs namespaced `<fw>:<code>`; `satisfies[]` fail-closed (only refs present in the doc).
   Verified against the draft-2020-12 schema and round-tripped through GRCen's importer
-  (`grcen sync-catalog --dry-run`: 2 fw / 184 reqs / 156 controls / 348 satisfies edges).
+  (`grcen sync-catalog --dry-run`: 2 fw / 184 reqs / 1196 controls / 301 satisfies edges).
 - **Three producers**: read-only `GET /api/catalog` (live pull), `catalog:dump` CLI, and a
   scheduled file export (`CATALOG_EXPORT_PATH` + `CATALOG_EXPORT_INTERVAL_MS`, default 6h;
   runs on boot + interval). All audit-logged (`catalog-export` with `mode`).
@@ -199,15 +202,15 @@ neighbor project's Postgres on :5432.)
 ## Still TODO (next increments)
 - **SCIM** directory provisioning/deprovisioning + **IdP group→role mapping** — needs a
   real directory (Workspace/Okta). OAuth SSO + JIT provisioning above covers the basics.
-- **MyCSF-blocked**: full per-domain-gate r2 scoring over the 19 assessment domains;
-  authoritative requirement statements/crosswalks; scoping factor logic. (ISO SoA detail
-  could still be built locally.)
-- MyCSF ingest/reconciliation layer; scheduled report *delivery* (email/Slack).
+- **Remaining maturity work**: full per-family-gate scoring roll-up over the 20 families;
+  broader (authoritative) crosswalk coverage; scoping/baseline-selection logic. (ISO SoA
+  detail could still be built locally.) None of this is blocked on anything external.
+- Periodic OSCAL catalog refresh as NIST republishes; scheduled report *delivery* (email/Slack).
 
 ## Decisions made autonomously (flag for review)
 - Postgres host port 5433 (5432 was taken).
-- Matrix groups by the **14 control categories** (real data) since `assessment_domain`
-  (the 19 scoring domains) is `tbd` pending MyCSF — honest representation of current data.
+- Matrix groups by the **20 control families** (AC…SR) — the gating "domains" in the
+  scoring sense are now the families; the standalone scoring-domain table is dropped.
 - Simplified "current posture" scoring (normalized over attested dimensions); real
-  per-domain-gate r2 scoring remains Phase 4.
+  per-family-gate full-maturity scoring remains Phase 4.
 - Dev auth via `x-user-email` header; client sends `cm@autocomply.local`.

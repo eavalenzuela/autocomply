@@ -7,14 +7,14 @@ security posture. Scope: single-org / self-hosted, TS/Node.
 > **Organizing principle — dogfooding.** autocomply is a compliance tool, so it must
 > *itself* pass the controls it tracks. SSO, MFA, RBAC, least privilege, separation of
 > duties, and immutable audit logging are not just features — they are the CC6 (access),
-> CC1 (governance), and HITRUST access-control requirements the product must satisfy to be
-> credible. The requirements below double as the product's own control set.
+> CC1 (governance), and NIST 800-53 access-control (AC) requirements the product must
+> satisfy to be credible. The requirements below double as the product's own control set.
 
 ## A. Personas → roles (DECIDED: five roles)
 
 | Role | Who | Core need |
 |------|-----|-----------|
-| **Org Admin** | IT/security owner | SSO, users, integrations, system settings, MyCSF ingest |
+| **Org Admin** | IT/security owner | SSO, users, integrations, system settings, catalog refresh (OSCAL) |
 | **Compliance Manager** | GRC lead / program owner | Run programs: scoping, assessment periods, assign owners, approve exceptions, export |
 | **Control Owner** | Eng/ops contributors | Work *assigned* controls: attach evidence, set/confirm ratings, clear worklist tasks |
 | **Auditor** | External or internal assessor | Read-only over a scoped program/period + evidence-package export + comments; **time-boxed** |
@@ -28,7 +28,7 @@ security posture. Scope: single-org / self-hosted, TS/Node.
 - **Separation of duties (SoD)** is a first-class, configurable policy and is *enforced* in
   v1: the user who **attests** a control is not the one who **approves its exception**;
   Admin cannot be sole attestor on controls flagged sensitive. SoD is itself a
-  HITRUST/SOC 2 control → enforcing it is dogfooding.
+  NIST 800-53 / SOC 2 control → enforcing it is dogfooding.
 
 Capability × role (✎ write · 👁 read · ✓ approve):
 
@@ -43,7 +43,7 @@ Capability × role (✎ write · 👁 read · ✓ approve):
 | Assign owners | ✎ | ✎ | — | — | — |
 | Manage integrations | ✎ | — | — | — | — |
 | Users / roles / SSO | ✎ | — | — | — | — |
-| MyCSF ingest | ✎ | — | — | — | — |
+| Catalog refresh (OSCAL) | ✎ | — | — | — | — |
 | Export evidence package | ✎ | ✎ | — | ✎ | — |
 | View audit log | 👁 | 👁 | — | 👁 (scoped) | — |
 
@@ -65,17 +65,17 @@ performed by **different** principals; the engine blocks and flags self-approval
 The control matrix (built in `src/`) lives under **Programs**. Top-level nav:
 
 - **Dashboard** — org posture, per-program scorecards, gate status, trends, "what needs me."
-- **Programs** — HITRUST r2 / SOC 2 Type II / ISO 27001; each drills into:
+- **Programs** — NIST 800-53 / SOC 2 Type II / ISO 27001; each drills into:
   - *Control Matrix* — the built screen.
   - *Requirements view* — by framework requirement: reverse roll-up + **crosswalk gap report**.
   - *Assessment periods* — lifecycle (open/active/closed), pinned scope version.
 - **Worklist** — dependency-aware, prioritized tasks (clock-starters first); "my tasks" + team.
 - **Evidence** — library: linked docs + snapshots, automated findings, freshness/drift, search.
-- **Controls (CCF)** — the 156-control library + crosswalk/mapping management.
+- **Controls (CCF)** — the 1,196-control library + crosswalk/mapping management.
 - **Risks & Exceptions** — risk acceptances, expirations, approvals.
 - **Integrations** — AWS accounts, Okta, doc sources; collector/CheckRun health + coverage.
 - **Reports** — auditor evidence packages, scorecards, point-in-time vs period exports.
-- **Admin** — users/roles, SSO/SCIM, framework & scoping config, MyCSF ingest/reconciliation,
+- **Admin** — users/roles, SSO/SCIM, framework & scoping config, catalog refresh (OSCAL),
   notifications, audit log, org settings.
 
 > Note: the implemented screen is the **main view pane only** (the controls page). The
@@ -84,9 +84,10 @@ The control matrix (built in `src/`) lives under **Programs**. Top-level nav:
 ## E. Admin functions
 
 Users & roles · SSO/SCIM config · connector management (**assume-role only — no stored
-long-lived keys**) · framework/scoping configuration · **MyCSF ingest & reconciliation**
-(the additive, non-clobbering merge from `DESIGN.md`) · assessment-period lifecycle ·
-notification rules · API tokens & webhooks · data retention/export · audit-log review.
+long-lived keys**) · framework/scoping configuration · **catalog refresh (OSCAL)**
+(regenerate the control spine from refreshed public-domain NIST OSCAL content) ·
+assessment-period lifecycle · notification rules · API tokens & webhooks ·
+data retention/export · audit-log review.
 
 ## F. Cross-cutting
 

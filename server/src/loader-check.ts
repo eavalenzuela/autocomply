@@ -6,6 +6,7 @@ const counts = {
   categories: d.categories.length,
   objectives: d.objectives.length,
   controls: d.controls.length,
+  baselines: d.baselines.length,
   frameworks: d.frameworks.length,
   requirements: d.requirements.length,
   mappings: d.mappings.length,
@@ -24,8 +25,13 @@ const objCodes = new Set(d.objectives.map((o) => o.code));
 for (const c of d.controls) {
   if (!objCodes.has(c.objectiveCode)) bad.push(`control ${c.code} → unknown objective ${c.objectiveCode}`);
 }
+const validBaselines = new Set(["low", "moderate", "high"]);
+for (const b of d.baselines) {
+  if (!controlCodes.has(b.controlCode)) bad.push(`baseline → unknown control ${b.controlCode}`);
+  if (!validBaselines.has(b.baseline)) bad.push(`bad baseline ${b.baseline} (${b.controlCode})`);
+}
 console.log("integrity:", bad.length ? bad : "OK");
-if (counts.controls !== 156 || counts.objectives !== 49 || counts.categories !== 14) {
+if (counts.controls !== 1196 || counts.objectives !== 324 || counts.categories !== 20) {
   console.error("UNEXPECTED COUNTS");
   process.exit(1);
 }

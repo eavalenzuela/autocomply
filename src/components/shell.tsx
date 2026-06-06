@@ -715,7 +715,7 @@ export function PeriodsPage({ role }: { role: string }) {
         <div className="period-form">
           <input className="login-input" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <select className="adm-role" value={form.framework} onChange={(e) => setForm({ ...form, framework: e.target.value })}>
-            <option value="soc2">SOC 2</option><option value="iso27001">ISO 27001</option><option value="hitrust">HITRUST r2</option>
+            <option value="nist80053">NIST 800-53 Rev 5</option><option value="soc2">SOC 2</option><option value="iso27001">ISO 27001</option>
           </select>
           <input className="login-input" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
           <input className="login-input" type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
