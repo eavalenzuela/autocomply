@@ -42,6 +42,17 @@
             "new_2022": true
           },
           "category": "Annex A \u2014 Technological"
+        },
+        {
+          "ref": "iso27001:A.8.2",
+          "name": "A.8.2 \u2014 Privileged access rights",
+          "reference_id": "A.8.2",
+          "metadata": {
+            "kind": "iso-annexa",
+            "theme": "technological",
+            "new_2022": false
+          },
+          "category": "Annex A \u2014 Technological"
         }
       ]
     },
@@ -118,12 +129,17 @@
           "iso27001:A.5.18": {
             "relationship": "partial",
             "confidence": "high"
+          },
+          "iso27001:A.8.2": {
+            "relationship": "related",
+            "confidence": "medium"
           }
         }
       },
       "satisfies": [
         "iso27001:A.5.16",
         "iso27001:A.5.18",
+        "iso27001:A.8.2",
         "soc2:CC6.1",
         "soc2:CC6.2",
         "soc2:CC6.3"

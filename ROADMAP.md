@@ -109,9 +109,9 @@ flowing to downstream consumers.
 
 - Reporting / **evidence packages**; point-in-time vs period (Type II); per-overlay views.
 - **Time-boxed auditor role** (scoped, auto-expiring, export + comments).
-- **Broader crosswalk coverage** — the current crosswalk is a non-authoritative bootstrap
-  shipping with a gap report; widen and validate the mappings — plus **periodic OSCAL catalog
-  refresh** as NIST republishes content.
+- **Broader crosswalk coverage** — ISO 27001:2022 is the authoritative NIST OLIR mapping;
+  the SOC 2 side is hand-authored and ships with a gap report. Widen the SOC 2 mappings and
+  refresh the OLIR / OSCAL vendored data as NIST republishes content.
 
 **Exit:** ready for a real external assessment; catalog export validated against consumers.
 

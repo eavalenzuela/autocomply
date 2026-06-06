@@ -5,14 +5,19 @@ Keyed on NIST SP 800-53 Rev 5 *base* control codes (AC-1, AC-2, ...). Enhancemen
 inherit their base control's mappings implicitly (they roll up under it in the UI),
 so only base controls are mapped here.
 
-  - ISO 27001:2022 targets (Annex A + clauses) are derived from the published NIST
-    OLIR 800-53r5 <-> ISO/IEC 27001:2022 informative reference. Codes only — ISO
-    clause text is copyrighted and never stored.
+  - ISO 27001:2022 targets (Annex A + clauses) come from the authoritative NIST
+    OLIR 800-53r5 <-> ISO/IEC 27001:2022 mapping (public domain), extracted to
+    data/vendor/olir/olir-800-53r5-iso27001-2022.tsv by scripts/extract_olir.py.
+    Codes only — ISO clause text is copyrighted and never stored. The OLIR
+    submission is set-based (relatedness without a per-row relationship type), so
+    each pair defaults to relationship=related/medium; the ISO_OVERRIDE table
+    below upgrades well-known direct correspondences to their specific type, and
+    a few curated pairs the OLIR omits are unioned in (source: manual).
   - SOC 2 / AICPA TSC targets are hand-authored against the published TSC criteria
     (codes are facts; TSC prose is AICPA-copyrighted and never stored).
 
-Non-authoritative bootstrap — high-confidence correspondences only; unmapped base
-controls land in the gap report (meta.unmapped_*). Edit the tables below + re-run.
+Unmapped base controls land in the gap report (meta.unmapped_*). Edit the tables
+below (or refresh the OLIR TSV) + re-run.
 
   relationship = equivalent | superset | subset | partial | related
   confidence   = high | medium | low
@@ -20,24 +25,41 @@ controls land in the gap report (meta.unmapped_*). Edit the tables below + re-ru
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+OLIR_TSV = ROOT / "data/vendor/olir/olir-800-53r5-iso27001-2022.tsv"
 
 
-def load_base_controls():
-    """Read base-control codes (the `objectives:` section of controls.yaml)."""
-    out, section = [], None
+def load_olir():
+    """OLIR ISO pairs as a list of (control, iso_ref)."""
+    pairs = []
+    if not OLIR_TSV.exists():
+        return pairs
+    for line in OLIR_TSV.read_text().splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        control, iso = line.split("\t")
+        pairs.append((control.strip(), iso.strip()))
+    return pairs
+
+
+def load_controls():
+    """Return (all_control_codes, base_control_codes) from controls.yaml."""
+    allc, base, section = [], [], None
     for line in open(ROOT / "data/controls.yaml"):
         s = line.strip()
         if s.endswith(":") and not s.startswith("-"):
             section = s[:-1]
             continue
-        if section == "objectives" and s.startswith("- {"):
+        if s.startswith("- {") and section in ("objectives", "controls"):
             code = s.split('code: "', 1)[1].split('"', 1)[0]
-            out.append(code)
-    return out
+            (base if section == "objectives" else allc).append(code)
+    return allc, base
 
 
-# --- 800-53 base control -> ISO/IEC 27001:2022 (Annex A code or clause), rel, conf
-ISO = {
+# --- Relationship-type overrides for well-known direct 800-53 -> ISO 27001:2022
+# correspondences. OLIR supplies the coverage but not a per-row relationship type;
+# where a pair appears here, its (relationship, confidence) is used instead of the
+# related/medium default. Pairs here that OLIR omits are unioned in (source: manual).
+ISO_OVERRIDE = {
     # Policy controls (every family's -1) -> ISMS policy + topic-specific policies
     **{f"{fam}-1": [("A.5.1", "partial", "high"), ("A.5.37", "partial", "medium")]
        for fam in ["AC", "AT", "AU", "CA", "CM", "CP", "IA", "IR", "MA", "MP",
@@ -292,39 +314,75 @@ def emit(rows, source):
     return "\n".join(out)
 
 
+def emit_iso(iso_pairs):
+    """iso_pairs: control -> list of (iso, rel, conf, source)."""
+    out = []
+    for code in sorted(iso_pairs):
+        for iso, rel, conf, src in iso_pairs[code]:
+            out.append(f'  - {{ control: "{code}", requirement: "{iso}", '
+                       f'relationship: {rel}, confidence: {conf}, source: {src} }}')
+    return "\n".join(out)
+
+
 def main():
-    controls = load_base_controls()
-    present = set(controls)
-    # sanity: every mapping key must be a real base control
-    for table, name in [(ISO, "ISO"), (SOC2, "SOC2")]:
+    all_controls, base_controls = load_controls()
+    all_set, base_set = set(all_controls), set(base_controls)
+
+    # sanity: hand tables must key real base controls
+    for table, name in [(ISO_OVERRIDE, "ISO_OVERRIDE"), (SOC2, "SOC2")]:
         for code in table:
-            if code not in present:
+            if code not in base_set:
                 raise SystemExit(f"ERROR: {name} maps unknown base control {code}")
 
-    iso_rows = {c: ISO[c] for c in controls if c in ISO}
-    soc2_rows = {c: SOC2[c] for c in controls if c in SOC2}
-    no_iso = [c for c in controls if c not in ISO]
-    no_soc2 = [c for c in controls if c not in SOC2]
-    iso_links = sum(len(v) for v in iso_rows.values())
+    # Relationship-type overrides for specific (control, iso) pairs.
+    override = {(c, iso): (rel, conf)
+                for c, lst in ISO_OVERRIDE.items() for iso, rel, conf in lst}
+
+    # ISO coverage from the authoritative OLIR mapping (base + enhancements).
+    iso_pairs, seen = {}, set()
+    for control, iso in load_olir():
+        if control not in all_set or (control, iso) in seen:
+            continue
+        rel, conf = override.get((control, iso), ("related", "medium"))
+        iso_pairs.setdefault(control, []).append((iso, rel, conf, "olir-derived"))
+        seen.add((control, iso))
+    # Union in curated pairs the OLIR omits.
+    manual_iso = 0
+    for c, lst in ISO_OVERRIDE.items():
+        for iso, rel, conf in lst:
+            if (c, iso) not in seen:
+                iso_pairs.setdefault(c, []).append((iso, rel, conf, "manual"))
+                seen.add((c, iso))
+                manual_iso += 1
+
+    soc2_rows = {c: SOC2[c] for c in base_controls if c in SOC2}
     soc2_links = sum(len(v) for v in soc2_rows.values())
+    iso_links = sum(len(v) for v in iso_pairs.values())
+    iso_base_mapped = sum(1 for c in iso_pairs if c in base_set)
+    iso_enh_mapped = sum(1 for c in iso_pairs if c not in base_set)
+    no_iso = [c for c in base_controls if c not in iso_pairs]
+    no_soc2 = [c for c in base_controls if c not in SOC2]
 
     body = f"""# 800-53 control -> SOC 2 / ISO 27001:2022 crosswalk  (generated by scripts/gen_crosswalk.py)
 # ----------------------------------------------------------------------------
-# Keyed on NIST SP 800-53 Rev 5 base control codes; enhancements inherit their
-# base control's mappings. ISO = OLIR-derived (NIST 800-53r5 <-> ISO/IEC
-# 27001:2022 informative reference, codes only). SOC 2 = hand-authored vs
-# published AICPA TSC. Non-authoritative bootstrap. Edit the tables in the
-# script + re-run.
+# ISO 27001:2022 = authoritative NIST OLIR mapping (public domain), via
+# scripts/extract_olir.py -> data/vendor/olir/*.tsv; maps base controls AND
+# enhancements. The OLIR submission is set-based, so untyped pairs default to
+# relationship=related/medium; ISO_OVERRIDE in the script upgrades well-known
+# direct matches and contributes the few pairs OLIR omits (source: manual).
+# SOC 2 = hand-authored vs published AICPA TSC (codes only). Unmapped base
+# controls are listed below for the gap report. Re-run after editing.
 #
 #   relationship = equivalent | superset | subset | partial | related
 #   confidence   = high | medium | low
 #   source       = olir-derived | manual
 meta:
-  status: bootstrap
-  base_controls_total: {len(controls)}
-  iso_mapped: {len(iso_rows)}    # base controls with >=1 ISO mapping
-  soc2_mapped: {len(soc2_rows)}
-  iso_links: {iso_links}
+  status: olir-mapped
+  base_controls_total: {len(base_controls)}
+  iso_base_mapped: {iso_base_mapped}    # base controls with >=1 ISO mapping
+  iso_enhancements_mapped: {iso_enh_mapped}
+  iso_links: {iso_links}    # {manual_iso} of these are curated (OLIR-omitted)
+  soc2_mapped: {soc2_links and len(soc2_rows)}
   soc2_links: {soc2_links}
   unmapped_iso_count: {len(no_iso)}
   unmapped_soc2_count: {len(no_soc2)}
@@ -333,11 +391,12 @@ soc2:
 {emit(soc2_rows, "manual")}
 
 iso27001:
-{emit(iso_rows, "olir-derived")}
+{emit_iso(iso_pairs)}
 """
     (ROOT / "data/mappings/ccf-crosswalk.yaml").write_text(body)
-    print(f"base_controls={len(controls)}  "
-          f"iso_mapped={len(iso_rows)} ({iso_links} links)  "
+    print(f"base_controls={len(base_controls)}  "
+          f"iso_base_mapped={iso_base_mapped} (+{iso_enh_mapped} enhancements, "
+          f"{iso_links} links; {manual_iso} curated)  "
           f"soc2_mapped={len(soc2_rows)} ({soc2_links} links)")
     print(f"unmapped to ISO:  {len(no_iso)} base controls")
     print(f"unmapped to SOC2: {len(no_soc2)} base controls")

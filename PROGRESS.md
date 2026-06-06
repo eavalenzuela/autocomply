@@ -31,7 +31,7 @@ neighbor project's Postgres on :5432.)
   frameworks/crosswalk, auth baseline, evidence/attestation, checks/findings.
 - **Source-agnostic loader** (`server/src/loader.ts`) → `seed.ts` seeds `data/*.yaml`
   (the generated OSCAL catalog). Verified: 20 families / 324 base controls / 1196 controls /
-  184 requirements / 301 mappings.
+  184 requirements / 790 mappings (ISO via NIST OLIR, SOC 2 hand-authored).
 - **Fastify API** (`server/src/app.ts`): `/api/health`, `/api/matrix`, `/api/control/:code`,
   `/api/attest`, `/api/worklist`, `/api/me`.
 - **Matrix UI wired to the live API** (`src/api.ts`, `src/App.tsx`) — replaced the mock.
@@ -191,7 +191,7 @@ neighbor project's Postgres on :5432.)
   (`contracts/grcen_catalog_export.schema.json`; see `GRCEN_CATALOG_EXPORT.md`). Requirement
   refs namespaced `<fw>:<code>`; `satisfies[]` fail-closed (only refs present in the doc).
   Verified against the draft-2020-12 schema and round-tripped through GRCen's importer
-  (`grcen sync-catalog --dry-run`: 2 fw / 184 reqs / 1196 controls / 301 satisfies edges).
+  (`grcen sync-catalog --dry-run`: 2 fw / 184 reqs / 1196 controls / 790 satisfies edges).
 - **Three producers**: read-only `GET /api/catalog` (live pull), `catalog:dump` CLI, and a
   scheduled file export (`CATALOG_EXPORT_PATH` + `CATALOG_EXPORT_INTERVAL_MS`, default 6h;
   runs on boot + interval). All audit-logged (`catalog-export` with `mode`).
