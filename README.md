@@ -10,7 +10,7 @@ TypeScript/Node throughout: a **Vite + React** frontend over a **Fastify +
 Drizzle + PostgreSQL** backend. The control catalog is generated from the
 public-domain NIST OSCAL content (1,196 controls across 20 families / 324 base
 controls). The ISO 27001:2022 crosswalk is the authoritative NIST OLIR mapping;
-SOC 2 is hand-authored (790 mappings total).
+SOC 2 is hand-authored (880 mappings total).
 
 > **Status:** working prototype. Every nav section is wired end-to-end on
 > bootstrap + simulated data. Live AWS collection and enterprise auth

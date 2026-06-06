@@ -304,6 +304,112 @@ SOC2 = {
     "PT-5": [("P1.1", "partial", "high")],
 }
 
+# Widen SOC 2 coverage. No authoritative redistributable TSC<->800-53 mapping
+# exists (the AICPA mapping is gated; the NIST-hosted community crosswalk is
+# TSC<->Privacy-Framework only), so these are hand-authored against the published
+# TSC criteria using well-established correspondences (codes only). Same posture
+# as the table above; merged in so the two stay easy to diff.
+SOC2.update({
+    # Topic policy controls (X-1) -> governance/policy criteria
+    "AT-1": [("CC1.4", "partial", "medium"), ("CC2.2", "partial", "low")],
+    "AU-1": [("CC7.2", "partial", "medium")],
+    "CA-1": [("CC4.1", "partial", "medium")],
+    "CM-1": [("CC8.1", "partial", "medium")],
+    "CP-1": [("A1.2", "partial", "medium")],
+    "IA-1": [("CC6.1", "partial", "medium")],
+    "IR-1": [("CC7.3", "partial", "medium")],
+    "MP-1": [("CC6.1", "partial", "low")],
+    "PE-1": [("CC6.4", "partial", "medium")],
+    "PL-1": [("CC2.2", "partial", "medium")],
+    "PS-1": [("CC1.4", "partial", "medium")],
+    "PT-1": [("P1.1", "partial", "medium")],
+    "RA-1": [("CC3.1", "partial", "medium")],
+    "SA-1": [("CC1.4", "partial", "low"), ("CC9.2", "partial", "low")],
+    "SC-1": [("CC6.1", "partial", "medium")],
+    "SI-1": [("CC7.1", "partial", "medium")],
+    "SR-1": [("CC9.2", "partial", "medium")],
+    # Access Control
+    "AC-10": [("CC6.1", "related", "low")],
+    # Awareness and Training
+    "AT-4": [("CC1.4", "related", "low")],
+    # Audit and Accountability
+    "AU-7": [("CC7.2", "partial", "medium")],
+    "AU-10": [("CC7.2", "related", "low")],
+    # Assessment, Authorization, and Monitoring
+    "CA-8": [("CC4.1", "partial", "high"), ("CC7.1", "partial", "medium")],
+    "CA-9": [("CC6.1", "related", "low")],
+    # Configuration Management
+    "CM-4": [("CC8.1", "partial", "medium")],
+    "CM-5": [("CC8.1", "partial", "high"), ("CC6.1", "partial", "medium")],
+    "CM-9": [("CC8.1", "partial", "medium")],
+    "CM-11": [("CC8.1", "partial", "medium")],
+    "CM-12": [("CC6.1", "related", "low")],
+    # Contingency Planning
+    "CP-4": [("A1.3", "partial", "high")],
+    "CP-6": [("A1.2", "partial", "high")],
+    "CP-7": [("A1.2", "partial", "high")],
+    "CP-8": [("A1.2", "partial", "medium")],
+    # Identification and Authentication
+    "IA-3": [("CC6.1", "partial", "medium")],
+    "IA-11": [("CC6.1", "partial", "medium")],
+    "IA-12": [("CC6.1", "partial", "medium")],
+    # Incident Response
+    "IR-3": [("CC7.3", "partial", "medium"), ("CC7.4", "partial", "low")],
+    # Maintenance
+    "MA-2": [("CC8.1", "partial", "low")],
+    "MA-4": [("CC6.7", "partial", "medium")],
+    "MA-5": [("CC1.4", "partial", "low")],
+    # Media Protection
+    "MP-5": [("CC6.7", "partial", "medium")],
+    "MP-7": [("CC6.1", "partial", "low")],
+    # Physical and Environmental Protection
+    "PE-4": [("CC6.4", "partial", "medium")],
+    "PE-5": [("CC6.4", "partial", "medium")],
+    "PE-8": [("CC6.4", "related", "low")],
+    "PE-12": [("A1.2", "partial", "medium")],
+    "PE-13": [("A1.2", "partial", "medium")],
+    "PE-16": [("CC6.4", "related", "low")],
+    "PE-17": [("CC6.7", "partial", "medium")],
+    # Planning
+    "PL-8": [("CC2.2", "related", "low")],
+    # Program Management
+    "PM-1": [("CC1.1", "partial", "medium"), ("CC5.3", "partial", "low")],
+    "PM-2": [("CC1.3", "partial", "medium")],
+    "PM-4": [("CC4.2", "partial", "medium")],
+    "PM-9": [("CC3.1", "partial", "high")],
+    "PM-11": [("CC3.1", "partial", "medium")],
+    "PM-14": [("CC4.1", "partial", "medium")],
+    "PM-16": [("CC7.1", "partial", "medium"), ("CC3.2", "partial", "low")],
+    "PM-31": [("CC4.1", "partial", "medium")],
+    # Personnel Security
+    "PS-5": [("CC1.4", "partial", "medium"), ("CC6.5", "partial", "low")],
+    # Risk Assessment
+    "RA-2": [("CC3.2", "partial", "medium")],
+    "RA-7": [("CC3.1", "partial", "medium"), ("CC9.1", "partial", "medium")],
+    # System and Services Acquisition
+    "SA-3": [("CC8.1", "partial", "medium")],
+    "SA-8": [("CC8.1", "partial", "medium")],
+    "SA-10": [("CC8.1", "partial", "high")],
+    "SA-11": [("CC8.1", "partial", "high"), ("CC7.1", "partial", "medium")],
+    "SA-15": [("CC8.1", "partial", "medium")],
+    # System and Communications Protection
+    "SC-4": [("CC6.1", "related", "low")],
+    "SC-10": [("CC6.1", "related", "low")],
+    "SC-17": [("CC6.1", "partial", "medium")],
+    "SC-20": [("CC6.6", "partial", "low")],
+    "SC-23": [("CC6.7", "partial", "medium")],
+    "SC-39": [("CC6.1", "related", "low")],
+    # System and Information Integrity
+    "SI-8": [("CC6.8", "partial", "medium")],
+    "SI-10": [("CC8.1", "partial", "medium"), ("PI1.2", "partial", "medium")],
+    "SI-12": [("C1.1", "partial", "medium"), ("CC6.5", "partial", "low")],
+    "SI-16": [("CC6.1", "related", "low")],
+    # Supply Chain Risk Management
+    "SR-5": [("CC9.2", "partial", "medium")],
+    "SR-8": [("CC9.2", "partial", "medium")],
+    "SR-11": [("CC9.2", "partial", "medium")],
+})
+
 
 def emit(rows, source):
     out = []

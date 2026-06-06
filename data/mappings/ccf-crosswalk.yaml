@@ -17,13 +17,14 @@ meta:
   iso_base_mapped: 197    # base controls with >=1 ISO mapping
   iso_enhancements_mapped: 48
   iso_links: 692    # 50 of these are curated (OLIR-omitted)
-  soc2_mapped: 82
-  soc2_links: 98
+  soc2_mapped: 160
+  soc2_links: 188
   unmapped_iso_count: 127
-  unmapped_soc2_count: 242
+  unmapped_soc2_count: 164
 
 soc2:
   - { control: "AC-1", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "AC-10", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "AC-11", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "AC-12", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "AC-17", requirement: "CC6.6", relationship: partial, confidence: high, source: manual }
@@ -43,84 +44,173 @@ soc2:
   - { control: "AC-6", requirement: "CC6.3", relationship: partial, confidence: high, source: manual }
   - { control: "AC-7", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "AC-8", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
+  - { control: "AT-1", requirement: "CC1.4", relationship: partial, confidence: medium, source: manual }
+  - { control: "AT-1", requirement: "CC2.2", relationship: partial, confidence: low, source: manual }
   - { control: "AT-2", requirement: "CC1.4", relationship: partial, confidence: medium, source: manual }
   - { control: "AT-2", requirement: "CC2.2", relationship: partial, confidence: medium, source: manual }
   - { control: "AT-3", requirement: "CC1.4", relationship: partial, confidence: medium, source: manual }
+  - { control: "AT-4", requirement: "CC1.4", relationship: related, confidence: low, source: manual }
+  - { control: "AU-1", requirement: "CC7.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "AU-10", requirement: "CC7.2", relationship: related, confidence: low, source: manual }
   - { control: "AU-11", requirement: "CC7.2", relationship: related, confidence: low, source: manual }
   - { control: "AU-12", requirement: "CC7.2", relationship: partial, confidence: medium, source: manual }
   - { control: "AU-2", requirement: "CC7.2", relationship: partial, confidence: high, source: manual }
   - { control: "AU-3", requirement: "CC7.2", relationship: partial, confidence: medium, source: manual }
   - { control: "AU-6", requirement: "CC7.2", relationship: partial, confidence: high, source: manual }
   - { control: "AU-6", requirement: "CC7.3", relationship: partial, confidence: medium, source: manual }
+  - { control: "AU-7", requirement: "CC7.2", relationship: partial, confidence: medium, source: manual }
   - { control: "AU-9", requirement: "CC7.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "CA-1", requirement: "CC4.1", relationship: partial, confidence: medium, source: manual }
   - { control: "CA-2", requirement: "CC4.1", relationship: partial, confidence: high, source: manual }
   - { control: "CA-3", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "CA-5", requirement: "CC4.2", relationship: partial, confidence: medium, source: manual }
   - { control: "CA-6", requirement: "CC4.1", relationship: related, confidence: low, source: manual }
   - { control: "CA-7", requirement: "CC4.1", relationship: partial, confidence: high, source: manual }
   - { control: "CA-7", requirement: "CC7.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "CA-8", requirement: "CC4.1", relationship: partial, confidence: high, source: manual }
+  - { control: "CA-8", requirement: "CC7.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "CA-9", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
+  - { control: "CM-1", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "CM-11", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "CM-12", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "CM-2", requirement: "CC8.1", relationship: partial, confidence: high, source: manual }
   - { control: "CM-3", requirement: "CC8.1", relationship: equivalent, confidence: high, source: manual }
+  - { control: "CM-4", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "CM-5", requirement: "CC8.1", relationship: partial, confidence: high, source: manual }
+  - { control: "CM-5", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
   - { control: "CM-6", requirement: "CC8.1", relationship: partial, confidence: high, source: manual }
   - { control: "CM-7", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
   - { control: "CM-8", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "CM-9", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "CP-1", requirement: "A1.2", relationship: partial, confidence: medium, source: manual }
   - { control: "CP-10", requirement: "A1.3", relationship: equivalent, confidence: high, source: manual }
   - { control: "CP-2", requirement: "A1.2", relationship: partial, confidence: high, source: manual }
   - { control: "CP-2", requirement: "CC9.1", relationship: partial, confidence: medium, source: manual }
   - { control: "CP-3", requirement: "A1.2", relationship: related, confidence: low, source: manual }
+  - { control: "CP-4", requirement: "A1.3", relationship: partial, confidence: high, source: manual }
+  - { control: "CP-6", requirement: "A1.2", relationship: partial, confidence: high, source: manual }
+  - { control: "CP-7", requirement: "A1.2", relationship: partial, confidence: high, source: manual }
+  - { control: "CP-8", requirement: "A1.2", relationship: partial, confidence: medium, source: manual }
   - { control: "CP-9", requirement: "A1.2", relationship: equivalent, confidence: high, source: manual }
+  - { control: "IA-1", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "IA-11", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "IA-12", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
   - { control: "IA-2", requirement: "CC6.1", relationship: partial, confidence: high, source: manual }
+  - { control: "IA-3", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
   - { control: "IA-4", requirement: "CC6.2", relationship: partial, confidence: high, source: manual }
   - { control: "IA-5", requirement: "CC6.1", relationship: partial, confidence: high, source: manual }
   - { control: "IA-8", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "IR-1", requirement: "CC7.3", relationship: partial, confidence: medium, source: manual }
+  - { control: "IR-3", requirement: "CC7.3", relationship: partial, confidence: medium, source: manual }
+  - { control: "IR-3", requirement: "CC7.4", relationship: partial, confidence: low, source: manual }
   - { control: "IR-4", requirement: "CC7.3", relationship: partial, confidence: high, source: manual }
   - { control: "IR-4", requirement: "CC7.4", relationship: partial, confidence: high, source: manual }
   - { control: "IR-5", requirement: "CC7.3", relationship: partial, confidence: medium, source: manual }
   - { control: "IR-6", requirement: "CC7.3", relationship: partial, confidence: medium, source: manual }
   - { control: "IR-8", requirement: "CC7.4", relationship: partial, confidence: high, source: manual }
   - { control: "IR-8", requirement: "CC7.5", relationship: partial, confidence: medium, source: manual }
+  - { control: "MA-2", requirement: "CC8.1", relationship: partial, confidence: low, source: manual }
+  - { control: "MA-4", requirement: "CC6.7", relationship: partial, confidence: medium, source: manual }
+  - { control: "MA-5", requirement: "CC1.4", relationship: partial, confidence: low, source: manual }
+  - { control: "MP-1", requirement: "CC6.1", relationship: partial, confidence: low, source: manual }
   - { control: "MP-2", requirement: "CC6.4", relationship: partial, confidence: medium, source: manual }
   - { control: "MP-2", requirement: "CC6.5", relationship: partial, confidence: medium, source: manual }
   - { control: "MP-4", requirement: "CC6.4", relationship: partial, confidence: medium, source: manual }
+  - { control: "MP-5", requirement: "CC6.7", relationship: partial, confidence: medium, source: manual }
   - { control: "MP-6", requirement: "CC6.5", relationship: equivalent, confidence: high, source: manual }
+  - { control: "MP-7", requirement: "CC6.1", relationship: partial, confidence: low, source: manual }
+  - { control: "PE-1", requirement: "CC6.4", relationship: partial, confidence: medium, source: manual }
+  - { control: "PE-12", requirement: "A1.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "PE-13", requirement: "A1.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "PE-16", requirement: "CC6.4", relationship: related, confidence: low, source: manual }
+  - { control: "PE-17", requirement: "CC6.7", relationship: partial, confidence: medium, source: manual }
   - { control: "PE-2", requirement: "CC6.4", relationship: partial, confidence: high, source: manual }
   - { control: "PE-3", requirement: "CC6.4", relationship: equivalent, confidence: high, source: manual }
+  - { control: "PE-4", requirement: "CC6.4", relationship: partial, confidence: medium, source: manual }
+  - { control: "PE-5", requirement: "CC6.4", relationship: partial, confidence: medium, source: manual }
   - { control: "PE-6", requirement: "CC6.4", relationship: partial, confidence: medium, source: manual }
+  - { control: "PE-8", requirement: "CC6.4", relationship: related, confidence: low, source: manual }
+  - { control: "PL-1", requirement: "CC2.2", relationship: partial, confidence: medium, source: manual }
   - { control: "PL-2", requirement: "CC2.2", relationship: partial, confidence: low, source: manual }
   - { control: "PL-4", requirement: "CC1.1", relationship: partial, confidence: low, source: manual }
+  - { control: "PL-8", requirement: "CC2.2", relationship: related, confidence: low, source: manual }
+  - { control: "PM-1", requirement: "CC1.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "PM-1", requirement: "CC5.3", relationship: partial, confidence: low, source: manual }
+  - { control: "PM-11", requirement: "CC3.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "PM-14", requirement: "CC4.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "PM-16", requirement: "CC7.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "PM-16", requirement: "CC3.2", relationship: partial, confidence: low, source: manual }
+  - { control: "PM-2", requirement: "CC1.3", relationship: partial, confidence: medium, source: manual }
+  - { control: "PM-31", requirement: "CC4.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "PM-4", requirement: "CC4.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "PM-9", requirement: "CC3.1", relationship: partial, confidence: high, source: manual }
+  - { control: "PS-1", requirement: "CC1.4", relationship: partial, confidence: medium, source: manual }
   - { control: "PS-2", requirement: "CC1.4", relationship: partial, confidence: medium, source: manual }
   - { control: "PS-3", requirement: "CC1.4", relationship: partial, confidence: high, source: manual }
   - { control: "PS-4", requirement: "CC6.5", relationship: partial, confidence: medium, source: manual }
   - { control: "PS-4", requirement: "CC1.4", relationship: partial, confidence: low, source: manual }
+  - { control: "PS-5", requirement: "CC1.4", relationship: partial, confidence: medium, source: manual }
+  - { control: "PS-5", requirement: "CC6.5", relationship: partial, confidence: low, source: manual }
   - { control: "PS-6", requirement: "CC6.2", relationship: partial, confidence: medium, source: manual }
   - { control: "PS-7", requirement: "CC9.2", relationship: partial, confidence: medium, source: manual }
   - { control: "PS-8", requirement: "CC1.5", relationship: partial, confidence: medium, source: manual }
+  - { control: "PT-1", requirement: "P1.1", relationship: partial, confidence: medium, source: manual }
   - { control: "PT-2", requirement: "P3.1", relationship: partial, confidence: high, source: manual }
   - { control: "PT-3", requirement: "P3.1", relationship: partial, confidence: high, source: manual }
   - { control: "PT-3", requirement: "P3.2", relationship: partial, confidence: medium, source: manual }
   - { control: "PT-4", requirement: "P5.1", relationship: partial, confidence: medium, source: manual }
   - { control: "PT-5", requirement: "P1.1", relationship: partial, confidence: high, source: manual }
+  - { control: "RA-1", requirement: "CC3.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "RA-2", requirement: "CC3.2", relationship: partial, confidence: medium, source: manual }
   - { control: "RA-3", requirement: "CC3.1", relationship: partial, confidence: high, source: manual }
   - { control: "RA-3", requirement: "CC3.2", relationship: partial, confidence: high, source: manual }
   - { control: "RA-5", requirement: "CC7.1", relationship: partial, confidence: high, source: manual }
+  - { control: "RA-7", requirement: "CC3.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "RA-7", requirement: "CC9.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SA-1", requirement: "CC1.4", relationship: partial, confidence: low, source: manual }
+  - { control: "SA-1", requirement: "CC9.2", relationship: partial, confidence: low, source: manual }
+  - { control: "SA-10", requirement: "CC8.1", relationship: partial, confidence: high, source: manual }
+  - { control: "SA-11", requirement: "CC8.1", relationship: partial, confidence: high, source: manual }
+  - { control: "SA-11", requirement: "CC7.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SA-15", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
   - { control: "SA-22", requirement: "CC7.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SA-3", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
   - { control: "SA-4", requirement: "CC9.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "SA-8", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
   - { control: "SA-9", requirement: "CC9.2", relationship: partial, confidence: high, source: manual }
+  - { control: "SC-1", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SC-10", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "SC-12", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
   - { control: "SC-13", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SC-17", requirement: "CC6.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SC-20", requirement: "CC6.6", relationship: partial, confidence: low, source: manual }
+  - { control: "SC-23", requirement: "CC6.7", relationship: partial, confidence: medium, source: manual }
   - { control: "SC-28", requirement: "CC6.1", relationship: partial, confidence: high, source: manual }
   - { control: "SC-28", requirement: "C1.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SC-39", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
+  - { control: "SC-4", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "SC-5", requirement: "A1.1", relationship: partial, confidence: medium, source: manual }
   - { control: "SC-7", requirement: "CC6.6", relationship: partial, confidence: high, source: manual }
   - { control: "SC-8", requirement: "CC6.7", relationship: partial, confidence: high, source: manual }
+  - { control: "SI-1", requirement: "CC7.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SI-10", requirement: "CC8.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SI-10", requirement: "PI1.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "SI-12", requirement: "C1.1", relationship: partial, confidence: medium, source: manual }
+  - { control: "SI-12", requirement: "CC6.5", relationship: partial, confidence: low, source: manual }
+  - { control: "SI-16", requirement: "CC6.1", relationship: related, confidence: low, source: manual }
   - { control: "SI-2", requirement: "CC7.1", relationship: partial, confidence: high, source: manual }
   - { control: "SI-3", requirement: "CC6.8", relationship: equivalent, confidence: high, source: manual }
   - { control: "SI-4", requirement: "CC7.2", relationship: equivalent, confidence: high, source: manual }
   - { control: "SI-5", requirement: "CC7.1", relationship: partial, confidence: medium, source: manual }
   - { control: "SI-7", requirement: "CC6.8", relationship: partial, confidence: medium, source: manual }
+  - { control: "SI-8", requirement: "CC6.8", relationship: partial, confidence: medium, source: manual }
+  - { control: "SR-1", requirement: "CC9.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "SR-11", requirement: "CC9.2", relationship: partial, confidence: medium, source: manual }
   - { control: "SR-2", requirement: "CC9.2", relationship: partial, confidence: high, source: manual }
   - { control: "SR-3", requirement: "CC9.2", relationship: partial, confidence: high, source: manual }
+  - { control: "SR-5", requirement: "CC9.2", relationship: partial, confidence: medium, source: manual }
   - { control: "SR-6", requirement: "CC9.2", relationship: partial, confidence: medium, source: manual }
+  - { control: "SR-8", requirement: "CC9.2", relationship: partial, confidence: medium, source: manual }
 
 iso27001:
   - { control: "AC-1", requirement: "5.2", relationship: related, confidence: medium, source: olir-derived }
