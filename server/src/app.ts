@@ -109,6 +109,17 @@ export async function buildApp() {
   await app.register(cookie);
   registerOAuth(app);
 
+  // Global auth gate: every /api route requires a logged-in user except the
+  // login/session-bootstrap allowlist. Write routes keep their own finer-grained
+  // role/scope checks; this just stops anonymous reads of the org's posture.
+  const PUBLIC_PATHS = new Set(["/api/health", "/api/login", "/api/logout", "/api/me"]);
+  app.addHook("preHandler", async (req, reply) => {
+    const path = req.url.split("?")[0];
+    if (!path.startsWith("/api/")) return;
+    if (PUBLIC_PATHS.has(path) || path.startsWith("/api/auth/")) return;
+    if (!(await currentUser(req))) return reply.code(401).send({ error: "unauthenticated" });
+  });
+
   app.get("/api/health", async () => ({ ok: true, ts: new Date().toISOString() }));
 
   // ---- auth ----
