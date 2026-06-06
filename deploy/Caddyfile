@@ -1,0 +1,17 @@
+# Caddy auto-provisions a Let's Encrypt cert for this name once the A record
+# resolves to this host and :80/:443 are reachable.
+compliance.eevn.io {
+	encode gzip
+
+	# API → Fastify container (same origin, so cookies just work).
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+
+	# Static SPA with history-API fallback.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

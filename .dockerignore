@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.github
+*.local
+.DS_Store
+# never bake secrets into an image layer
+**/.env
+**/.env.prod
+server/.env
+deploy/.env.prod

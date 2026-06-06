@@ -6,4 +6,6 @@ dist/
 .DS_Store
 .env
 **/.env
+**/.env.prod
 !**/.env.example
+!**/.env.prod.example

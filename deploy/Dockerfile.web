@@ -1,0 +1,12 @@
+# autocomply web — build the SPA, then serve it (and proxy /api) with Caddy.
+# Build context is the repo root.
+FROM node:20 AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build          # tsc && vite build -> /app/dist
+
+FROM caddy:2-alpine
+COPY --from=build /app/dist /srv
+COPY deploy/Caddyfile /etc/caddy/Caddyfile

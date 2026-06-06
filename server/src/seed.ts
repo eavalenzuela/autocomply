@@ -30,20 +30,29 @@ async function main() {
   await db.delete(s.controlCategories);
   await db.delete(s.users);
 
-  // Seed users (all share password "autocomply"). Auditor is time-boxed.
+  // Users. Default: a single strong admin from ADMIN_EMAIL/ADMIN_PASSWORD (safe to
+  // expose publicly). SEED_DEMO_USERS=true seeds the five shared-password
+  // quick-login users for local dev/demos.
+  const demo = process.env.SEED_DEMO_USERS === "true";
   const auditorExpiry = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@autocomply.local";
+  const adminHash = hashPassword(process.env.ADMIN_PASSWORD || "autocomply");
   const userRows = await db
     .insert(s.users)
-    .values([
-      { email: "admin@autocomply.local", name: "Admin", role: "admin", passwordHash: PW },
-      { email: "cm@autocomply.local", name: "Compliance Manager", role: "compliance_manager", passwordHash: PW },
-      { email: "owner@autocomply.local", name: "Control Owner", role: "control_owner", passwordHash: PW },
-      { email: "auditor@autocomply.local", name: "External Auditor", role: "auditor", passwordHash: PW, expiresAt: auditorExpiry },
-      { email: "viewer@autocomply.local", name: "Exec Viewer", role: "viewer", passwordHash: PW },
-    ])
+    .values(
+      demo
+        ? [
+            { email: "admin@autocomply.local", name: "Admin", role: "admin", passwordHash: PW },
+            { email: "cm@autocomply.local", name: "Compliance Manager", role: "compliance_manager", passwordHash: PW },
+            { email: "owner@autocomply.local", name: "Control Owner", role: "control_owner", passwordHash: PW },
+            { email: "auditor@autocomply.local", name: "External Auditor", role: "auditor", passwordHash: PW, expiresAt: auditorExpiry },
+            { email: "viewer@autocomply.local", name: "Exec Viewer", role: "viewer", passwordHash: PW },
+          ]
+        : [{ email: adminEmail, name: "Admin", role: "admin", passwordHash: adminHash }],
+    )
     .returning();
   const admin = userRows[0];
-  const owner = userRows.find((u) => u.role === "control_owner")!;
+  const owner = userRows.find((u) => u.role === "control_owner");
 
   await db.insert(s.controlCategories).values(data.categories);
   await db.insert(s.controlObjectives).values(data.objectives);
@@ -56,8 +65,10 @@ async function main() {
     })),
   );
   await db.insert(s.controlBaselines).values(data.baselines);
-  // Assign a few controls to the Control Owner (demonstrates write-scoping).
-  await db.insert(s.controlAssignments).values(["AC-1", "AC-2", "AU-6", "SC-7"].map((c) => ({ userId: owner.id, controlCode: c })));
+  // Assign a few controls to the Control Owner (demonstrates write-scoping; demo only).
+  if (owner) {
+    await db.insert(s.controlAssignments).values(["AC-1", "AC-2", "AU-6", "SC-7"].map((c) => ({ userId: owner.id, controlCode: c })));
+  }
 
   await db.insert(s.frameworks).values(data.frameworks);
 
@@ -85,7 +96,8 @@ async function main() {
   console.log(
     `seeded: ${data.categories.length} categories, ${data.objectives.length} objectives, ` +
       `${data.controls.length} controls, ${data.frameworks.length} frameworks, ` +
-      `${reqRows.length} requirements, ${mappingRows.length} mappings, ${userRows.length} users (pw: autocomply), 4 owner assignments`,
+      `${reqRows.length} requirements, ${mappingRows.length} mappings, ` +
+      `${userRows.length} user(s) [${demo ? "demo, pw: autocomply" : `admin: ${adminEmail}`}]`,
   );
   await pool.end();
 }

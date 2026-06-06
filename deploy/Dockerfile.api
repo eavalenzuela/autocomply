@@ -1,0 +1,18 @@
+# autocomply API — Fastify server, run via tsx (no separate build step).
+# Build context is the repo root (the loader resolves ../../data from server/src).
+FROM node:20-slim
+WORKDIR /app
+
+# Install server deps first (cache layer). NODE_ENV is still unset here, so
+# devDependencies (tsx, drizzle-kit) are installed — both are needed at runtime
+# (tsx to run, drizzle-kit for the one-shot db:push).
+COPY server/package.json server/package-lock.json ./server/
+RUN npm --prefix server ci
+
+# App source + bootstrap data.
+COPY server ./server
+COPY data ./data
+
+ENV NODE_ENV=production
+EXPOSE 3001
+CMD ["npm", "--prefix", "server", "start"]

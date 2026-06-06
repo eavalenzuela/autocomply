@@ -1,0 +1,46 @@
+# Production stack for a single host: Postgres + Fastify API + Caddy (TLS + SPA).
+# Secrets come from deploy/.env.prod (gitignored). Bring up with:
+#   docker compose -f deploy/docker-compose.prod.yml up -d --build
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: .env.prod # POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autocomply"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No host port — the DB is reachable only on the internal compose network.
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    env_file: .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+    # No host port — only Caddy reaches it (api:3001 on the internal network).
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data # persists the issued TLS cert across restarts
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

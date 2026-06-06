@@ -101,8 +101,11 @@ async function controlScoreMap(): Promise<Map<string, number | null>> {
 }
 
 export async function buildApp() {
-  const app = Fastify({ logger: false });
-  await app.register(cors, { origin: true, credentials: true });
+  const app = Fastify({ logger: false, trustProxy: true });
+  // Same-origin in production (frontend + API both behind Caddy). Reflect the
+  // configured origin when set, else any origin (dev). Cookies need credentials.
+  const corsOrigin = process.env.OAUTH_BASE_URL ? [process.env.OAUTH_BASE_URL] : true;
+  await app.register(cors, { origin: corsOrigin, credentials: true });
   await app.register(cookie);
   registerOAuth(app);
 

@@ -81,8 +81,9 @@ export async function currentUser(req: FastifyRequest): Promise<CurrentUser | nu
     const u = rows[0]?.u;
     if (u && !(u.expiresAt && u.expiresAt.getTime() < Date.now())) return { id: u.id, email: u.email, name: u.name, role: u.role as Role, authProvider: u.authProvider };
   }
-  // 2) dev/script fallback header
-  const email = req.headers["x-user-email"] as string | undefined;
+  // 2) dev/script fallback header — DISABLED in production (it would let any
+  // caller assume an identity with no password). Dev/test convenience only.
+  const email = process.env.NODE_ENV !== "production" ? (req.headers["x-user-email"] as string | undefined) : undefined;
   if (email) {
     const u = (await db.select().from(s.users).where(eq(s.users.email, email)).limit(1))[0];
     if (u && !(u.expiresAt && u.expiresAt.getTime() < Date.now())) return { id: u.id, email: u.email, name: u.name, role: u.role as Role, authProvider: u.authProvider };
@@ -91,7 +92,9 @@ export async function currentUser(req: FastifyRequest): Promise<CurrentUser | nu
 }
 
 export function setSessionCookie(reply: FastifyReply, token: string) {
-  (reply as any).setCookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: SESSION_TTL_MS / 1000 });
+  // Secure flag in production (served over HTTPS behind the Caddy proxy).
+  const secure = process.env.NODE_ENV === "production";
+  (reply as any).setCookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", secure, maxAge: SESSION_TTL_MS / 1000 });
 }
 export function clearSessionCookie(reply: FastifyReply) {
   (reply as any).clearCookie(SESSION_COOKIE, { path: "/" });
