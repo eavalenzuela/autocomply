@@ -2,7 +2,7 @@
 import { useState, Fragment } from "react";
 import type { Cell, Control, Domain, Evidence, GlyphStyle } from "../types";
 import { GlyphCell } from "./Glyph";
-import { OWNERS, MATURITY_COLS } from "../data";
+import { ownerColor, MATURITY_COLS } from "../data";
 
 function Tooltip({ children, label, sub }: { children: React.ReactNode; label: string; sub?: string | null }) {
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
@@ -109,9 +109,12 @@ function ControlRow({
   selected: boolean;
   showOwners: boolean;
 }) {
-  const owner = control.owner ? OWNERS[control.owner] : undefined;
   return (
-    <tr className={`row-control ${selected ? "selected" : ""}`} onClick={() => onSelect(control.id)}>
+    <tr
+      className={`row-control ${selected ? "selected" : ""} ${control.inScope === false ? "out-of-scope" : ""}`}
+      onClick={() => onSelect(control.id)}
+      title={control.inScope === false ? "Out of the active baseline scope" : undefined}
+    >
       <td className="col-control">
         <div className="control-cell">
           <span className="ctrl-id">{control.id}</span>
@@ -134,8 +137,8 @@ function ControlRow({
       {showOwners && (
         <td className="owner-cell">
           {control.owner && (
-            <span className="av" style={{ background: owner?.color }}>
-              {control.owner}
+            <span className="av" style={{ background: ownerColor(control.owner.name) }} title={control.owner.name}>
+              {control.owner.initials}
             </span>
           )}
         </td>
@@ -173,8 +176,8 @@ function DomainRow({
       {showOwners && (
         <td className="owner-cell">
           {domain.owner && (
-            <span className="av" style={{ background: OWNERS[domain.owner]?.color }}>
-              {domain.owner}
+            <span className="av" style={{ background: ownerColor(domain.owner.name) }} title={domain.owner.name}>
+              {domain.owner.initials}
             </span>
           )}
         </td>

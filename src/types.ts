@@ -27,6 +27,12 @@ export interface Evidence {
   label: string | null;
 }
 
+/** Resolved control owner (from control_assignments). */
+export interface ControlOwner {
+  initials: string;
+  name: string;
+}
+
 export interface Control {
   id: string;
   name: string;
@@ -35,7 +41,9 @@ export interface Control {
   crosswalk: string[];
   docs: number;
   cells: Cell[];
-  owner: string | null;
+  owner: ControlOwner | null;
+  /** whether the control is in the active period's baseline (tier) scope */
+  inScope?: boolean;
   lastChange?: string;
   status?: Status;
   /** marks the coverage-as-NC scoring case */
@@ -48,17 +56,16 @@ export interface Domain {
   score: number | null;
   gate: number | null;
   gateFail: boolean;
-  owner: string | null;
+  /** lowest in-scope assessed control score (the gate floor signal) */
+  weakest?: number | null;
+  /** count of in-scope controls in this family */
+  scopeTotal?: number;
+  owner: ControlOwner | null;
   open: boolean;
   controls: Control[];
   /** for collapsed/not-yet-loaded domains */
   controlCount?: number;
   hidden?: boolean;
-}
-
-export interface Owner {
-  name: string;
-  color: string;
 }
 
 export interface Tweaks {

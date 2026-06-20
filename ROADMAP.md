@@ -130,3 +130,55 @@ P0 foundations ──┬─► P1 Implemented slice ──► P2 monitoring+reme
 - P4 needs P1's evidence/attestation machinery; P5 needs P4's scoring + P2's exceptions.
 - The generated OSCAL bootstrap catalog carries P0–P5; broader crosswalk coverage and
   catalog refresh are ongoing, not a build prerequisite.
+
+---
+
+## Implementation map (post-MVP audit, 2026-06-19)
+
+A 37-agent audit (93 findings, adversarially verified) classified every subsystem
+as live vs stub/placeholder/simulated. **Headline:** real software on demo data —
+all 11 nav sections are live on real DB-backed endpoints; the gaps are (a) a
+**simulated data layer** (every posture *input* — AWS findings, doc evidence,
+drift, exceptions — is fabricated by `server/src/collectors/simulate*.ts`/`monitor.ts`)
+and (b) a **missing-feature layer** (baseline scoping, real maturity gate,
+Type-II coverage scoring, enterprise auth).
+
+Reality scorecard: frontend 88% · auth 78% · api 68% · catalog 68% · data 62% ·
+scoring 45%.
+
+### Tier 1 — Make the data real
+1. **Real AWS collector** — replace the hardcoded `simulate.ts` checks/findings with
+   assume-role + Security Hub / Config / SDK calls writing the *same* downstream
+   `Check/CheckRun/AutomatedFinding`/`aws-suggested` tables (rubric/scoring already real).
+2. **Real document evidence + drift** — replace `simulate-docs.ts`/`monitor.ts` fixtures
+   with Drive/Confluence fetch → S3 snapshot → real content-hash compare.
+3. **Org/tenant config** — source `report meta.org` from config instead of the hardcoded
+   `"autocomply"` literal.
+
+### Tier 2 — Complete the maturity & scoping model
+4. **Baseline scoping engine** — read `controlBaselines` (currently write-only) and filter
+   matrix/scoring/report/worklist to the active period's Low/Mod/High tier subset; filter
+   SOC 2 by opted-in TSC categories. *(Highest-leverage correctness fix — today every score
+   is computed against all 1196 controls regardless of declared scope.)*
+5. **Real per-family certification gate** — replace the rescaled family-average with a
+   maturity floor each in-scope control/dimension must clear.
+6. **Coverage-adjusted Type-II period score** — per-day coverage over the CheckRun timeline
+   within `[start,end]` with `indeterminate→NC`, as a second auditable score path.
+7. **Full PRISMA scoring + enhancement projection** — count unrated dimensions; model
+   base↔enhancement relationships instead of flat-averaging.
+8. **ISO Statement of Applicability (SoAEntry)** — first-class table + per-Annex-A UI.
+
+### Tier 3 — Enterprise auth & integration hardening
+9.  **Login rate limiting** — throttle `/api/login` + `/api/step-up` (none today).
+10. **Scoped API tokens** — hashed bearer tokens + per-route enforcement so machine callers
+    (incl. GRCen catalog sync) work in prod; reconcile `/api/catalog` auth vs the docs.
+11. **OAuth round-trip test, then SAML + SCIM + MFA** — the deferred enterprise stack.
+12. **Catalog producer hardening** — ajv self-validation + producer unit/e2e tests.
+
+### Tier 4 — Wire dead affordances & polish
+13. **Owner column** — join `controlAssignments` into `/api/matrix` (data already exists).
+14. **Matrix `docs` count + `coverage-as-nc` flag** — emit the fields the UI already renders.
+15. **Notification/report delivery** — outbound transport for the already-real feed.
+16. **Worklist v2** — persisted `Task` graph with `depends_on[]` + baseline gating.
+17. **Cleanup** — remove dead `StubPage`/nav-phase machinery, hardcoded connector `type`,
+    and fix the `GRCEN_CATALOG_EXPORT.md` "live pull" doc drift.

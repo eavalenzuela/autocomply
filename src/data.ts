@@ -1,7 +1,6 @@
 // autocomply — small static UI constants for the control matrix.
-// The live matrix (controls, scores, crosswalk, evidence) is served from the
-// API; only the maturity-column metadata and the owner avatar palette live here.
-import type { Owner } from "./types";
+// The live matrix (controls, scores, crosswalk, evidence, owners) is served from
+// the API; only the maturity-column metadata lives here.
 
 export const MATURITY_COLS = [
   { key: "pol", short: "Pol", label: "Policy" },
@@ -11,11 +10,10 @@ export const MATURITY_COLS = [
   { key: "mang", short: "Mang", label: "Managed" },
 ] as const;
 
-// Avatar colors for control owners (keyed by initials). Owner assignment is not
-// yet surfaced on the matrix payload; kept for the Owner column rendering.
-export const OWNERS: Record<string, Owner> = {
-  RB: { name: "Ren Bao", color: "#5B5FCA" },
-  MK: { name: "Maya K.", color: "#C76A3E" },
-  AS: { name: "Avi Solov", color: "#3E8C7C" },
-  JT: { name: "Jules Tam", color: "#8A5BCA" },
-};
+// Deterministic avatar color from an owner's name (replaces the old hardcoded palette
+// now that owners come from real control_assignments).
+export function ownerColor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
+  return `oklch(0.55 0.12 ${h})`;
+}

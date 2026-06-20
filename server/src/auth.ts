@@ -2,7 +2,7 @@
 // token in an httpOnly cookie. The `x-user-email` header remains as a dev/script
 // fallback when there's no session. SSO (SAML/OIDC) + SCIM plug in here later as
 // additional ways to resolve a CurrentUser / provision sessions.
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, scryptSync, timingSafeEqual, createHash } from "node:crypto";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "./db/index";
@@ -31,6 +31,15 @@ export function verifyPassword(password: string, stored: string | null): boolean
   const candidate = scryptSync(password, salt, 64);
   const expected = Buffer.from(hash, "hex");
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+}
+
+/* ---- scoped API tokens ---- */
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+export function generateApiToken(): { token: string; hash: string } {
+  const token = `act_${randomBytes(24).toString("hex")}`;
+  return { token, hash: hashToken(token) };
 }
 
 /* ---- sessions ---- */
@@ -81,7 +90,18 @@ export async function currentUser(req: FastifyRequest): Promise<CurrentUser | nu
     const u = rows[0]?.u;
     if (u && !(u.expiresAt && u.expiresAt.getTime() < Date.now())) return { id: u.id, email: u.email, name: u.name, role: u.role as Role, authProvider: u.authProvider };
   }
-  // 2) dev/script fallback header — DISABLED in production (it would let any
+  // 2) scoped API bearer token (machine callers: GRCen catalog sync, CI, scripts).
+  // Works in production (unlike the dev header) — resolves to the token's scoped role.
+  const authz = req.headers["authorization"] as string | undefined;
+  if (authz?.startsWith("Bearer ")) {
+    const th = hashToken(authz.slice(7).trim());
+    const t = (await db.select().from(s.apiTokens).where(eq(s.apiTokens.tokenHash, th)).limit(1))[0];
+    if (t && !t.revoked && t.createdBy != null && !(t.expiresAt && t.expiresAt.getTime() < Date.now())) {
+      void db.update(s.apiTokens).set({ lastUsedAt: new Date() }).where(eq(s.apiTokens.id, t.id)); // best-effort
+      return { id: t.createdBy, email: `token:${t.name}`, name: `API token: ${t.name}`, role: t.role as Role, authProvider: "token" };
+    }
+  }
+  // 3) dev/script fallback header — DISABLED in production (it would let any
   // caller assume an identity with no password). Dev/test convenience only.
   const email = process.env.NODE_ENV !== "production" ? (req.headers["x-user-email"] as string | undefined) : undefined;
   if (email) {

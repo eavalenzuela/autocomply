@@ -1,5 +1,4 @@
-// Global nav shell + stub/worklist pages. The control matrix is the live page;
-// other IA sections are stubs until their roadmap phase.
+// Global nav shell + the IA section pages. Every nav section is live against the API.
 import { useEffect, useState } from "react";
 import type { Domain } from "../types";
 import {
@@ -20,6 +19,9 @@ import {
   assignControl,
   unassignControl,
   decideException,
+  fetchSoa,
+  setSoaEntry,
+  type SoaResponse,
   type ReportResponse,
   type Connector,
   type CatalogExportStatus,
@@ -41,22 +43,21 @@ export interface NavItem {
   key: string;
   label: string;
   group?: string;
-  live?: boolean;
-  phase?: string;
 }
 
 export const NAV: NavItem[] = [
-  { key: "dashboard", label: "Dashboard", live: true },
-  { key: "matrix", label: "Control Matrix", group: "Programs", live: true },
-  { key: "requirements", label: "Requirements + gaps", group: "Programs", live: true },
-  { key: "periods", label: "Assessment periods", group: "Programs", live: true },
-  { key: "worklist", label: "Worklist", live: true },
-  { key: "evidence", label: "Evidence", live: true },
-  { key: "controls", label: "Controls (CCF)", live: true },
-  { key: "risks", label: "Risks & Exceptions", live: true },
-  { key: "integrations", label: "Integrations", live: true },
-  { key: "reports", label: "Reports", live: true },
-  { key: "admin", label: "Admin", live: true },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "matrix", label: "Control Matrix", group: "Programs" },
+  { key: "requirements", label: "Requirements + gaps", group: "Programs" },
+  { key: "soa", label: "ISO SoA", group: "Programs" },
+  { key: "periods", label: "Assessment periods", group: "Programs" },
+  { key: "worklist", label: "Worklist" },
+  { key: "evidence", label: "Evidence" },
+  { key: "controls", label: "Controls (CCF)" },
+  { key: "risks", label: "Risks & Exceptions" },
+  { key: "integrations", label: "Integrations" },
+  { key: "reports", label: "Reports" },
+  { key: "admin", label: "Admin" },
 ];
 
 export function Sidebar({ active, onNav }: { active: string; onNav: (k: string) => void }) {
@@ -74,26 +75,11 @@ export function Sidebar({ active, onNav }: { active: string; onNav: (k: string) 
               onClick={() => onNav(item.key)}
             >
               <span>{item.label}</span>
-              {!item.live && <span className="nav-phase">{item.phase}</span>}
             </button>
           </div>
         );
       })}
     </nav>
-  );
-}
-
-export function StubPage({ title, phase }: { title: string; phase?: string }) {
-  return (
-    <div className="stub-page">
-      <div className="stub-card">
-        <div className="stub-title">{title}</div>
-        <div className="stub-sub">
-          Not built yet — scheduled for <strong>{phase}</strong> in the roadmap.
-        </div>
-        <div className="stub-note">The control matrix and worklist are live against the API.</div>
-      </div>
-    </div>
   );
 }
 
@@ -292,6 +278,102 @@ export function RequirementsPage() {
             <span className="wl-name">{r.title}</span>
             <span className="req-score">{r.score == null ? "—" : `${r.score}%`}</span>
             <span className="req-mapped">{r.status === "gap" ? "no controls" : `${r.mapped} control${r.mapped === 1 ? "" : "s"}`}</span>
+          </div>
+        ))}
+        {data && rows.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>None.</div>}
+      </div>
+    </div>
+  );
+}
+
+const SOA_STATUS = ["implemented", "partial", "planned", "na"];
+
+export function SoaPage({ role }: { role: string }) {
+  const canEdit = role === "admin" || role === "compliance_manager";
+  const [data, setData] = useState<SoaResponse | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [editing, setEditing] = useState<number | null>(null);
+  const [draft, setDraft] = useState("");
+  const load = () => fetchSoa().then(setData).catch((e) => setErr(String(e.message ?? e)));
+  useEffect(() => {
+    load();
+  }, []);
+  async function update(reqId: number, body: { applicable?: boolean; status?: string; justification?: string }) {
+    setErr(null);
+    try {
+      await setSoaEntry(reqId, body);
+      await load();
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    }
+  }
+  const rows = (data?.entries ?? []).filter((r) => !q || r.code.toLowerCase().includes(q.toLowerCase()) || (r.title ?? "").toLowerCase().includes(q.toLowerCase()));
+  const s = data?.summary;
+  return (
+    <div className="page">
+      <div className="page-head">
+        <span className="eyebrow">ISO/IEC 27001:2022 · Annex A</span>
+        <h1 className="h1">
+          Statement of Applicability {data ? <span className="frame">· {data.summary.total} controls</span> : null}
+        </h1>
+      </div>
+      {s && (
+        <div className="kpi-strip" style={{ marginBottom: 16 }}>
+          <div className="kpi"><span className="kpi-label">Applicable</span><span className="kpi-value">{s.applicable}<span className="unit">/{s.total}</span></span><span className="kpi-delta">{s.excluded} excluded</span></div>
+          <div className="kpi"><span className="kpi-label">Implemented</span><span className="kpi-value">{s.implemented}</span><span className="kpi-delta">status set</span></div>
+          <div className="kpi"><span className="kpi-label">Justified</span><span className="kpi-value">{s.documented}</span><span className="kpi-delta">have justification</span></div>
+          <div className="kpi"><span className="kpi-label">Excluded</span><span className="kpi-value">{s.excluded}</span><span className="kpi-delta">marked N/A</span></div>
+        </div>
+      )}
+      <div className="req-toolbar">
+        <div className="search" style={{ width: 280 }}>
+          <input placeholder="Filter by code or title…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        {!canEdit && <span className="stub-sub">Read-only — admin / compliance manager can edit.</span>}
+      </div>
+      {err && <div className="api-banner error">{err}</div>}
+      <div className="worklist">
+        {rows.map((r) => (
+          <div key={r.requirementId} className={`soa-row ${!r.applicable ? "excluded" : ""}`}>
+            <span className="wl-ctrl">
+              {r.code}
+              {r.new2022 ? <span className="soa-new" title="new in 2022"> ●</span> : null}
+            </span>
+            <span className="wl-name">{r.title}</span>
+            {r.coverage ? (
+              <span className={`req-status st-${r.coverage.status}`} title="crosswalk-derived coverage">
+                {r.coverage.status}
+                {r.coverage.score != null ? ` ${r.coverage.score}%` : ""}
+              </span>
+            ) : (
+              <span className="req-mapped">no map</span>
+            )}
+            {canEdit ? (
+              <select className="adm-role" value={r.status} disabled={!r.applicable} onChange={(e) => update(r.requirementId, { status: e.target.value })}>
+                {SOA_STATUS.map((x) => (
+                  <option key={x} value={x}>{x}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="soa-status-ro">{r.applicable ? r.status : "excluded"}</span>
+            )}
+            {canEdit && (
+              <label className="soa-appl">
+                <input type="checkbox" checked={r.applicable} onChange={(e) => update(r.requirementId, { applicable: e.target.checked })} /> applicable
+              </label>
+            )}
+            {editing === r.requirementId ? (
+              <span className="soa-just-edit">
+                <input className="adm-add-input" value={draft} placeholder="justification…" autoFocus onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { update(r.requirementId, { justification: draft }); setEditing(null); } }} />
+                <button className="btn" onClick={() => { update(r.requirementId, { justification: draft }); setEditing(null); }}>save</button>
+              </span>
+            ) : (
+              <span className="soa-just" title={r.justification ?? ""} onClick={() => { if (canEdit) { setEditing(r.requirementId); setDraft(r.justification ?? ""); } }}>
+                {r.justification ? r.justification.slice(0, 44) : canEdit ? "+ justify" : "—"}
+              </span>
+            )}
           </div>
         ))}
         {data && rows.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>None.</div>}

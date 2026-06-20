@@ -6,12 +6,36 @@
 // and contracts/grcen_catalog_export.schema.json.
 //
 // Read-only projection: this never mutates autocomply state.
-import { writeFile } from "node:fs/promises";
+import { writeFile, readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
 
 export const CATALOG_VERSION = "1";
+
+// Producer-side contract self-validation: every export is checked against
+// contracts/grcen_catalog_export.schema.json before it ships, so a malformed
+// catalog fails here (fail-closed) rather than at GRCen's importer.
+const SCHEMA_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../contracts/grcen_catalog_export.schema.json");
+let _validate: ((data: unknown) => boolean) & { errors?: unknown } | null = null;
+async function getValidator() {
+  if (_validate) return _validate;
+  const schema = JSON.parse(await readFile(SCHEMA_PATH, "utf8"));
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  addFormats(ajv);
+  _validate = ajv.compile(schema);
+  return _validate;
+}
+export async function validateCatalog(catalog: unknown): Promise<void> {
+  const validate = await getValidator();
+  if (!validate(catalog)) {
+    throw new Error(`catalog failed schema validation: ${JSON.stringify(validate.errors)?.slice(0, 600)}`);
+  }
+}
 
 // SOC 2 TSC category (data/frameworks/soc2-tsc.yaml `category`) → display label.
 const SOC2_CATEGORY_LABEL: Record<string, string> = {
@@ -160,11 +184,13 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
     frameworks,
     controls,
   };
+  await validateCatalog(catalog); // fail-closed if the projection ever violates the contract
   return { catalog, droppedSatisfies };
 }
 
-// Record a catalog export in the append-only audit log. `actorId` is null for
-// unauthenticated pulls (e.g. GRCen's sync) and scheduled exports.
+// Record a catalog export in the append-only audit log. `actorId` is the session
+// user or API-token owner for live pulls (GRCen's sync authenticates with a scoped
+// API token — see /api/tokens), and null for scheduled file exports.
 export async function recordCatalogExport(actorId: number | null, mode: "api" | "scheduled" | "dump", extra?: Record<string, unknown>) {
   await db.insert(s.auditLog).values({
     actorId: actorId ?? null,

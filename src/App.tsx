@@ -8,7 +8,7 @@ import { Drawer } from "./components/Drawer";
 import { TweaksPanel, useTweaks } from "./components/Tweaks";
 import { LoginPage } from "./components/auth";
 import { StepUpGate } from "./components/StepUp";
-import { Sidebar, StubPage, WorklistPage, EvidencePage, ExceptionsPage, RequirementsPage, DashboardPage, AdminPage, ReportsPage, IntegrationsPage, ControlsPage, PeriodsPage, NAV } from "./components/shell";
+import { Sidebar, WorklistPage, EvidencePage, ExceptionsPage, RequirementsPage, DashboardPage, AdminPage, ReportsPage, IntegrationsPage, ControlsPage, PeriodsPage, SoaPage } from "./components/shell";
 
 function initials(name: string) {
   return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -92,9 +92,9 @@ function KpiStrip({ summary, domains }: { summary: MatrixSummary | null; domains
         <span className="kpi-delta">categories</span>
       </div>
       <div className="kpi">
-        <span className="kpi-label">Controls</span>
-        <span className="kpi-value">{summary?.controlsTotal ?? "—"}</span>
-        <span className="kpi-delta">{summary?.categories ?? "—"} categories</span>
+        <span className="kpi-label">In scope</span>
+        <span className="kpi-value">{summary?.inScopeTotal ?? "—"}</span>
+        <span className="kpi-delta">{summary?.tier ? cap(summary.tier) + " · " : ""}of {summary?.controlsTotal ?? "—"} catalog</span>
       </div>
       <div className="kpi">
         <span className="kpi-label">Crosswalk links</span>
@@ -374,7 +374,6 @@ export default function App() {
   if (!authChecked) return null;
   if (!me) return <LoginPage onLogin={setMe} />;
 
-  const navItem = NAV.find((n) => n.key === active);
   const handleLogout = async () => {
     await logout();
     setMe(null);
@@ -429,15 +428,12 @@ export default function App() {
           {active === "evidence" && <EvidencePage onOpenControl={setSelectedId} />}
           {active === "risks" && <ExceptionsPage role={me.role} />}
           {active === "requirements" && <RequirementsPage />}
+          {active === "soa" && <SoaPage role={me.role} />}
           {active === "reports" && <ReportsPage />}
           {active === "integrations" && <IntegrationsPage />}
           {active === "controls" && <ControlsPage onOpenControl={setSelectedId} />}
           {active === "periods" && <PeriodsPage role={me.role} />}
           {active === "admin" && <AdminPage me={me} />}
-          {active !== "matrix" &&
-            !["dashboard", "worklist", "evidence", "risks", "requirements", "reports", "integrations", "controls", "periods", "admin"].includes(active) && (
-              <StubPage title={navItem?.label ?? active} phase={navItem?.phase} />
-            )}
         </div>
       </div>
       <Drawer

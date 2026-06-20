@@ -13,6 +13,8 @@ export interface AssessmentPeriodInfo {
 }
 export interface MatrixSummary {
   controlsTotal: number;
+  inScopeTotal: number;
+  tier: string | null;
   categories: number;
   frameworks: string[];
   mappingLinks: number;
@@ -228,6 +230,28 @@ export async function fetchRequirements(framework: "soc2" | "iso27001"): Promise
   const r = await fetch(`/api/requirements?framework=${framework}`);
   if (!r.ok) throw new Error(`requirements: HTTP ${r.status}`);
   return r.json();
+}
+
+export interface SoaEntry {
+  requirementId: number;
+  code: string;
+  title: string | null;
+  theme: string | null;
+  new2022: boolean;
+  applicable: boolean;
+  status: "implemented" | "partial" | "planned" | "na";
+  justification: string | null;
+  coverage: { status: string; score: number | null; mapped: number } | null;
+}
+export interface SoaResponse {
+  summary: { total: number; applicable: number; excluded: number; documented: number; implemented: number };
+  entries: SoaEntry[];
+}
+export async function fetchSoa(): Promise<SoaResponse> {
+  return get("/api/soa");
+}
+export async function setSoaEntry(reqId: number, body: { applicable?: boolean; status?: string; justification?: string }): Promise<void> {
+  await post(`/api/soa/${reqId}`, body);
 }
 
 export interface ReportResponse {

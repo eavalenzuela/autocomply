@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { db, pool } from "../db/index";
 import * as s from "../db/schema";
+import { deliverNotifications, type NotifyEvent } from "../notify";
 
 function hash(seed: string) {
   return createHash("sha256").update(seed).digest("hex").slice(0, 32);
@@ -19,6 +20,7 @@ const DRIFTED: { control: string; dim: string }[] = [{ control: "IA-2", dim: "po
 // Reusable tick — also called on an interval by the server when MONITOR_INTERVAL_MS is set.
 export async function runMonitorTick(): Promise<number> {
   let drifts = 0;
+  const events: NotifyEvent[] = [];
   for (const d of DRIFTED) {
     const ev = (
       await db
@@ -46,8 +48,12 @@ export async function runMonitorTick(): Promise<number> {
 
     await db.insert(s.auditLog).values({ action: "drift-detected", targetType: "control", targetId: `${d.control}:${d.dim}`, payload: { priorHash: ev.contentHash, newHash } });
     console.log(`  drift: ${d.control}.${d.dim} doc changed (${ev.contentHash} → ${newHash}) — re-attest flagged`);
+    events.push({ kind: "drift", text: `${d.control} ${d.dim.toUpperCase()} document drifted — re-attest needed`, severity: "warn" });
     drifts++;
   }
+  // Push drift events to the configured outbound webhook (no-op if unset).
+  const delivered = await deliverNotifications(events, new Date().toISOString());
+  if (delivered > 0) console.log(`  [notify] delivered ${delivered} event(s) to webhook`);
   return drifts;
 }
 

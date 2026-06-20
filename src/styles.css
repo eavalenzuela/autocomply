@@ -364,6 +364,21 @@ button { font: inherit; color: inherit; }
 /* Clickable list rows (open the control drawer) */
 .wl-row.clickable, .ev-row.clickable, .lib-row.clickable { cursor: pointer; }
 
+/* Out-of-scope controls (not in the active period's baseline tier) — dimmed but browsable */
+.row-control.out-of-scope { opacity: 0.4; }
+.row-control.out-of-scope:hover { opacity: 0.75; }
+
+/* ISO Statement of Applicability rows */
+.soa-row { display: grid; grid-template-columns: 84px 1fr 116px 130px 110px 1fr; align-items: center; gap: 12px; padding: 7px 14px; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
+.soa-row:last-child { border-bottom: 0; }
+.soa-row:hover { background: var(--accent-bg); }
+.soa-row.excluded { opacity: 0.5; }
+.soa-new { color: var(--accent); }
+.soa-appl { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-3); font-size: 11.5px; white-space: nowrap; }
+.soa-status-ro { color: var(--ink-3); text-transform: capitalize; }
+.soa-just { color: var(--ink-3); cursor: default; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soa-just-edit { display: inline-flex; gap: 6px; align-items: center; }
+
 /* ===== Grid ===== */
 .grid-wrap {
   padding: 0 24px 96px;

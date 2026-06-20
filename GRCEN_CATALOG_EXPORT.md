@@ -132,8 +132,9 @@ off. Keep the export **read-only**: it's a projection of autocomply state, never
 an inbound mutation.
 
 ### Ways to produce it
-- **`GET /api/catalog`** — live pull (GRCen syncs against it). Each call is
-  audit-logged (`catalog-export`, `mode=api`).
+- **`GET /api/catalog`** — live pull (GRCen syncs against it), authenticated with a
+  scoped API token (`Authorization: Bearer act_…`, minted at `POST /api/tokens`) or an
+  interactive session. Each call is audit-logged (`catalog-export`, `mode=api`).
 - **CLI dump** — `npm --prefix server run catalog:dump --silent > catalog.json`.
 - **Scheduled file export** — set `CATALOG_EXPORT_PATH` (and optionally
   `CATALOG_EXPORT_INTERVAL_MS`, default 6h) on the API process; it writes the

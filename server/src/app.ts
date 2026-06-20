@@ -17,11 +17,13 @@ import {
   hasFreshStepUp,
   recordStepUp,
   sessionToken,
+  generateApiToken,
   STEP_UP_TTL_MS,
   SESSION_COOKIE,
 } from "./auth";
 import { registerOAuth } from "./oauth";
 import { buildCatalog, recordCatalogExport, lastCatalogExportAt } from "./catalog";
+import { deliverNotifications, type NotifyEvent } from "./notify";
 
 const RATINGS: Rating[] = ["nc", "sc", "pc", "mc", "fc"];
 
@@ -58,6 +60,41 @@ async function currentPeriod() {
     status: p.status,
   };
 }
+
+// In-scope control set for an 800-53 tier (low|moderate|high). Baselines are stored
+// cumulatively, so membership in `tier` already includes the lower tiers. A null tier
+// (e.g. a non-NIST active period, or none) means no scoping — all controls in scope.
+async function inScopeCodes(tier: string | null | undefined): Promise<Set<string> | null> {
+  if (!tier) return null;
+  const rows = await db.select({ code: s.controlBaselines.controlCode }).from(s.controlBaselines).where(eq(s.controlBaselines.baseline, tier));
+  return new Set(rows.map((r) => r.code));
+}
+
+function ownerInitials(name: string): string {
+  return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}
+
+// A family fails its certification gate if a single in-scope assessed control falls below
+// Partially-Compliant (50) — averages alone let strong policy/process dimensions mask a
+// control whose Implemented dimension is non-compliant (e.g. a coverage gap → NC).
+const GATE_FLOOR = 50;
+
+// Minimal in-memory rate limiter (per key) — dependency-free brute-force throttle for the
+// auth endpoints. Single-process; a multi-node deploy would back this with a shared store.
+const rlBuckets = new Map<string, { count: number; resetAt: number }>();
+function rateLimit(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const b = rlBuckets.get(key);
+  if (!b || now > b.resetAt) {
+    rlBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (b.count >= limit) return false;
+  b.count++;
+  return true;
+}
+const AUTH_RL_LIMIT = 10;
+const AUTH_RL_WINDOW_MS = 5 * 60_000; // 10 attempts / 5 min / IP
 
 // Reverse roll-up: framework requirements ← mapped controls' scores, + gap report.
 async function computeRequirements(fw: "soc2" | "iso27001") {
@@ -145,6 +182,8 @@ export async function buildApp() {
 
   // ---- auth ----
   app.post<{ Body: { email: string; password: string } }>("/api/login", async (req, reply) => {
+    if (!rateLimit(`login:${req.ip}`, AUTH_RL_LIMIT, AUTH_RL_WINDOW_MS))
+      return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
     const { email, password } = req.body ?? {};
     const u = (await db.select().from(s.users).where(eq(s.users.email, email)).limit(1))[0];
     if (!u || !verifyPassword(password, u.passwordHash)) return reply.code(401).send({ error: "invalid credentials" });
@@ -171,6 +210,8 @@ export async function buildApp() {
   // session so sensitive actions (attest / approve / export) are allowed for a
   // short window. MFA itself is delegated to the IdP for SSO accounts.
   app.post<{ Body: { password: string } }>("/api/step-up", async (req, reply) => {
+    if (!rateLimit(`stepup:${req.ip}`, AUTH_RL_LIMIT, AUTH_RL_WINDOW_MS))
+      return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
     const user = await currentUser(req);
     if (!user) return reply.code(401).send({ error: "unauthenticated" });
     const token = sessionToken(req);
@@ -184,7 +225,7 @@ export async function buildApp() {
   });
 
   app.get("/api/matrix", async () => {
-    const [cats, ctrls, maps, fw, evidence, period] = await Promise.all([
+    const [cats, ctrls, maps, fw, evidence, period, assigns, userRows] = await Promise.all([
       db.select().from(s.controlCategories).orderBy(asc(s.controlCategories.id)),
       db.select().from(s.controls).orderBy(asc(s.controls.code)),
       db
@@ -192,10 +233,13 @@ export async function buildApp() {
         .from(s.mappings)
         .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id)),
       db.select().from(s.frameworks),
-      db.select({ controlCode: s.evidenceItems.controlCode, collectedAt: s.evidenceItems.collectedAt, drifted: s.evidenceItems.drifted }).from(s.evidenceItems),
+      db.select({ controlCode: s.evidenceItems.controlCode, collectedAt: s.evidenceItems.collectedAt, drifted: s.evidenceItems.drifted, sourceType: s.evidenceItems.sourceType }).from(s.evidenceItems),
       currentPeriod(),
+      db.select().from(s.controlAssignments),
+      db.select({ id: s.users.id, name: s.users.name }).from(s.users),
     ]);
     const att = await latestAttestations();
+    const scope = await inScopeCodes(period?.tier); // null = no tier scoping
 
     const xwalk = new Map<string, string[]>();
     for (const m of maps) {
@@ -204,16 +248,28 @@ export async function buildApp() {
       else xwalk.set(m.controlCode, [m.code]);
     }
 
-    // Freshest evidence per control (max collectedAt) + whether any of it drifted —
-    // fills the matrix "Freshest evidence" column and powers the stale/drift lenses.
+    // Owner per control, from real control_assignments (first assignee) — previously
+    // hardcoded null, so the matrix Owner column never populated.
+    const userName = new Map(userRows.map((u) => [u.id, u.name]));
+    const ownerByControl = new Map<string, { initials: string; name: string }>();
+    for (const a of assigns) {
+      if (ownerByControl.has(a.controlCode)) continue;
+      const name = userName.get(a.userId);
+      if (name) ownerByControl.set(a.controlCode, { initials: ownerInitials(name), name });
+    }
+
+    // Freshest evidence (max collectedAt) + drift + per-control doc count. Fills the
+    // matrix "Freshest evidence" column, the "└ N docs" note, and the stale/drift lenses.
     const now = Date.now();
-    const evByControl = new Map<string, { collectedAt: Date; anyDrift: boolean }>();
+    const evByControl = new Map<string, { collectedAt: Date; anyDrift: boolean; docs: number }>();
     for (const e of evidence) {
       const cur = evByControl.get(e.controlCode);
-      if (!cur) evByControl.set(e.controlCode, { collectedAt: e.collectedAt, anyDrift: e.drifted });
+      const isDoc = e.sourceType === "doc";
+      if (!cur) evByControl.set(e.controlCode, { collectedAt: e.collectedAt, anyDrift: e.drifted, docs: isDoc ? 1 : 0 });
       else {
         if (e.collectedAt > cur.collectedAt) cur.collectedAt = e.collectedAt;
         if (e.drifted) cur.anyDrift = true;
+        if (isDoc) cur.docs++;
       }
     }
     const evidenceFor = (code: string) => {
@@ -239,31 +295,44 @@ export async function buildApp() {
         cells,
         score: controlScore(ratings),
         evidence: evidenceFor(c.code),
-        docs: 0,
-        owner: null,
+        docs: evByControl.get(c.code)?.docs ?? 0,
+        owner: ownerByControl.get(c.code) ?? null,
+        inScope: scope ? scope.has(c.code) : true,
+        flag: att.get(`${c.code}:impl`)?.marker === "gap" ? "coverage-as-nc" : undefined,
       });
     }
 
     const domains = cats.map((cat, i) => {
-      const controls = byCat.get(cat.id) ?? [];
-      const scored = controls.map((c) => c.score).filter((x): x is number => x != null);
+      const all = byCat.get(cat.id) ?? [];
+      // Scores + gates are computed over IN-SCOPE controls only (the active period's tier).
+      const inScope = all.filter((c) => c.inScope);
+      const scored = inScope.map((c) => c.score).filter((x): x is number => x != null);
       const score = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
-      const gate = score != null ? Math.round((score / 20) * 10) / 10 : null; // 0–5 scale
+      const gate = score != null ? Math.round((score / 20) * 10) / 10 : null; // 0–5 scale (family mean)
+      const weakest = scored.length ? Math.min(...scored) : null;
+      // Real certification gate: fail if the family mean is sub-par OR any single in-scope
+      // assessed control is below the maturity floor (an average can't hide a weak control).
+      const gateFail = gate != null && (gate < 3.0 || (weakest != null && weakest < GATE_FLOOR));
       return {
         id: cat.id,
         name: cat.title,
         score,
         gate,
-        gateFail: gate != null && gate < 3.0,
+        gateFail,
+        weakest,
+        scopeTotal: scope ? inScope.length : all.length,
         owner: null,
         open: i === 0,
-        controls,
+        controls: all,
       };
     });
 
+    const inScopeTotal = scope ? ctrls.filter((c) => scope.has(c.code)).length : ctrls.length;
     return {
       summary: {
         controlsTotal: ctrls.length,
+        inScopeTotal,
+        tier: period?.tier ?? null,
         categories: cats.length,
         frameworks: fw.map((f) => f.id),
         mappingLinks: maps.length,
@@ -313,13 +382,18 @@ export async function buildApp() {
   // Worklist v2 — composed, prioritized tasks (clock-starters, drift, coverage
   // gaps, AWS confirm, maturity dependencies, expiring/pending exceptions).
   app.get("/api/worklist", async () => {
-    const [ctrls, att, excs] = await Promise.all([
+    const [ctrls, att, excs, period] = await Promise.all([
       db.select().from(s.controls).orderBy(asc(s.controls.code)),
       latestAttestations(),
       db.select().from(s.exceptions),
+      currentPeriod(),
     ]);
+    const scope = await inScopeCodes(period?.tier);
     const tasks: any[] = [];
+    // Only the active period's in-scope controls generate assessment work — an
+    // out-of-scope control isn't part of this assessment, so it isn't a task.
     for (const c of ctrls) {
+      if (scope && !scope.has(c.code)) continue;
       const dims = DIMENSIONS.map((d) => att.get(`${c.code}:${d}`));
       const impl = att.get(`${c.code}:impl`);
       const pol = att.get(`${c.code}:pol`);
@@ -391,6 +465,65 @@ export async function buildApp() {
     return computeRequirements(req.query.framework === "iso27001" ? "iso27001" : "soc2");
   });
 
+  // ISO 27001 Statement of Applicability — every Annex A control with its
+  // applicability decision, status, justification, and crosswalk-derived coverage.
+  app.get("/api/soa", async () => {
+    const [reqs, entries, iso] = await Promise.all([
+      db.select().from(s.requirements).where(and(eq(s.requirements.frameworkId, "iso27001"), eq(s.requirements.kind, "iso-annexa"))).orderBy(asc(s.requirements.code)),
+      db.select().from(s.soaEntries),
+      computeRequirements("iso27001"),
+    ]);
+    const entryByReq = new Map(entries.map((e) => [e.requirementId, e]));
+    const covByCode = new Map(iso.requirements.map((r) => [r.code, { status: r.status, score: r.score, mapped: r.mapped }]));
+    const rows = reqs.map((r) => {
+      const e = entryByReq.get(r.id);
+      const extra = (r.extra ?? {}) as { theme?: string; new_2022?: boolean };
+      return {
+        requirementId: r.id,
+        code: r.code,
+        title: r.title,
+        theme: extra.theme ?? null,
+        new2022: extra.new_2022 ?? false,
+        applicable: e?.applicable ?? true,
+        status: e?.status ?? "planned",
+        justification: e?.justification ?? null,
+        coverage: covByCode.get(r.code) ?? null,
+      };
+    });
+    const summary = {
+      total: rows.length,
+      applicable: rows.filter((r) => r.applicable).length,
+      excluded: rows.filter((r) => !r.applicable).length,
+      documented: rows.filter((r) => r.justification && r.justification.trim()).length,
+      implemented: rows.filter((r) => r.status === "implemented").length,
+    };
+    return { summary, entries: rows };
+  });
+
+  // Upsert one SoA entry (admin / compliance_manager).
+  app.post<{ Params: { reqId: string }; Body: { applicable?: boolean; status?: string; justification?: string } }>("/api/soa/:reqId", async (req, reply) => {
+    const me = await currentUser(req);
+    if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
+    const reqId = Number(req.params.reqId);
+    const reqRow = (await db.select().from(s.requirements).where(eq(s.requirements.id, reqId)).limit(1))[0];
+    if (!reqRow || reqRow.kind !== "iso-annexa") return reply.code(404).send({ error: "not an ISO Annex A control" });
+    const b = req.body ?? {};
+    const statuses = ["implemented", "partial", "planned", "na"];
+    const existing = (await db.select().from(s.soaEntries).where(eq(s.soaEntries.requirementId, reqId)).limit(1))[0];
+    const values = {
+      requirementId: reqId,
+      applicable: b.applicable ?? existing?.applicable ?? true,
+      status: b.status && statuses.includes(b.status) ? b.status : existing?.status ?? "planned",
+      justification: b.justification ?? existing?.justification ?? null,
+      updatedBy: me.id,
+      updatedAt: new Date(),
+    };
+    if (existing) await db.update(s.soaEntries).set(values).where(eq(s.soaEntries.requirementId, reqId));
+    else await db.insert(s.soaEntries).values(values);
+    await db.insert(s.auditLog).values({ actorId: me.id, action: "soa-update", targetType: "requirement", targetId: String(reqId), payload: { applicable: values.applicable, status: values.status } });
+    return { ok: true };
+  });
+
   // Auditor evidence package — the report you hand an assessor. Viewing is open
   // (UI gates it behind login); exporting (?export=1) is a sensitive action:
   // requires auth + a fresh step-up and is audit-logged.
@@ -439,7 +572,7 @@ export async function buildApp() {
       }));
     return {
       meta: {
-        org: "autocomply",
+        org: process.env.ORG_NAME || "autocomply",
         framework: fwName,
         period: period
           ? { start: period.start, end: period.end, days: period.days }
@@ -455,14 +588,15 @@ export async function buildApp() {
     };
   });
 
-  // Computed notifications feed (what a real notifier would send).
-  app.get("/api/notifications", async () => {
+  // Computed notifications feed (what a real notifier sends). Shared by the pull
+  // endpoint and the on-demand outbound delivery.
+  async function computeNotifications(): Promise<NotifyEvent[]> {
     const [att, evidence, excs] = await Promise.all([
       latestAttestations(),
       db.select().from(s.evidenceItems),
       db.select().from(s.exceptions),
     ]);
-    const items: any[] = [];
+    const items: NotifyEvent[] = [];
     for (const ev of evidence) if (ev.drifted) items.push({ kind: "drift", text: `${ev.controlCode} — ${ev.kind} doc drifted; re-attest needed`, severity: "warn" });
     for (const [key, a] of att) if (a.marker === "gap") items.push({ kind: "coverage-gap", text: `${key.split(":")[0]} — coverage gap → scored NC`, severity: "bad" });
     const now = Date.now();
@@ -470,7 +604,22 @@ export async function buildApp() {
       if (e.status === "pending") items.push({ kind: "exception-pending", text: `${e.controlCode} — exception awaiting approval`, severity: "info" });
       else if (e.status === "approved" && e.expiresAt && e.expiresAt.getTime() - now < 14 * 864e5) items.push({ kind: "exception-expiring", text: `${e.controlCode} — risk acceptance expires ${e.expiresAt.toISOString().slice(0, 10)}`, severity: "warn" });
     }
+    return items;
+  }
+  app.get("/api/notifications", async () => {
+    const items = await computeNotifications();
     return { count: items.length, items };
+  });
+
+  // Push the current notification feed to the configured outbound webhook
+  // (NOTIFY_WEBHOOK_URL) on demand — admin only. No-op (delivered: 0) if unset.
+  app.post("/api/notifications/deliver", async (req, reply) => {
+    const me = await currentUser(req);
+    if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can trigger delivery" });
+    const items = await computeNotifications();
+    const delivered = await deliverNotifications(items, new Date().toISOString());
+    await db.insert(s.auditLog).values({ actorId: me.id, action: "notify-deliver", targetType: "system", payload: { delivered, total: items.length } });
+    return { ok: true, configured: !!process.env.NOTIFY_WEBHOOK_URL, total: items.length, delivered };
   });
 
   // ---- integrations / collector health ----
@@ -657,6 +806,36 @@ export async function buildApp() {
     const { userId, control } = req.body;
     await db.delete(s.controlAssignments).where(and(eq(s.controlAssignments.userId, userId), eq(s.controlAssignments.controlCode, control)));
     await db.insert(s.auditLog).values({ actorId: me.id, action: "unassign", targetType: "control", targetId: control, payload: { userId } });
+    return { ok: true };
+  });
+
+  // ---- scoped API tokens (admin) — bearer creds for machine callers (GRCen sync, CI) ----
+  app.get("/api/tokens", async (req, reply) => {
+    const me = await currentUser(req);
+    if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can manage API tokens" });
+    const rows = await db.select().from(s.apiTokens).orderBy(desc(s.apiTokens.createdAt));
+    return { tokens: rows.map((t) => ({ id: t.id, name: t.name, role: t.role, createdAt: t.createdAt, lastUsedAt: t.lastUsedAt, expiresAt: t.expiresAt, revoked: t.revoked })) };
+  });
+  app.post<{ Body: { name: string; role?: string; expiresAt?: string } }>("/api/tokens", async (req, reply) => {
+    const me = await currentUser(req);
+    if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can manage API tokens" });
+    const roles = ["admin", "compliance_manager", "control_owner", "auditor", "viewer"];
+    const role = req.body.role && roles.includes(req.body.role) ? req.body.role : "viewer";
+    if (!req.body.name?.trim()) return reply.code(400).send({ error: "name required" });
+    const { token, hash } = generateApiToken();
+    const [row] = await db
+      .insert(s.apiTokens)
+      .values({ name: req.body.name.trim(), tokenHash: hash, role, createdBy: me.id, expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null })
+      .returning();
+    await db.insert(s.auditLog).values({ actorId: me.id, action: "token-create", targetType: "api_token", targetId: String(row.id), payload: { role } });
+    // Plaintext is returned ONCE — only the sha256 hash is stored.
+    return { ok: true, token, id: row.id, name: row.name, role: row.role };
+  });
+  app.post<{ Params: { id: string } }>("/api/tokens/:id/revoke", async (req, reply) => {
+    const me = await currentUser(req);
+    if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can manage API tokens" });
+    await db.update(s.apiTokens).set({ revoked: true }).where(eq(s.apiTokens.id, Number(req.params.id)));
+    await db.insert(s.auditLog).values({ actorId: me.id, action: "token-revoke", targetType: "api_token", targetId: req.params.id });
     return { ok: true };
   });
 

@@ -134,6 +134,21 @@ export const auditLog = pgTable("audit_log", {
   payload: jsonb("payload"),
 });
 
+// Scoped API tokens for machine callers (e.g. GRCen catalog sync, CI). Only the
+// sha256 hash is stored; the plaintext is shown once at creation. A token resolves
+// to a CurrentUser with `role` (its scope) in auth.currentUser.
+export const apiTokens = pgTable("api_tokens", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  tokenHash: varchar("token_hash", { length: 128 }).notNull().unique(),
+  role: varchar("role", { length: 24 }).notNull().default("viewer"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  revoked: boolean("revoked").notNull().default(false),
+});
+
 /* ===== Evidence + attestation (P1) ===== */
 // Dimensions: pol | proc | impl | meas | mang
 // Ratings:    nc | sc | pc | mc | fc
@@ -152,6 +167,20 @@ export const evidenceItems = pgTable("evidence_items", {
   priorHash: varchar("prior_hash", { length: 80 }), // last hash before a drift event
   drifted: boolean("drifted").notNull().default(false), // source content changed since attestation
   collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/* ===== ISO 27001 Statement of Applicability ===== */
+// One entry per ISO Annex A control (an iso27001 / iso-annexa requirement): is it
+// applicable, the implementation status, and the justification an assessor reads.
+export const soaEntries = pgTable("soa_entries", {
+  requirementId: integer("requirement_id")
+    .primaryKey()
+    .references(() => requirements.id),
+  applicable: boolean("applicable").notNull().default(true),
+  status: varchar("status", { length: 16 }).notNull().default("planned"), // implemented | partial | planned | na
+  justification: text("justification"),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 /* ===== Assessment periods (P4 scoping) ===== */
