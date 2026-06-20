@@ -38,6 +38,27 @@ async function latestAttestations() {
 
 const REL_W: Record<string, number> = { equivalent: 1, superset: 1, subset: 0.6, partial: 0.6, related: 0.3 };
 
+const FW_LABEL: Record<string, string> = { nist80053: "NIST 800-53 Rev 5", soc2: "SOC 2", iso27001: "ISO 27001" };
+
+// The org's current assessment window. Prefer an active period (the live cycle),
+// else the most recent. Drives the report/header period instead of hardcoded dates.
+async function currentPeriod() {
+  const rows = await db.select().from(s.assessmentPeriods).orderBy(desc(s.assessmentPeriods.startDate));
+  if (rows.length === 0) return null;
+  const p = rows.find((r) => r.status === "active") ?? rows[0];
+  const days = Math.max(0, Math.round((p.endDate.getTime() - p.startDate.getTime()) / 864e5));
+  return {
+    name: p.name,
+    framework: p.framework,
+    frameworkLabel: FW_LABEL[p.framework] ?? p.framework,
+    tier: p.tier,
+    start: p.startDate.toISOString().slice(0, 10),
+    end: p.endDate.toISOString().slice(0, 10),
+    days,
+    status: p.status,
+  };
+}
+
 // Reverse roll-up: framework requirements ← mapped controls' scores, + gap report.
 async function computeRequirements(fw: "soc2" | "iso27001") {
   const [reqs, maps, scoreMap] = await Promise.all([
@@ -163,7 +184,7 @@ export async function buildApp() {
   });
 
   app.get("/api/matrix", async () => {
-    const [cats, ctrls, maps, fw] = await Promise.all([
+    const [cats, ctrls, maps, fw, evidence, period] = await Promise.all([
       db.select().from(s.controlCategories).orderBy(asc(s.controlCategories.id)),
       db.select().from(s.controls).orderBy(asc(s.controls.code)),
       db
@@ -171,6 +192,8 @@ export async function buildApp() {
         .from(s.mappings)
         .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id)),
       db.select().from(s.frameworks),
+      db.select({ controlCode: s.evidenceItems.controlCode, collectedAt: s.evidenceItems.collectedAt, drifted: s.evidenceItems.drifted }).from(s.evidenceItems),
+      currentPeriod(),
     ]);
     const att = await latestAttestations();
 
@@ -180,6 +203,25 @@ export async function buildApp() {
       if (arr) arr.push(m.code);
       else xwalk.set(m.controlCode, [m.code]);
     }
+
+    // Freshest evidence per control (max collectedAt) + whether any of it drifted —
+    // fills the matrix "Freshest evidence" column and powers the stale/drift lenses.
+    const now = Date.now();
+    const evByControl = new Map<string, { collectedAt: Date; anyDrift: boolean }>();
+    for (const e of evidence) {
+      const cur = evByControl.get(e.controlCode);
+      if (!cur) evByControl.set(e.controlCode, { collectedAt: e.collectedAt, anyDrift: e.drifted });
+      else {
+        if (e.collectedAt > cur.collectedAt) cur.collectedAt = e.collectedAt;
+        if (e.drifted) cur.anyDrift = true;
+      }
+    }
+    const evidenceFor = (code: string) => {
+      const ev = evByControl.get(code);
+      if (!ev) return { age: null, tag: null, label: null };
+      const ageDays = Math.max(0, Math.round((now - ev.collectedAt.getTime()) / 864e5));
+      return { age: `${ageDays}d`, tag: ev.anyDrift ? "drift" : null, label: ev.anyDrift ? "drift" : null };
+    };
 
     const byCat = new Map<string, any[]>();
     for (const c of ctrls) {
@@ -196,7 +238,7 @@ export async function buildApp() {
         crosswalk: (xwalk.get(c.code) ?? []).sort(),
         cells,
         score: controlScore(ratings),
-        evidence: { age: null, tag: null, label: null },
+        evidence: evidenceFor(c.code),
         docs: 0,
         owner: null,
       });
@@ -225,6 +267,7 @@ export async function buildApp() {
         categories: cats.length,
         frameworks: fw.map((f) => f.id),
         mappingLinks: maps.length,
+        period,
       },
       domains,
     };
@@ -362,7 +405,7 @@ export async function buildApp() {
       await db.insert(s.auditLog).values({ actorId: me.id, action: "report-export", targetType: "framework", targetId: fw });
     }
     const reqData = await computeRequirements(fw);
-    const [att, scoreMap, ctrls, evidence, maps, excs] = await Promise.all([
+    const [att, scoreMap, ctrls, evidence, maps, excs, period] = await Promise.all([
       latestAttestations(),
       controlScoreMap(),
       db.select().from(s.controls).orderBy(asc(s.controls.code)),
@@ -373,6 +416,7 @@ export async function buildApp() {
         .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id))
         .where(eq(s.requirements.frameworkId, fw)),
       db.select().from(s.exceptions),
+      currentPeriod(),
     ]);
     const xwalk = new Map<string, string[]>();
     for (const m of maps) {
@@ -397,7 +441,9 @@ export async function buildApp() {
       meta: {
         org: "autocomply",
         framework: fwName,
-        period: { start: "2026-02-20", end: "2026-05-21", days: 90 },
+        period: period
+          ? { start: period.start, end: period.end, days: period.days }
+          : { start: "—", end: "—", days: 0 },
         generatedAt: new Date().toISOString(),
         generatedBy: me?.name ?? "system",
       },

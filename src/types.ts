@@ -61,50 +61,6 @@ export interface Owner {
   color: string;
 }
 
-export interface Kpi {
-  overall: number;
-  prevOverall: number;
-  gatesFailing: number;
-  controlsTotal: number;
-  controlsAtRisk: number;
-  stale: number;
-  unmapped: number;
-  evidenceFreshness: number;
-}
-
-export interface Header {
-  org: string;
-  framework: string;
-  period: { start: string; end: string; days: number };
-}
-
-export interface EvidenceDetail {
-  name: string;
-  source: string;
-  status: string;
-  age: string;
-  grade: "ok" | "warn" | "bad";
-}
-
-export interface TimelineEntry {
-  date: string;
-  body: string;
-  meta: string;
-  grade: "ok" | "warn" | "bad";
-}
-
-export interface DrawerDetail {
-  title: string;
-  id: string;
-  domain: string;
-  description: string;
-  crosswalk: string[];
-  rationale: string;
-  evidence: EvidenceDetail[];
-  timeline: TimelineEntry[];
-  aws: { service: string; mapping: string; confidence: number };
-}
-
 export interface Tweaks {
   theme: "light" | "dark";
   density: "comfortable" | "dense";

@@ -116,7 +116,7 @@ export function Alerts() {
   );
 }
 
-export function WorklistPage() {
+export function WorklistPage({ onOpenControl }: { onOpenControl?: (code: string) => void }) {
   const [data, setData] = useState<{ count: number; tasks: WorklistTask[] } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -134,7 +134,12 @@ export function WorklistPage() {
       {err && <div className="api-banner error">{err}</div>}
       <div className="worklist">
         {data?.tasks.map((t) => (
-          <div key={`${t.control}-${t.type}`} className="wl-row">
+          <div
+            key={`${t.control}-${t.type}`}
+            className={`wl-row ${onOpenControl ? "clickable" : ""}`}
+            onClick={onOpenControl ? () => onOpenControl(t.control) : undefined}
+            title={onOpenControl ? `Open ${t.control}` : undefined}
+          >
             <span className={`wl-prio p${Math.round(t.priority / 10)}`}>{t.priority}</span>
             <span className="wl-ctrl">{t.control}</span>
             <span className="wl-name">{t.name}</span>
@@ -148,7 +153,7 @@ export function WorklistPage() {
   );
 }
 
-export function EvidencePage() {
+export function EvidencePage({ onOpenControl }: { onOpenControl?: (code: string) => void }) {
   const [data, setData] = useState<{ count: number; evidence: EvidenceItem[] } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -165,7 +170,12 @@ export function EvidencePage() {
       {err && <div className="api-banner error">{err}</div>}
       <div className="worklist">
         {data?.evidence.map((e) => (
-          <div key={e.id} className="ev-row">
+          <div
+            key={e.id}
+            className={`ev-row ${onOpenControl ? "clickable" : ""}`}
+            onClick={onOpenControl ? () => onOpenControl(e.controlCode) : undefined}
+            title={onOpenControl ? `Open ${e.controlCode}` : undefined}
+          >
             <span className="wl-ctrl">{e.controlCode}</span>
             <span className="ev-dim">{e.dimension}</span>
             <span className="wl-name">{e.title}</span>
@@ -634,7 +644,7 @@ export function IntegrationsPage() {
   );
 }
 
-export function ControlsPage() {
+export function ControlsPage({ onOpenControl }: { onOpenControl?: (code: string) => void }) {
   const [data, setData] = useState<{ categories: { id: string; title: string }[]; controls: LibraryControl[] } | null>(null);
   const [q, setQ] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -642,10 +652,14 @@ export function ControlsPage() {
     fetchControlsLibrary().then(setData).catch((e) => setErr(String(e.message ?? e)));
   }, []);
   const filtered = (data?.controls ?? []).filter((c) => !q || c.code.includes(q) || c.title.toLowerCase().includes(q.toLowerCase()));
+  const baseControls = data ? new Set(data.controls.map((c) => c.objective?.split(" ")[0]).filter(Boolean)).size : 0;
+  const eyebrow = data
+    ? `CCF · ${data.controls.length} controls → ${data.categories.length} families → ${baseControls} base controls`
+    : "CCF · control library";
   return (
     <div className="page">
       <div className="page-head">
-        <span className="eyebrow">CCF · 156 controls → 14 categories → 49 objectives</span>
+        <span className="eyebrow">{eyebrow}</span>
         <h1 className="h1">Controls <span className="frame">{data ? `· ${data.controls.length}` : ""}</span></h1>
       </div>
       <div className="req-toolbar">
@@ -656,7 +670,12 @@ export function ControlsPage() {
       {err && <div className="api-banner error">{err}</div>}
       <div className="worklist">
         {filtered.map((c) => (
-          <div key={c.code} className="lib-row">
+          <div
+            key={c.code}
+            className={`lib-row ${onOpenControl ? "clickable" : ""}`}
+            onClick={onOpenControl ? () => onOpenControl(c.code) : undefined}
+            title={onOpenControl ? `Open ${c.code}` : undefined}
+          >
             <span className="wl-ctrl">{c.code}</span>
             <span className="wl-name">{c.title}</span>
             <span className="lib-obj">{c.objective}</span>

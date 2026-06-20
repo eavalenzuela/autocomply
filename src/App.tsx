@@ -1,8 +1,7 @@
 // autocomply — control matrix main view pane.
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import type { Domain, GlyphStyle } from "./types";
-import { HEADER } from "./data";
-import { fetchMatrix, fetchMe, logout, type MatrixSummary, type CurrentUser } from "./api";
+import { fetchMatrix, fetchMe, logout, type MatrixSummary, type CurrentUser, type AssessmentPeriodInfo } from "./api";
 import { GlyphCell } from "./components/Glyph";
 import { Grid } from "./components/Grid";
 import { Drawer } from "./components/Drawer";
@@ -13,6 +12,10 @@ import { Sidebar, StubPage, WorklistPage, EvidencePage, ExceptionsPage, Requirem
 
 function initials(name: string) {
   return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 const ACCENT_OPTIONS: Record<string, [string, string, string, string]> = {
@@ -31,7 +34,8 @@ function applyAccent(name: string) {
   r.setProperty("--accent-bg", v[3]);
 }
 
-function Topbar({ me, onLogout }: { me: CurrentUser; onLogout: () => void }) {
+function Topbar({ me, onLogout, period }: { me: CurrentUser; onLogout: () => void; period: AssessmentPeriodInfo | null }) {
+  const cycle = period ? `${period.tier ? cap(period.tier) + " · " : ""}${period.start.slice(0, 4)} cycle` : "no active period";
   return (
     <div className="topbar">
       <div className="brand">
@@ -43,15 +47,13 @@ function Topbar({ me, onLogout }: { me: CurrentUser; onLogout: () => void }) {
       <div className="crumbs">
         <span>Programs</span>
         <span className="sep">/</span>
-        <span>NIST 800-53</span>
+        <span>{period?.frameworkLabel ?? "NIST 800-53"}</span>
         <span className="sep">/</span>
-        <strong>Moderate · 2026 cycle</strong>
+        <strong>{cycle}</strong>
       </div>
       <div className="topbar-right">
         <span className="pill">⌘K</span>
-        <span>
-          Period: {HEADER.period.start} → {HEADER.period.end}
-        </span>
+        <span>{period ? `Period: ${period.start} → ${period.end}` : "No active period"}</span>
         <span className="user-chip" title={me.email}>
           <span className="avatar">{initials(me.name)}</span>
           <span className="user-meta">
@@ -103,12 +105,12 @@ function KpiStrip({ summary, domains }: { summary: MatrixSummary | null; domains
   );
 }
 
-const LENSES = [
-  { id: "gate-failing", label: "gate-failing", count: 4 },
-  { id: "stale", label: "stale", count: 11 },
-  { id: "unmapped", label: "unmapped", count: 5 },
-  { id: "aws-pending", label: "aws-pending", count: 12 },
-  { id: "drift", label: "drift", count: 3 },
+const LENS_DEFS: { id: string; label: string }[] = [
+  { id: "gate-failing", label: "gate-failing" },
+  { id: "aws-pending", label: "aws-pending" },
+  { id: "coverage-gap", label: "coverage-gap" },
+  { id: "drift", label: "drift" },
+  { id: "unmapped", label: "unmapped" },
 ];
 
 function Header({
@@ -116,30 +118,41 @@ function Header({
   setFilters,
   summary,
   domains,
+  period,
+  lensCounts,
+  query,
+  setQuery,
+  searchRef,
 }: {
   filters: string[];
   setFilters: React.Dispatch<React.SetStateAction<string[]>>;
   summary: MatrixSummary | null;
   domains: Domain[];
+  period: AssessmentPeriodInfo | null;
+  lensCounts: Record<string, number>;
+  query: string;
+  setQuery: (v: string) => void;
+  searchRef: React.RefObject<HTMLInputElement>;
 }) {
   const toggle = (id: string) => setFilters((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
   return (
     <div className="header">
       <div className="header-top">
         <div className="header-title">
-          <span className="eyebrow">Assessment · {HEADER.period.days}d period</span>
+          <span className="eyebrow">Assessment · {period ? `${period.days}d period` : "no active period"}</span>
           <h1 className="h1">
-            {HEADER.framework} <span className="frame">control matrix</span>
+            {period?.frameworkLabel ?? "NIST 800-53"}{" "}
+            <span className="frame">{period?.tier ? `${cap(period.tier)} control matrix` : "control matrix"}</span>
           </h1>
         </div>
         <KpiStrip summary={summary} domains={domains} />
       </div>
       <div className="filter-row">
         <span className="filter-label">Lenses</span>
-        {LENSES.map((l) => (
+        {LENS_DEFS.map((l) => (
           <button key={l.id} className={`chip ${filters.includes(l.id) ? "active" : ""}`} onClick={() => toggle(l.id)}>
             {l.label}
-            <span className="count">{l.count}</span>
+            <span className="count">{lensCounts[l.id] ?? 0}</span>
           </button>
         ))}
         <span className="chip-spacer" />
@@ -148,8 +161,17 @@ function Header({
             <circle cx="5" cy="5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.2" />
             <path d="M7.3 7.3 L10 10" stroke="currentColor" strokeWidth="1.2" />
           </svg>
-          <input placeholder="Search controls, evidence, owners…" />
-          <kbd>⌘ K</kbd>
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search controls by code, name, or crosswalk…"
+          />
+          {query ? (
+            <button className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">×</button>
+          ) : (
+            <kbd>⌘ K</kbd>
+          )}
         </div>
       </div>
     </div>
@@ -188,14 +210,18 @@ function Legend({ glyphStyle }: { glyphStyle: GlyphStyle }) {
   );
 }
 
-function FootRail({ visibleCount, totalCount, selectedId }: { visibleCount: number; totalCount: number; selectedId: string | null }) {
+function FootRail({ visibleCount, totalCount, selectedId, filtered }: { visibleCount: number; totalCount: number; selectedId: string | null; filtered: boolean }) {
   return (
     <div className="foot-rail">
       <span>
         {visibleCount} of {totalCount} controls
       </span>
-      <span className="sep">·</span>
-      <span>auto-sync 2m ago</span>
+      {filtered && (
+        <>
+          <span className="sep">·</span>
+          <span>filtered</span>
+        </>
+      )}
       <span className="sep">·</span>
       <span>
         {selectedId ? (
@@ -207,7 +233,7 @@ function FootRail({ visibleCount, totalCount, selectedId }: { visibleCount: numb
         )}
       </span>
       <span className="right">
-        <span>← → expand · ⏎ open · ⌘E export</span>
+        <span>⌘K search · Esc close</span>
       </span>
     </div>
   );
@@ -224,6 +250,8 @@ export default function App() {
   const [load, setLoad] = useState<{ state: "loading" | "ok" | "error"; msg?: string }>({ state: "loading" });
   const [active, setActive] = useState("matrix");
   const [stepupMsg, setStepupMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const loadMatrix = useCallback(() => {
     fetchMatrix()
@@ -239,9 +267,12 @@ export default function App() {
       .catch((e) => setLoad({ state: "error", msg: String(e.message ?? e) }));
   }, []);
 
+  // Load the matrix only once we have a logged-in user. Doing it on bare mount
+  // (before auth) fetched /api/matrix anonymously → 401, and it was never retried
+  // after login, leaving the matrix + drawer permanently stuck on an error.
   useEffect(() => {
-    loadMatrix();
-  }, [loadMatrix]);
+    if (me) loadMatrix();
+  }, [me, loadMatrix]);
 
   useEffect(() => {
     fetchMe().then((u) => {
@@ -273,21 +304,51 @@ export default function App() {
     setDomains((ds) => ds.map((d) => (d.id === id ? { ...d, open: !d.open } : d)));
   };
 
+  // Real lens counts derived from the loaded matrix (every control ships in the
+  // payload, so these are accurate — no more hardcoded placeholder numbers).
+  const lensCounts = useMemo(() => {
+    const c: Record<string, number> = { "gate-failing": 0, "aws-pending": 0, "coverage-gap": 0, drift: 0, unmapped: 0 };
+    for (const d of domains) {
+      if (d.gateFail) c["gate-failing"]++;
+      for (const ctrl of d.controls) {
+        if (ctrl.cells.some((x) => x.marker === "aws")) c["aws-pending"]++;
+        if (ctrl.cells.some((x) => x.marker === "gap")) c["coverage-gap"]++;
+        if (ctrl.cells.some((x) => x.marker === "drift")) c.drift++;
+        if ((ctrl.crosswalk || []).length === 0) c.unmapped++;
+      }
+    }
+    return c;
+  }, [domains]);
+
+  const isFiltered = filters.length > 0 || query.trim().length > 0;
+
   const visible = useMemo<Domain[]>(() => {
-    if (filters.length === 0) return domains;
+    const q = query.trim().toLowerCase();
+    const controlFilters = filters.filter((f) => f !== "gate-failing");
+    const controlFilterActive = q.length > 0 || controlFilters.length > 0;
+    if (!isFiltered) return domains;
     return domains
       .map((d) => {
+        if (filters.includes("gate-failing") && !d.gateFail) return { ...d, hidden: true };
         let controls = d.controls;
-        if (filters.includes("stale"))
-          controls = controls.filter((c) => c.evidence?.tag === "drift" || (c.evidence?.age != null && parseInt(c.evidence.age) > 5));
-        if (filters.includes("unmapped")) controls = controls.filter((c) => (c.crosswalk || []).length < 2);
-        if (filters.includes("drift")) controls = controls.filter((c) => c.evidence?.tag === "drift");
+        if (q)
+          controls = controls.filter(
+            (c) =>
+              c.id.toLowerCase().includes(q) ||
+              c.name.toLowerCase().includes(q) ||
+              (c.crosswalk || []).some((x) => x.toLowerCase().includes(q)),
+          );
+        if (filters.includes("drift")) controls = controls.filter((c) => c.cells.some((x) => x.marker === "drift"));
         if (filters.includes("aws-pending")) controls = controls.filter((c) => c.cells.some((x) => x.marker === "aws"));
-        if (filters.includes("gate-failing") && !d.gateFail) return { ...d, controls: [], hidden: true };
-        return { ...d, controls };
+        if (filters.includes("coverage-gap")) controls = controls.filter((c) => c.cells.some((x) => x.marker === "gap"));
+        if (filters.includes("unmapped")) controls = controls.filter((c) => (c.crosswalk || []).length === 0);
+        // When a control-level filter/search is active, hide empty domains and
+        // auto-expand the ones with matches so results are immediately visible.
+        if (controlFilterActive && controls.length === 0) return { ...d, hidden: true };
+        return { ...d, controls, open: controlFilterActive ? true : d.open };
       })
       .filter((d) => !d.hidden);
-  }, [domains, filters]);
+  }, [domains, filters, query, isFiltered]);
 
   const { totalCount, visibleCount } = useMemo(() => {
     const total = summary?.controlsTotal ?? domains.reduce((s, d) => s + (d.controls.length || d.controlCount || 0), 0);
@@ -297,11 +358,18 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelectedId(null);
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setActive("matrix");
+        requestAnimationFrame(() => searchRef.current?.focus());
+      } else if (e.key === "Escape") {
+        if (document.activeElement === searchRef.current && query) setQuery("");
+        else setSelectedId(null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [query]);
 
   if (!authChecked) return null;
   if (!me) return <LoginPage onLogin={setMe} />;
@@ -314,7 +382,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Topbar me={me} onLogout={handleLogout} />
+      <Topbar me={me} onLogout={handleLogout} period={summary?.period ?? null} />
       <div className="shell-body">
         <Sidebar active={active} onNav={setActive} />
         <div className="content">
@@ -325,7 +393,17 @@ export default function App() {
           )}
           {active === "matrix" && (
             <>
-              <Header filters={filters} setFilters={setFilters} summary={summary} domains={domains} />
+              <Header
+                filters={filters}
+                setFilters={setFilters}
+                summary={summary}
+                domains={domains}
+                period={summary?.period ?? null}
+                lensCounts={lensCounts}
+                query={query}
+                setQuery={setQuery}
+                searchRef={searchRef}
+              />
               <main>
                 <Legend glyphStyle={t.glyphStyle} />
                 {load.state === "error" && (
@@ -342,18 +420,18 @@ export default function App() {
                   selectedId={selectedId}
                   showOwners={t.showOwners}
                 />
-                <FootRail visibleCount={visibleCount} totalCount={totalCount} selectedId={selectedId} />
+                <FootRail visibleCount={visibleCount} totalCount={totalCount} selectedId={selectedId} filtered={isFiltered} />
               </main>
             </>
           )}
           {active === "dashboard" && <DashboardPage onNav={setActive} />}
-          {active === "worklist" && <WorklistPage />}
-          {active === "evidence" && <EvidencePage />}
+          {active === "worklist" && <WorklistPage onOpenControl={setSelectedId} />}
+          {active === "evidence" && <EvidencePage onOpenControl={setSelectedId} />}
           {active === "risks" && <ExceptionsPage role={me.role} />}
           {active === "requirements" && <RequirementsPage />}
           {active === "reports" && <ReportsPage />}
           {active === "integrations" && <IntegrationsPage />}
-          {active === "controls" && <ControlsPage />}
+          {active === "controls" && <ControlsPage onOpenControl={setSelectedId} />}
           {active === "periods" && <PeriodsPage role={me.role} />}
           {active === "admin" && <AdminPage me={me} />}
           {active !== "matrix" &&

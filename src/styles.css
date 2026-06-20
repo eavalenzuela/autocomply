@@ -350,6 +350,19 @@ button { font: inherit; color: inherit; }
   border-radius: 3px;
   padding: 1px 4px;
 }
+.search-clear {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ink-4);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.search-clear:hover { color: var(--ink); }
+
+/* Clickable list rows (open the control drawer) */
+.wl-row.clickable, .ev-row.clickable, .lib-row.clickable { cursor: pointer; }
 
 /* ===== Grid ===== */
 .grid-wrap {

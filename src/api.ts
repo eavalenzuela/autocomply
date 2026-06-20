@@ -1,11 +1,22 @@
 // API client for the autocomply backend (proxied at /api by Vite in dev).
 import type { Domain } from "./types";
 
+export interface AssessmentPeriodInfo {
+  name: string;
+  framework: string;
+  frameworkLabel: string;
+  tier: string | null;
+  start: string;
+  end: string;
+  days: number;
+  status: string;
+}
 export interface MatrixSummary {
   controlsTotal: number;
   categories: number;
   frameworks: string[];
   mappingLinks: number;
+  period: AssessmentPeriodInfo | null;
 }
 export interface MatrixResponse {
   summary: MatrixSummary;
