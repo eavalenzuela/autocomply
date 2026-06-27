@@ -84,12 +84,102 @@ export interface CatalogControl {
   metadata?: Record<string, unknown>;
   satisfies?: string[];
 }
+export interface CatalogCrosswalk {
+  from: string;
+  to: string;
+  relationship?: string;
+  confidence?: string;
+  note?: string;
+}
 export interface Catalog {
   catalog_version: string;
   source: string;
   generated_at?: string;
   frameworks: CatalogFramework[];
   controls: CatalogControl[];
+  crosswalks: CatalogCrosswalk[];
+}
+
+// A control→requirement mapping that survived ref validation, used to derive
+// requirement↔requirement crosswalks.
+export interface MappedRequirement {
+  control: string;
+  ref: string;
+  fw: string;
+  relationship: string;
+  confidence: string;
+}
+
+// Strength orderings for combining inferred crosswalk evidence.
+const REL_RANK: Record<string, number> = { related: 0, subset: 1, superset: 1, partial: 2, equivalent: 3 };
+const CONF_RANK: Record<string, number> = { low: 0, medium: 1, high: 2 };
+const CONF_NAME = ["low", "medium", "high"] as const;
+
+// The req↔req relationship inferred from the two control→req legs that imply it.
+// Both legs equivalent ⇒ the requirements are equivalent; both at least partial ⇒
+// partial; otherwise merely related.
+function pairRelationship(a: string, b: string): string {
+  if (a === "equivalent" && b === "equivalent") return "equivalent";
+  const atLeastPartial = (r: string) => r === "equivalent" || r === "partial";
+  if (atLeastPartial(a) && atLeastPartial(b)) return "partial";
+  return "related";
+}
+
+// Derive cross-framework requirement↔requirement crosswalks from control→requirement
+// mappings: two requirements in *different* frameworks that a single control maps to
+// are the same underlying obligation. Deduped to one entry per unordered pair,
+// keeping the strongest relationship/confidence across every control that links them,
+// with the contributing controls recorded in `note`. Pure (no DB) so it's unit-testable.
+// Cross-framework only — two requirements in the same framework sharing a control is
+// just that control covering two requirements, not a crosswalk. See
+// GRCEN_CATALOG_EXPORT.md rule 6.
+export function deriveCrosswalks(mapped: MappedRequirement[]): CatalogCrosswalk[] {
+  const byControl = new Map<string, MappedRequirement[]>();
+  for (const m of mapped) {
+    (byControl.get(m.control) ?? byControl.set(m.control, []).get(m.control)!).push(m);
+  }
+
+  const acc = new Map<
+    string,
+    { from: string; to: string; relationship: string; confidence: string; controls: Set<string> }
+  >();
+  for (const [control, list] of byControl) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i];
+        const b = list[j];
+        if (a.fw === b.fw) continue;
+        const [from, to] = a.ref < b.ref ? [a.ref, b.ref] : [b.ref, a.ref];
+        const key = `${from}|${to}`;
+        const relationship = pairRelationship(a.relationship, b.relationship);
+        const confidence = CONF_NAME[Math.min(CONF_RANK[a.confidence] ?? 0, CONF_RANK[b.confidence] ?? 0)];
+        const prev = acc.get(key);
+        if (!prev) {
+          acc.set(key, { from, to, relationship, confidence, controls: new Set([control]) });
+        } else {
+          prev.controls.add(control);
+          if (
+            REL_RANK[relationship] > REL_RANK[prev.relationship] ||
+            (REL_RANK[relationship] === REL_RANK[prev.relationship] &&
+              CONF_RANK[confidence] > CONF_RANK[prev.confidence])
+          ) {
+            prev.relationship = relationship;
+            prev.confidence = confidence;
+          }
+        }
+      }
+    }
+  }
+
+  return [...acc.values()]
+    .sort((x, y) => x.from.localeCompare(y.from) || x.to.localeCompare(y.to))
+    .map(({ from, to, relationship, confidence, controls }) => {
+      const ctrls = [...controls].sort();
+      const shown = ctrls.slice(0, 5).join(", ");
+      const more = ctrls.length > 5 ? `, +${ctrls.length - 5} more` : "";
+      const note = `shared control${ctrls.length > 1 ? "s" : ""}: ${shown}${more}`;
+      return { from, to, relationship, confidence, note };
+    });
 }
 
 // Build the catalog document. `generatedAt` is an optional, informational
@@ -151,6 +241,7 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
   // each mapping's relationship/confidence in metadata.crosswalk so that detail
   // survives the trip (GRCen's covered/gap model is binary and ignores it today).
   const crosswalkByControl = new Map<string, Record<string, { relationship: string; confidence: string }>>();
+  const mappedReqs: MappedRequirement[] = [];
   let droppedSatisfies = 0;
   for (const m of maps) {
     const ref = requirementRef(m.frameworkId, m.code);
@@ -160,6 +251,7 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
     }
     const cw = crosswalkByControl.get(m.control) ?? crosswalkByControl.set(m.control, {}).get(m.control)!;
     cw[ref] = { relationship: m.relationship, confidence: m.confidence };
+    mappedReqs.push({ control: m.control, ref, fw: m.frameworkId, relationship: m.relationship, confidence: m.confidence });
   }
 
   const controls: CatalogControl[] = ctrls.map((c) => {
@@ -177,12 +269,17 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
     };
   });
 
+  // Cross-framework requirement↔requirement crosswalks, derived from the same
+  // control crosswalk data the satisfies[] edges come from.
+  const crosswalks = deriveCrosswalks(mappedReqs);
+
   const catalog: Catalog = {
     catalog_version: CATALOG_VERSION,
     source: "autocomply",
     ...(generatedAt ? { generated_at: generatedAt } : {}),
     frameworks,
     controls,
+    crosswalks,
   };
   await validateCatalog(catalog); // fail-closed if the projection ever violates the contract
   return { catalog, droppedSatisfies };
@@ -205,7 +302,12 @@ export async function exportCatalogToFile(path: string, generatedAt?: string) {
   const { catalog, droppedSatisfies } = await buildCatalog(generatedAt);
   await writeFile(path, JSON.stringify(catalog, null, 2) + "\n", "utf8");
   await recordCatalogExport(null, "scheduled", { path });
-  return { droppedSatisfies, frameworks: catalog.frameworks.length, controls: catalog.controls.length };
+  return {
+    droppedSatisfies,
+    frameworks: catalog.frameworks.length,
+    controls: catalog.controls.length,
+    crosswalks: catalog.crosswalks.length,
+  };
 }
 
 // Latest catalog-export timestamp (for the Integrations export-status card).
