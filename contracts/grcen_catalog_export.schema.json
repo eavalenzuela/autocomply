@@ -27,6 +27,11 @@
     "controls": {
       "type": "array",
       "items": { "$ref": "#/$defs/control" }
+    },
+    "crosswalks": {
+      "type": "array",
+      "description": "Optional. Direct requirement↔requirement equivalences across frameworks, projected as cross_maps edges.",
+      "items": { "$ref": "#/$defs/crosswalk" }
     }
   },
   "$defs": {
@@ -86,6 +91,26 @@
           "description": "Requirement refs this control satisfies. Each MUST match a requirement.ref in the same document, or GRCen rejects the whole catalog.",
           "items": { "$ref": "#/$defs/ref" }
         }
+      }
+    },
+    "crosswalk": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "description": "A symmetric requirement↔requirement equivalence. Both refs MUST match a requirement.ref in the same document; from MUST NOT equal to; emit each pair once.",
+      "properties": {
+        "from": { "$ref": "#/$defs/ref", "description": "Requirement ref; MUST match a requirement.ref in the same document." },
+        "to": { "$ref": "#/$defs/ref", "description": "Requirement ref (conventionally in another framework); MUST match a requirement.ref in the same document." },
+        "relationship": {
+          "type": "string",
+          "enum": ["equivalent", "superset", "subset", "partial", "related"],
+          "description": "Defaults to 'related' when omitted."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "note": { "type": "string" }
       }
     }
   }

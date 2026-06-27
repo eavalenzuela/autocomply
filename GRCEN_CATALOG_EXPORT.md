@@ -67,6 +67,17 @@ See "Producing it from autocomply's schema" below for the table mapping.
       "satisfies": ["soc2:CC6.1"]  // requirement refs this control satisfies; each
                                    // MUST match a requirement.ref above
     }
+  ],
+
+  "crosswalks": [                  // OPTIONAL, additive in catalog_version "1".
+    {                              // A direct requirement↔requirement equivalence
+                                   // across frameworks, with no mediating control.
+      "from": "iso27001:A.8.16",   // requirement ref; MUST match a requirement.ref above
+      "to": "soc2:CC7.2",          // requirement ref; MUST match a requirement.ref above
+      "relationship": "equivalent",// equivalent|superset|subset|partial|related (default: related)
+      "confidence": "high",        // high|medium|low (optional)
+      "note": "Monitoring activities"  // optional free text
+    }
   ]
 }
 ```
@@ -80,11 +91,14 @@ See "Producing it from autocomply's schema" below for the table mapping.
 | `framework → requirement` | `parent_of` edge | how the dashboard discovers a framework's requirements |
 | `control` | `asset(type=control)` | `metadata` stored verbatim |
 | `control.satisfies[]` | `satisfies` edge (control → requirement) | marks the requirement **covered** on the `/frameworks` coverage/gap dashboard |
+| `crosswalks[]` | `cross_maps` edge (requirement → requirement) | direct cross-framework equivalence; `relationship`/`confidence`/`note` stored on the edge description and shown in the framework detail page's **Cross-framework** column |
 
 Those two edge types (`parent_of`, `satisfies`) are exactly what GRCen's framework
 dashboard keys off, so a synced catalog lights up coverage automatically. A
 requirement with no satisfying control shows as a **gap** — which is the correct
-state for a freshly-loaded catalog before controls are mapped.
+state for a freshly-loaded catalog before controls are mapped. The optional
+`cross_maps` edges add a third dimension: they don't affect coverage, they show
+where a requirement in one framework is the *same* obligation as one in another.
 
 ## Rules that matter
 
@@ -113,6 +127,16 @@ state for a freshly-loaded catalog before controls are mapped.
    only deleted when GRCen is run with `--prune` (because deleting a control in
    GRCen cascades to any org-graph edges a human attached to it).
 
+6. **Crosswalks are optional, symmetric, and validated like `satisfies`.** Both
+   `from` and `to` must reference requirement `ref`s present in the same document
+   (fail-closed; an unknown ref rejects the whole catalog). A crosswalk may not map
+   a requirement to itself, and GRCen treats `A→B` and `B→A` as the **same** mapping
+   — emit each pair once. Conventionally `from` and `to` are in *different*
+   frameworks (that's the point), though GRCen doesn't enforce it. `relationship`
+   defaults to `related` when omitted; `confidence` and `note` are optional. Synced
+   `cross_maps` edges are pruned on the next sync when dropped from the export, just
+   like `satisfies` edges.
+
 ## Producing it from autocomply's schema
 
 The export is a join over autocomply's existing tables (`server/src/db/schema.ts`):
@@ -123,13 +147,21 @@ The export is a join over autocomply's existing tables (`server/src/db/schema.ts
 - `controls` → catalog `controls[]` (`ref` = CCF control code, e.g. `01.a`)
 - `mappings` (control ↔ requirement crosswalk) → each control's `satisfies[]`,
   emitting the requirement `ref` for every mapped requirement
+- *(optional)* requirement ↔ requirement equivalences → top-level `crosswalks[]`,
+  one entry per pair. autocomply's `mappings` table is control-mediated, so the
+  control-mediated path below remains the primary one; emit `crosswalks[]` only if
+  you derive direct requirement-to-requirement equivalences (e.g. OLIR-derived or
+  hand-curated req-to-req links).
 
-The crosswalk's relationship-type/confidence fields don't have a home in GRCen's
-binary covered/gap model yet, so the producer stashes them in each control's
-`metadata.crosswalk` (`{ "<req-ref>": { relationship, confidence } }`) — they
-survive the trip verbatim while `satisfies[]` stays the flat ref list GRCen keys
-off. Keep the export **read-only**: it's a projection of autocomply state, never
-an inbound mutation.
+The crosswalk's relationship-type/confidence fields have two homes in GRCen now.
+The control-mediated path (kept for back-compat) stashes them per control in
+`metadata.crosswalk` (`{ "<req-ref>": { relationship, confidence } }`), which rides
+along verbatim while `satisfies[]` stays the flat ref list coverage keys off. The
+direct path uses the top-level `crosswalks[]` array above: GRCen projects each
+entry into a first-class `cross_maps` requirement→requirement edge (carrying the
+relationship/confidence) and surfaces it in the framework detail page's
+**Cross-framework** column. Keep the export **read-only**: it's a projection of
+autocomply state, never an inbound mutation.
 
 ### Ways to produce it
 - **`GET /api/catalog`** — live pull (GRCen syncs against it), authenticated with a
