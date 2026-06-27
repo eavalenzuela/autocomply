@@ -276,7 +276,7 @@ export async function fetchReport(framework: "soc2" | "iso27001", forExport = fa
 }
 
 export interface Connector { name: string; type: string; checks: number; lastRun: string | null; status: string; findings: number; passRate: number | null; coverage: string; }
-export interface CatalogExportStatus { frameworks: number; requirements: number; controls: number; satisfies: number; lastExport: string | null; }
+export interface CatalogExportStatus { frameworks: number; requirements: number; controls: number; satisfies: number; crosswalks: number; lastExport: string | null; }
 export async function fetchIntegrations(): Promise<{ connectors: Connector[]; catalog: CatalogExportStatus }> {
   return get("/api/integrations");
 }

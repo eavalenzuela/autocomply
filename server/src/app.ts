@@ -22,7 +22,7 @@ import {
   SESSION_COOKIE,
 } from "./auth";
 import { registerOAuth } from "./oauth";
-import { buildCatalog, recordCatalogExport, lastCatalogExportAt } from "./catalog";
+import { buildCatalog, recordCatalogExport, lastCatalogExportAt, deriveCrosswalks } from "./catalog";
 import { deliverNotifications, type NotifyEvent } from "./notify";
 
 const RATINGS: Rating[] = ["nc", "sc", "pc", "mc", "fc"];
@@ -632,7 +632,16 @@ export async function buildApp() {
       db.select({ id: s.frameworks.id }).from(s.frameworks),
       db.select({ id: s.requirements.id }).from(s.requirements),
       db.select({ code: s.controls.code }).from(s.controls),
-      db.select({ id: s.mappings.id }).from(s.mappings),
+      db
+        .select({
+          control: s.mappings.controlCode,
+          frameworkId: s.requirements.frameworkId,
+          code: s.requirements.code,
+          relationship: s.mappings.relationship,
+          confidence: s.mappings.confidence,
+        })
+        .from(s.mappings)
+        .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id)),
       lastCatalogExportAt(),
     ]);
     const latestRun = new Map<string, (typeof runs)[number]>();
@@ -683,11 +692,23 @@ export async function buildApp() {
       coverage: `${docs.filter((e) => e.drifted).length} drifted`,
     });
     // GRCen catalog export (read-only projection consumed by the sibling tool).
+    // crosswalks is the count of derived cross-framework requirement↔requirement
+    // links — same derivation buildCatalog ships in the export.
+    const crosswalks = deriveCrosswalks(
+      mapRows.map((m) => ({
+        control: m.control,
+        ref: `${m.frameworkId}:${m.code}`,
+        fw: m.frameworkId,
+        relationship: m.relationship,
+        confidence: m.confidence,
+      })),
+    ).length;
     const catalog = {
       frameworks: fwRows.length,
       requirements: reqRows.length,
       controls: ctrlRows.length,
       satisfies: mapRows.length,
+      crosswalks,
       lastExport,
     };
     return { connectors, catalog };

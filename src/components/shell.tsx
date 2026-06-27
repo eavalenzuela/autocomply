@@ -695,6 +695,7 @@ export function IntegrationsPage() {
             <div><b>{catalog.requirements}</b><span>requirements</span></div>
             <div><b>{catalog.controls}</b><span>controls</span></div>
             <div><b>{catalog.satisfies}</b><span>satisfies</span></div>
+            <div><b>{catalog.crosswalks}</b><span>crosswalks</span></div>
           </div>
           <div className="conn-foot">
             Read-only projection at <code>GET /api/catalog</code> → <code>grcen sync-catalog</code>
