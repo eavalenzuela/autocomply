@@ -141,9 +141,7 @@ export interface WorklistTask {
   priority: number;
 }
 export async function fetchWorklist(): Promise<{ count: number; tasks: WorklistTask[] }> {
-  const r = await fetch("/api/worklist");
-  if (!r.ok) throw new Error(`worklist: HTTP ${r.status}`);
-  return r.json();
+  return get("/api/worklist");
 }
 
 export interface ControlDetail {
@@ -158,12 +156,20 @@ export interface ControlDetail {
     source: string;
     createdAt: string;
   }[];
-  evidence: { id: number; title: string; sourceType: string; dimension: string }[];
+  evidence: {
+    id: number;
+    title: string;
+    sourceType: string;
+    dimension: string;
+    kind: string | null;
+    liveUrl: string | null;
+    contentHash: string | null;
+    drifted: boolean;
+    collectedAt: string;
+  }[];
 }
 export async function fetchControl(code: string): Promise<ControlDetail> {
-  const r = await fetch(`/api/control/${encodeURIComponent(code)}`);
-  if (!r.ok) throw new Error(`control: HTTP ${r.status}`);
-  return r.json();
+  return get(`/api/control/${encodeURIComponent(code)}`);
 }
 
 export async function attest(body: {
@@ -187,9 +193,7 @@ export interface EvidenceItem {
   drifted: boolean;
 }
 export async function fetchEvidence(): Promise<{ count: number; evidence: EvidenceItem[] }> {
-  const r = await fetch("/api/evidence");
-  if (!r.ok) throw new Error(`evidence: HTTP ${r.status}`);
-  return r.json();
+  return get("/api/evidence");
 }
 
 export interface ExceptionRow {
@@ -203,12 +207,15 @@ export interface ExceptionRow {
   expiresAt: string | null;
 }
 export async function fetchExceptions(): Promise<{ count: number; exceptions: ExceptionRow[] }> {
-  const r = await fetch("/api/exceptions");
-  if (!r.ok) throw new Error(`exceptions: HTTP ${r.status}`);
-  return r.json();
+  return get("/api/exceptions");
 }
 export async function decideException(id: number, decision: "approve" | "reject"): Promise<void> {
   await post(`/api/exception/${id}/decide`, { decision });
+}
+// File a risk-acceptance request against a control (pending until a different
+// admin/compliance manager decides it — SoD is enforced server-side).
+export async function requestException(body: { control: string; dimension?: string; reason: string; expiresAt?: string }): Promise<void> {
+  await post("/api/exception", body);
 }
 
 export interface RequirementRow {
@@ -227,9 +234,7 @@ export interface RequirementsResponse {
   requirements: RequirementRow[];
 }
 export async function fetchRequirements(framework: "soc2" | "iso27001"): Promise<RequirementsResponse> {
-  const r = await fetch(`/api/requirements?framework=${framework}`);
-  if (!r.ok) throw new Error(`requirements: HTTP ${r.status}`);
-  return r.json();
+  return get(`/api/requirements?framework=${framework}`);
 }
 
 export interface SoaEntry {
@@ -303,7 +308,35 @@ export interface Notification {
   severity: "info" | "warn" | "bad";
 }
 export async function fetchNotifications(): Promise<{ count: number; items: Notification[] }> {
-  const r = await fetch("/api/notifications");
-  if (!r.ok) throw new Error(`notifications: HTTP ${r.status}`);
-  return r.json();
+  return get("/api/notifications");
+}
+
+// ---- audit log (admin / auditor) ----
+export interface AuditEntry {
+  id: number;
+  ts: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  payload: Record<string, unknown> | null;
+  actor: string | null;
+}
+export interface AuditResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  entries: AuditEntry[];
+}
+export async function fetchAudit(opts: { limit?: number; offset?: number; action?: string } = {}): Promise<AuditResponse> {
+  const params = new URLSearchParams();
+  if (opts.limit != null) params.set("limit", String(opts.limit));
+  if (opts.offset != null) params.set("offset", String(opts.offset));
+  if (opts.action) params.set("action", opts.action);
+  const qs = params.toString();
+  return get(`/api/audit${qs ? `?${qs}` : ""}`);
+}
+
+// Local-account password change; the server revokes the user's other sessions.
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ revokedSessions: number }> {
+  return post("/api/me/password", { currentPassword, newPassword });
 }

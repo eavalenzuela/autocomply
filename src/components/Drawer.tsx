@@ -1,11 +1,12 @@
 // Drawer — live control detail + attestation. Fetches /api/control/:code,
-// shows the maturity ladder, crosswalk, attestation history, and an inline
-// attest form that writes back through /api/attest.
+// shows the maturity ladder, crosswalk, evidence, attestation history, an inline
+// attest form that writes back through /api/attest, and a risk-acceptance
+// request form (POST /api/exception).
 import { useEffect, useMemo, useState } from "react";
 import type { Control, Domain, GlyphStyle } from "../types";
 import { GlyphCell } from "./Glyph";
 import { MATURITY_COLS } from "../data";
-import { fetchControl, attest, type ControlDetail } from "../api";
+import { fetchControl, attest, requestException, type ControlDetail } from "../api";
 
 const RUNG_SCORE = ["—", "20", "40", "60", "80", "100"];
 const RATINGS: { v: "nc" | "sc" | "pc" | "mc" | "fc"; label: string }[] = [
@@ -36,6 +37,12 @@ export function Drawer({
   const [dim, setDim] = useState<(typeof DIMS)[number]>("impl");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [just, setJust] = useState("");
+  // Risk-acceptance request form state (collapsed until opened).
+  const [excOpen, setExcOpen] = useState(false);
+  const [excReason, setExcReason] = useState("");
+  const [excExpires, setExcExpires] = useState("");
+  const [excMsg, setExcMsg] = useState<string | null>(null);
 
   const control = useMemo<(Control & { domain: string }) | null>(() => {
     if (!controlId) return null;
@@ -49,6 +56,11 @@ export function Drawer({
   useEffect(() => {
     setDetail(null);
     setErr(null);
+    setJust("");
+    setExcOpen(false);
+    setExcReason("");
+    setExcExpires("");
+    setExcMsg(null);
     if (controlId) fetchControl(controlId).then(setDetail).catch((e) => setErr(String(e.message ?? e)));
   }, [controlId]);
 
@@ -59,10 +71,31 @@ export function Drawer({
     setBusy(true);
     setErr(null);
     try {
-      await attest({ control: controlId, dimension: dim, rating, justification: `Manual attestation (${dim})` });
+      // The justification is the audit trail — free text from the attester, not a
+      // canned string (empty stays empty rather than pretending there's a reason).
+      await attest({ control: controlId, dimension: dim, rating, justification: just.trim() || undefined });
+      setJust("");
       const fresh = await fetchControl(controlId);
       setDetail(fresh);
       onChanged();
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doRequestException() {
+    if (!controlId || !excReason.trim()) return;
+    setBusy(true);
+    setErr(null);
+    setExcMsg(null);
+    try {
+      await requestException({ control: controlId, reason: excReason.trim(), expiresAt: excExpires || undefined });
+      setExcReason("");
+      setExcExpires("");
+      setExcOpen(false);
+      setExcMsg("Exception requested — pending approval (see Risks & Exceptions).");
     } catch (e: any) {
       setErr(String(e.message ?? e));
     } finally {
@@ -120,6 +153,12 @@ export function Drawer({
                       </button>
                     ))}
                   </div>
+                  <input
+                    className="login-input attest-just"
+                    value={just}
+                    onChange={(e) => setJust(e.target.value)}
+                    placeholder="Justification — why this rating? (recorded in the audit trail)"
+                  />
                   <div className="attest-ratings">
                     {RATINGS.map((r) => (
                       <button key={r.v} className="attest-rating" disabled={busy} onClick={() => doAttest(r.v)}>
@@ -130,6 +169,39 @@ export function Drawer({
                   <div className="attest-hint">Sets the {MATURITY_COLS[DIMS.indexOf(dim)].label} rating (appends an attestation).</div>
                 </div>
               </div>
+              )}
+
+              {/* Risk acceptance (writers only) — files a pending exception for this control */}
+              {canWrite && (
+                <div className="section">
+                  <div className="section-label">Risk acceptance</div>
+                  {excMsg && <div className="api-banner">{excMsg}</div>}
+                  {excOpen ? (
+                    <div className="attest-box">
+                      <input
+                        className="login-input attest-just"
+                        value={excReason}
+                        onChange={(e) => setExcReason(e.target.value)}
+                        placeholder="Reason — why is this risk acceptable?"
+                        autoFocus
+                      />
+                      <label className="exc-exp-label">
+                        expires
+                        <input className="login-input exc-exp-date" type="date" value={excExpires} onChange={(e) => setExcExpires(e.target.value)} />
+                        <span className="attest-hint" style={{ margin: 0 }}>(optional)</span>
+                      </label>
+                      <div className="stepup-actions" style={{ marginTop: 8 }}>
+                        <button className="btn ghost" disabled={busy} onClick={() => setExcOpen(false)}>Cancel</button>
+                        <button className="btn primary" disabled={busy || !excReason.trim()} onClick={doRequestException}>
+                          Request exception
+                        </button>
+                      </div>
+                      <div className="attest-hint">Pending until a different approver decides it (separation of duties).</div>
+                    </div>
+                  ) : (
+                    <button className="btn" onClick={() => { setExcOpen(true); setExcMsg(null); }}>+ Request exception</button>
+                  )}
+                </div>
               )}
 
               {/* Crosswalk (live) */}
@@ -146,14 +218,44 @@ export function Drawer({
                 </div>
               )}
 
+              {/* Evidence (live) — the endpoint has always shipped these rows; now they render */}
+              {detail && detail.evidence.length > 0 && (
+                <div className="section">
+                  <div className="section-label">Evidence ({detail.evidence.length})</div>
+                  <div className="evid-table">
+                    {detail.evidence.map((e) => (
+                      <div key={e.id} className={`evid-row ${e.drifted ? "warn" : "ok"}`}>
+                        <span className="dot" />
+                        <div>
+                          <div className="e-name">
+                            {e.liveUrl ? (
+                              <a href={e.liveUrl} target="_blank" rel="noreferrer">{e.title}</a>
+                            ) : (
+                              e.title
+                            )}{" "}
+                            {e.drifted && <span className="tag drift">drift</span>}
+                          </div>
+                          <div className="e-meta" title={e.contentHash ?? ""}>
+                            {e.kind ?? e.sourceType} · {e.dimension} · {e.contentHash?.slice(0, 10) ?? "—"}
+                          </div>
+                        </div>
+                        <span className="e-status">{e.sourceType}</span>
+                        <span className="e-meta">{new Date(e.collectedAt).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Attestation history (live) */}
               <div className="section">
                 <div className="section-label">Attestation history{detail ? ` (${detail.attestations.length})` : ""}</div>
                 {detail && detail.attestations.length > 0 ? (
                   <div className="evid-table">
                     {detail.attestations.map((a) => (
-                      <div key={a.id} className="evid-row">
-                        <span className={`dot ${a.rating === "fc" || a.rating === "mc" ? "ok" : a.rating === "nc" ? "bad" : "warn"}`} />
+                      // status class on the row — .evid-row.ok .dot is what the CSS colors
+                      <div key={a.id} className={`evid-row ${a.rating === "fc" || a.rating === "mc" ? "ok" : a.rating === "nc" ? "bad" : "warn"}`}>
+                        <span className="dot" />
                         <div>
                           <div className="e-name">
                             {a.dimension.toUpperCase()} → {a.rating.toUpperCase()} {a.marker ? `· ${a.marker}` : ""}

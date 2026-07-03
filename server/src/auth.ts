@@ -4,7 +4,7 @@
 // additional ways to resolve a CurrentUser / provision sessions.
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from "node:crypto";
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, lt, ne } from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
 
@@ -50,6 +50,24 @@ export async function createSession(userId: number): Promise<string> {
 }
 export async function destroySession(token: string): Promise<void> {
   await db.delete(s.sessions).where(eq(s.sessions.token, token));
+}
+
+// Delete expired session rows. currentUser already ignores them (the join filters
+// on expiresAt), but nothing removed the rows, so the table grew forever. The
+// server runs this on an interval; safe to call any time.
+export async function sweepExpiredSessions(): Promise<number> {
+  const gone = await db.delete(s.sessions).where(lt(s.sessions.expiresAt, new Date())).returning({ token: s.sessions.token });
+  return gone.length;
+}
+
+// Revoke every session for `userId` except `keepToken` — used after a password
+// change so a stolen session elsewhere doesn't survive the credential rotation.
+export async function revokeOtherSessions(userId: number, keepToken: string | undefined): Promise<number> {
+  const where = keepToken
+    ? and(eq(s.sessions.userId, userId), ne(s.sessions.token, keepToken))
+    : eq(s.sessions.userId, userId);
+  const gone = await db.delete(s.sessions).where(where).returning({ token: s.sessions.token });
+  return gone.length;
 }
 
 /* ---- step-up re-auth ---- */

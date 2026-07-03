@@ -1162,6 +1162,19 @@ button { font: inherit; color: inherit; }
 .attest-dim.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
 .attest-rating:disabled { opacity: 0.5; cursor: default; }
 .attest-hint { font-size: 11px; color: var(--ink-4); }
+.attest-just { font-size: 12px; }
+
+/* Drawer risk-acceptance request form */
+.exc-exp-label { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-4); }
+.exc-exp-date { width: auto; flex: 0 0 auto; font-size: 12px; }
+
+/* Drawer evidence rows */
+.evid-row .e-name a { color: var(--accent-2); text-decoration: none; }
+.evid-row .e-name a:hover { text-decoration: underline; }
+.evid-row .tag.drift {
+  padding: 1px 6px; border-radius: 3px; font-family: var(--font-mono); font-size: 10px;
+  color: var(--warn); border: 1px solid oklch(0.85 0.08 75); background: var(--warn-bg);
+}
 
 /* ===== P2 alerts / evidence / exceptions ===== */
 .alerts { margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); padding: 12px 14px; }
@@ -1195,9 +1208,24 @@ button { font: inherit; color: inherit; }
 .exc-status.s-approved { background: var(--ok-bg); color: var(--ok); }
 .exc-status.s-pending { background: var(--warn-bg); color: var(--warn); }
 .exc-status.s-rejected { background: var(--bad-bg); color: var(--bad); }
+.exc-status.s-expired { background: var(--bad-bg); color: var(--bad); text-decoration: line-through; }
 .exc-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-4); }
 .exc-actions { display: flex; gap: 6px; }
 .exc-actions .btn { padding: 4px 10px; font-size: 11px; }
+
+/* ===== Admin audit log ===== */
+.audit-row {
+  display: grid; grid-template-columns: 150px 170px 140px 220px 1fr; align-items: center; gap: 12px;
+  padding: 7px 14px; border-bottom: 1px solid var(--line-soft); font-size: 12px;
+}
+.audit-row:last-child { border-bottom: 0; }
+.audit-row .wl-type { text-align: left; color: var(--ink-2); }
+.audit-ts { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-4); }
+.audit-actor { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audit-target { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audit-payload { font-family: var(--font-mono); font-size: 10px; color: var(--ink-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audit-pager { display: flex; align-items: center; gap: 8px; }
+.audit-pager .btn { padding: 3px 10px; font-size: 11px; }
 
 /* ===== Requirements / gap report (P4) ===== */
 .req-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }

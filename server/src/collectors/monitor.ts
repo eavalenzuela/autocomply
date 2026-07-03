@@ -5,7 +5,7 @@
 // demo deterministic.
 import "dotenv/config";
 import { createHash } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lt } from "drizzle-orm";
 import { db, pool } from "../db/index";
 import * as s from "../db/schema";
 import { deliverNotifications, type NotifyEvent } from "../notify";
@@ -16,6 +16,24 @@ function hash(seed: string) {
 
 // Deterministic demo: the Policy doc behind 01.q "changed at the source".
 const DRIFTED: { control: string; dim: string }[] = [{ control: "IA-2", dim: "pol" }];
+
+// Exception auto-expiry: flip approved risk acceptances whose expiry date has
+// lapsed to `expired`. The schema has documented the status since P2 but nothing
+// ever set it, so an approved exception silently outlived its own deadline.
+// Audit-logged per transition; returns the events for webhook delivery.
+export async function expireLapsedExceptions(events: NotifyEvent[]): Promise<number> {
+  const lapsed = await db
+    .select()
+    .from(s.exceptions)
+    .where(and(eq(s.exceptions.status, "approved"), isNotNull(s.exceptions.expiresAt), lt(s.exceptions.expiresAt, new Date())));
+  for (const e of lapsed) {
+    await db.update(s.exceptions).set({ status: "expired" }).where(eq(s.exceptions.id, e.id));
+    await db.insert(s.auditLog).values({ action: "exception-expired", targetType: "control", targetId: e.controlCode, payload: { id: e.id, expiresAt: e.expiresAt } });
+    console.log(`  exception expired: ${e.controlCode} #${e.id} (risk acceptance lapsed ${e.expiresAt?.toISOString().slice(0, 10)})`);
+    events.push({ kind: "exception-lapsed", text: `${e.controlCode} — risk acceptance expired ${e.expiresAt?.toISOString().slice(0, 10)}; remediate or renew`, severity: "bad" });
+  }
+  return lapsed.length;
+}
 
 // Reusable tick — also called on an interval by the server when MONITOR_INTERVAL_MS is set.
 export async function runMonitorTick(): Promise<number> {
@@ -51,15 +69,19 @@ export async function runMonitorTick(): Promise<number> {
     events.push({ kind: "drift", text: `${d.control} ${d.dim.toUpperCase()} document drifted — re-attest needed`, severity: "warn" });
     drifts++;
   }
-  // Push drift events to the configured outbound webhook (no-op if unset).
+  // Risk acceptances past their expiry flip to `expired` (and surface in the
+  // worklist / notifications as remediation tasks).
+  const lapsed = await expireLapsedExceptions(events);
+
+  // Push drift + expiry events to the configured outbound webhook (no-op if unset).
   const delivered = await deliverNotifications(events, new Date().toISOString());
   if (delivered > 0) console.log(`  [notify] delivered ${delivered} event(s) to webhook`);
-  return drifts;
+  return drifts + lapsed;
 }
 
 async function main() {
-  const drifts = await runMonitorTick();
-  console.log(`monitor tick complete — ${drifts} drift event(s).`);
+  const findings = await runMonitorTick();
+  console.log(`monitor tick complete — ${findings} monitoring event(s).`);
   await pool.end();
 }
 

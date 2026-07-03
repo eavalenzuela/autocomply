@@ -21,6 +21,9 @@ import {
   decideException,
   fetchSoa,
   setSoaEntry,
+  fetchAudit,
+  type AuditResponse,
+  type SoaEntry,
   type SoaResponse,
   type ReportResponse,
   type Connector,
@@ -288,6 +291,36 @@ export function RequirementsPage() {
 
 const SOA_STATUS = ["implemented", "partial", "planned", "na"];
 
+// The SoA as the document an assessor actually asks for: one CSV row per Annex A
+// entry with applicability, status, justification, and crosswalk-derived coverage.
+function soaCsv(entries: SoaEntry[]): string {
+  const esc = (v: unknown) => {
+    const str = v == null ? "" : String(v);
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const header = ["code", "title", "theme", "new_2022", "applicable", "status", "justification", "coverage_status", "coverage_score", "mapped_controls"];
+  const lines = [header.join(",")];
+  for (const r of entries) {
+    lines.push(
+      [
+        r.code,
+        r.title ?? "",
+        r.theme ?? "",
+        r.new2022 ? "yes" : "no",
+        r.applicable ? "yes" : "no",
+        r.applicable ? r.status : "excluded",
+        r.justification ?? "",
+        r.coverage?.status ?? "",
+        r.coverage?.score ?? "",
+        r.coverage?.mapped ?? 0,
+      ]
+        .map(esc)
+        .join(","),
+    );
+  }
+  return lines.join("\n") + "\n";
+}
+
 export function SoaPage({ role }: { role: string }) {
   const canEdit = role === "admin" || role === "compliance_manager";
   const [data, setData] = useState<SoaResponse | null>(null);
@@ -330,6 +363,21 @@ export function SoaPage({ role }: { role: string }) {
         <div className="search" style={{ width: 280 }}>
           <input placeholder="Filter by code or title…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+        {data && (
+          <button
+            className="btn"
+            onClick={() => {
+              const blob = new Blob([soaCsv(data.entries)], { type: "text/csv" });
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = "autocomply-iso27001-soa.csv";
+              a.click();
+              URL.revokeObjectURL(a.href);
+            }}
+          >
+            Download CSV
+          </button>
+        )}
         {!canEdit && <span className="stub-sub">Read-only — admin / compliance manager can edit.</span>}
       </div>
       {err && <div className="api-banner error">{err}</div>}
@@ -443,6 +491,74 @@ export function DashboardPage({ onNav }: { onNav: (k: string) => void }) {
   );
 }
 
+// Read side of the append-only audit trail (GET /api/audit): newest-first,
+// paginated, filterable by action. Visible to admin + auditor.
+function AuditLogPanel() {
+  const PAGE = 25;
+  const [data, setData] = useState<AuditResponse | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [action, setAction] = useState(""); // applied filter
+  const [draft, setDraft] = useState(""); // filter input (applied on Enter)
+  useEffect(() => {
+    fetchAudit({ limit: PAGE, offset, action: action || undefined })
+      .then(setData)
+      .catch((e) => setErr(String(e.message ?? e)));
+  }, [offset, action]);
+  const apply = () => {
+    setOffset(0);
+    setAction(draft.trim());
+  };
+  return (
+    <>
+      <div className="page-head" style={{ marginTop: 28 }}>
+        <span className="eyebrow">Append-only · who did what, when</span>
+        <h1 className="h1">
+          Audit log <span className="frame">{data ? `· ${data.total} entries` : ""}</span>
+        </h1>
+      </div>
+      <div className="req-toolbar">
+        <div className="search" style={{ width: 280 }}>
+          <input
+            placeholder="Filter by action (Enter)… e.g. attest"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && apply()}
+          />
+        </div>
+        {action && (
+          <button className="chip active" onClick={() => { setDraft(""); setAction(""); setOffset(0); }}>
+            action: {action} ×
+          </button>
+        )}
+        <span className="chip-spacer" />
+        {data && data.total > PAGE && (
+          <span className="audit-pager">
+            <button className="btn ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>‹ newer</button>
+            <span className="stub-sub">{offset + 1}–{Math.min(offset + PAGE, data.total)} of {data.total}</span>
+            <button className="btn ghost" disabled={offset + PAGE >= data.total} onClick={() => setOffset(offset + PAGE)}>older ›</button>
+          </span>
+        )}
+      </div>
+      {err && <div className="api-banner error">{err}</div>}
+      <div className="worklist">
+        {data?.entries.map((e) => (
+          <div key={e.id} className="audit-row">
+            <span className="audit-ts">{new Date(e.ts).toLocaleString()}</span>
+            <span className="audit-actor">{e.actor ?? "system"}</span>
+            <span className="wl-type">{e.action}</span>
+            <span className="audit-target">{e.targetType ? `${e.targetType}${e.targetId ? ` · ${e.targetId}` : ""}` : "—"}</span>
+            <span className="audit-payload" title={e.payload ? JSON.stringify(e.payload, null, 2) : ""}>
+              {e.payload ? JSON.stringify(e.payload) : ""}
+            </span>
+          </div>
+        ))}
+        {data && data.entries.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>No matching entries.</div>}
+      </div>
+    </>
+  );
+}
+
 export function AdminPage({ me }: { me: { role: string } }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -533,6 +649,7 @@ export function AdminPage({ me }: { me: { role: string } }) {
         Roles are editable by Admin only. Control Owners can attest only their assigned controls (the API enforces it).
         SSO/SCIM (auto-provisioning + IdP group→role) is the Phase-3 remainder; this is the local-account foundation.
       </div>
+      {(me.role === "admin" || me.role === "auditor") && <AuditLogPanel />}
     </div>
   );
 }

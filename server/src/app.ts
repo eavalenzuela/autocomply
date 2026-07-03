@@ -1,17 +1,20 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
 import { controlScore, ratingToGrade, DIMENSIONS, type Dimension, type Rating } from "./scoring";
+import { RateLimiter } from "./ratelimit";
 import {
   currentUser,
   canWrite,
   canWriteControl,
+  hashPassword,
   verifyPassword,
   createSession,
   destroySession,
+  revokeOtherSessions,
   setSessionCookie,
   clearSessionCookie,
   hasFreshStepUp,
@@ -27,15 +30,26 @@ import { deliverNotifications, type NotifyEvent } from "./notify";
 
 const RATINGS: Rating[] = ["nc", "sc", "pc", "mc", "fc"];
 
-// latest attestation per (controlCode, dimension)
+// latest attestation per (controlCode, dimension). Postgres DISTINCT ON pulls
+// exactly one row per key in the database instead of shipping the whole
+// append-only table over the wire and deduping in JS on every request.
+// (id is the tiebreaker for same-timestamp inserts.)
 async function latestAttestations() {
-  const rows = await db.select().from(s.attestations).orderBy(desc(s.attestations.createdAt));
+  const rows = await db
+    .selectDistinctOn([s.attestations.controlCode, s.attestations.dimension])
+    .from(s.attestations)
+    .orderBy(asc(s.attestations.controlCode), asc(s.attestations.dimension), desc(s.attestations.createdAt), desc(s.attestations.id));
   const map = new Map<string, (typeof rows)[number]>();
-  for (const a of rows) {
-    const key = `${a.controlCode}:${a.dimension}`;
-    if (!map.has(key)) map.set(key, a);
-  }
+  for (const a of rows) map.set(`${a.controlCode}:${a.dimension}`, a);
   return map;
+}
+
+// Referenced-entity guard: FK violations from a typo'd control code used to
+// surface as opaque Postgres 500s; write endpoints check first and 404 cleanly.
+async function controlExists(code: string | undefined): Promise<boolean> {
+  if (!code) return false;
+  const rows = await db.select({ code: s.controls.code }).from(s.controls).where(eq(s.controls.code, code)).limit(1);
+  return rows.length > 0;
 }
 
 const REL_W: Record<string, number> = { equivalent: 1, superset: 1, subset: 0.6, partial: 0.6, related: 0.3 };
@@ -79,22 +93,9 @@ function ownerInitials(name: string): string {
 // control whose Implemented dimension is non-compliant (e.g. a coverage gap → NC).
 const GATE_FLOOR = 50;
 
-// Minimal in-memory rate limiter (per key) — dependency-free brute-force throttle for the
-// auth endpoints. Single-process; a multi-node deploy would back this with a shared store.
-const rlBuckets = new Map<string, { count: number; resetAt: number }>();
-function rateLimit(key: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  const b = rlBuckets.get(key);
-  if (!b || now > b.resetAt) {
-    rlBuckets.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-  if (b.count >= limit) return false;
-  b.count++;
-  return true;
-}
-const AUTH_RL_LIMIT = 10;
-const AUTH_RL_WINDOW_MS = 5 * 60_000; // 10 attempts / 5 min / IP
+// Brute-force throttle for the credential-bearing endpoints (login / step-up /
+// password change): 10 attempts / 5 min / IP. Self-pruning — see ratelimit.ts.
+const authLimiter = new RateLimiter(10, 5 * 60_000);
 
 // Reverse roll-up: framework requirements ← mapped controls' scores, + gap report.
 async function computeRequirements(fw: "soc2" | "iso27001") {
@@ -178,11 +179,21 @@ export async function buildApp() {
     if (!(await currentUser(req))) return reply.code(401).send({ error: "unauthenticated" });
   });
 
-  app.get("/api/health", async () => ({ ok: true, ts: new Date().toISOString() }));
+  // Real health check: ping the database so the deploy stack's probes actually
+  // mean something. 503 (not ok) when Postgres is unreachable.
+  app.get("/api/health", async (req, reply) => {
+    const t0 = Date.now();
+    try {
+      await db.execute(sql`select 1`);
+      return { ok: true, db: true, latencyMs: Date.now() - t0, ts: new Date().toISOString() };
+    } catch {
+      return reply.code(503).send({ ok: false, db: false, ts: new Date().toISOString() });
+    }
+  });
 
   // ---- auth ----
   app.post<{ Body: { email: string; password: string } }>("/api/login", async (req, reply) => {
-    if (!rateLimit(`login:${req.ip}`, AUTH_RL_LIMIT, AUTH_RL_WINDOW_MS))
+    if (!authLimiter.allow(`login:${req.ip}`))
       return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
     const { email, password } = req.body ?? {};
     const u = (await db.select().from(s.users).where(eq(s.users.email, email)).limit(1))[0];
@@ -210,7 +221,7 @@ export async function buildApp() {
   // session so sensitive actions (attest / approve / export) are allowed for a
   // short window. MFA itself is delegated to the IdP for SSO accounts.
   app.post<{ Body: { password: string } }>("/api/step-up", async (req, reply) => {
-    if (!rateLimit(`stepup:${req.ip}`, AUTH_RL_LIMIT, AUTH_RL_WINDOW_MS))
+    if (!authLimiter.allow(`stepup:${req.ip}`))
       return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
     const user = await currentUser(req);
     if (!user) return reply.code(401).send({ error: "unauthenticated" });
@@ -222,6 +233,30 @@ export async function buildApp() {
     await recordStepUp(token);
     await db.insert(s.auditLog).values({ actorId: user.id, action: "step-up", targetType: "session" });
     return { ok: true, expiresInMs: STEP_UP_TTL_MS };
+  });
+
+  // Local-account password change. Verifies the current password, enforces a
+  // minimum length (NIST 800-63B floor), and revokes the user's other sessions so
+  // a stolen session elsewhere doesn't survive the rotation. SSO accounts manage
+  // credentials at their IdP.
+  const MIN_PASSWORD_LEN = 8;
+  app.post<{ Body: { currentPassword: string; newPassword: string } }>("/api/me/password", async (req, reply) => {
+    if (!authLimiter.allow(`pwchange:${req.ip}`))
+      return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
+    const me = await currentUser(req);
+    if (!me) return reply.code(401).send({ error: "unauthenticated" });
+    const u = (await db.select().from(s.users).where(eq(s.users.id, me.id)).limit(1))[0];
+    if (!u?.passwordHash || u.authProvider !== "local")
+      return reply.code(400).send({ error: "password change is only available for local accounts" });
+    const { currentPassword, newPassword } = req.body ?? {};
+    if (!verifyPassword(currentPassword ?? "", u.passwordHash)) return reply.code(401).send({ error: "current password is incorrect" });
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LEN)
+      return reply.code(400).send({ error: `new password must be at least ${MIN_PASSWORD_LEN} characters` });
+    if (newPassword === currentPassword) return reply.code(400).send({ error: "new password must differ from the current one" });
+    await db.update(s.users).set({ passwordHash: hashPassword(newPassword) }).where(eq(s.users.id, u.id));
+    const revoked = await revokeOtherSessions(u.id, sessionToken(req));
+    await db.insert(s.auditLog).values({ actorId: u.id, action: "password-change", targetType: "user", targetId: u.email, payload: { revokedSessions: revoked } });
+    return { ok: true, revokedSessions: revoked };
   });
 
   app.get("/api/matrix", async () => {
@@ -342,19 +377,22 @@ export async function buildApp() {
     };
   });
 
-  // Control detail for the drawer.
+  // Control detail for the drawer. The category/history/evidence/crosswalk
+  // queries are independent of one another, so they run in parallel.
   app.get<{ Params: { code: string } }>("/api/control/:code", async (req, reply) => {
     const code = req.params.code;
     const ctrl = (await db.select().from(s.controls).where(eq(s.controls.code, code)).limit(1))[0];
     if (!ctrl) return reply.code(404).send({ error: "not found" });
-    const cat = (await db.select().from(s.controlCategories).where(eq(s.controlCategories.id, ctrl.categoryId)).limit(1))[0];
-    const history = await db.select().from(s.attestations).where(eq(s.attestations.controlCode, code)).orderBy(desc(s.attestations.createdAt));
-    const evidence = await db.select().from(s.evidenceItems).where(eq(s.evidenceItems.controlCode, code));
-    const maps = await db
-      .select({ code: s.requirements.code, framework: s.requirements.frameworkId, relationship: s.mappings.relationship, confidence: s.mappings.confidence })
-      .from(s.mappings)
-      .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id))
-      .where(eq(s.mappings.controlCode, code));
+    const [cat, history, evidence, maps] = await Promise.all([
+      db.select().from(s.controlCategories).where(eq(s.controlCategories.id, ctrl.categoryId)).limit(1).then((r) => r[0]),
+      db.select().from(s.attestations).where(eq(s.attestations.controlCode, code)).orderBy(desc(s.attestations.createdAt)),
+      db.select().from(s.evidenceItems).where(eq(s.evidenceItems.controlCode, code)),
+      db
+        .select({ code: s.requirements.code, framework: s.requirements.frameworkId, relationship: s.mappings.relationship, confidence: s.mappings.confidence })
+        .from(s.mappings)
+        .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id))
+        .where(eq(s.mappings.controlCode, code)),
+    ]);
     return { control: { id: ctrl.code, name: ctrl.title, domain: `${cat?.id} · ${cat?.title}` }, crosswalk: maps, attestations: history, evidence };
   });
 
@@ -367,6 +405,7 @@ export async function buildApp() {
       const { control, dimension, rating, justification, marker } = req.body;
       if (!DIMENSIONS.includes(dimension)) return reply.code(400).send({ error: "bad dimension" });
       if (!RATINGS.includes(rating)) return reply.code(400).send({ error: "bad rating" });
+      if (!(await controlExists(control))) return reply.code(404).send({ error: "unknown control" });
       if (!(await canWriteControl(user, control))) return reply.code(403).send({ error: "forbidden (role or assignment scope)" });
       if (!(await hasFreshStepUp(req))) return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
 
@@ -410,6 +449,8 @@ export async function buildApp() {
       if (e.status === "pending") tasks.push({ control: e.controlCode, name: `Exception: ${e.reason.slice(0, 60)}`, type: "approve-exception", reason: "Exception awaiting approval (SoD: needs a different approver)", priority: 78 });
       else if (e.status === "approved" && e.expiresAt && e.expiresAt.getTime() - now < 14 * 864e5)
         tasks.push({ control: e.controlCode, name: `Exception expiring`, type: "exception-expiring", reason: `Risk acceptance expires ${e.expiresAt.toISOString().slice(0, 10)}`, priority: 72 });
+      else if (e.status === "expired")
+        tasks.push({ control: e.controlCode, name: `Exception lapsed: ${e.reason.slice(0, 60)}`, type: "exception-lapsed", reason: `Risk acceptance expired ${e.expiresAt?.toISOString().slice(0, 10) ?? ""} — remediate or file a new request`, priority: 82 });
     }
     tasks.sort((a, b) => b.priority - a.priority);
     return { count: tasks.length, tasks: tasks.slice(0, 80) };
@@ -435,10 +476,14 @@ export async function buildApp() {
     if (!user) return reply.code(401).send({ error: "unauthenticated" });
     if (!canWrite(user.role)) return reply.code(403).send({ error: "forbidden" });
     const { control, dimension, reason, expiresAt } = req.body;
-    if (!reason) return reply.code(400).send({ error: "reason required" });
+    if (!reason?.trim()) return reply.code(400).send({ error: "reason required" });
+    if (!(await controlExists(control))) return reply.code(404).send({ error: "unknown control" });
+    if (dimension && !DIMENSIONS.includes(dimension as Dimension)) return reply.code(400).send({ error: "bad dimension" });
+    const expires = expiresAt ? new Date(expiresAt) : null;
+    if (expires && Number.isNaN(expires.getTime())) return reply.code(400).send({ error: "unparseable expiresAt" });
     const [row] = await db
       .insert(s.exceptions)
-      .values({ controlCode: control, dimension: dimension ?? null, reason, status: "pending", requestedBy: user.id, expiresAt: expiresAt ? new Date(expiresAt) : null })
+      .values({ controlCode: control, dimension: dimension ?? null, reason: reason.trim(), status: "pending", requestedBy: user.id, expiresAt: expires })
       .returning();
     await db.insert(s.auditLog).values({ actorId: user.id, action: "exception-request", targetType: "control", targetId: control, payload: { id: row.id } });
     return { ok: true, exception: row };
@@ -603,6 +648,7 @@ export async function buildApp() {
     for (const e of excs) {
       if (e.status === "pending") items.push({ kind: "exception-pending", text: `${e.controlCode} — exception awaiting approval`, severity: "info" });
       else if (e.status === "approved" && e.expiresAt && e.expiresAt.getTime() - now < 14 * 864e5) items.push({ kind: "exception-expiring", text: `${e.controlCode} — risk acceptance expires ${e.expiresAt.toISOString().slice(0, 10)}`, severity: "warn" });
+      else if (e.status === "expired") items.push({ kind: "exception-lapsed", text: `${e.controlCode} — risk acceptance expired ${e.expiresAt?.toISOString().slice(0, 10) ?? ""}; remediate or renew`, severity: "bad" });
     }
     return items;
   }
@@ -751,7 +797,9 @@ export async function buildApp() {
   app.get("/api/catalog", async (req) => {
     const { catalog, droppedSatisfies } = await buildCatalog(new Date().toISOString());
     if (droppedSatisfies > 0) {
-      app.log.warn(`catalog export dropped ${droppedSatisfies} mapping(s) to unknown requirements`);
+      // console, not app.log — Fastify is built with logger:false, so app.log is
+      // a no-op and this operator-relevant warning would silently vanish.
+      console.warn(`[catalog] export dropped ${droppedSatisfies} mapping(s) to unknown requirements`);
     }
     const me = await currentUser(req);
     await recordCatalogExport(me?.id ?? null, "api");
@@ -763,14 +811,24 @@ export async function buildApp() {
     const rows = await db.select().from(s.assessmentPeriods).orderBy(desc(s.assessmentPeriods.startDate));
     return { periods: rows };
   });
+  const PERIOD_FRAMEWORKS = ["nist80053", "soc2", "iso27001"];
+  const PERIOD_TIERS = ["low", "moderate", "high"];
   app.post<{ Body: { name: string; framework: string; tier?: string; startDate: string; endDate: string; tscCategories?: string[] } }>("/api/periods", async (req, reply) => {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     const b = req.body;
-    if (!b.name || !b.framework || !b.startDate || !b.endDate) return reply.code(400).send({ error: "missing fields" });
+    if (!b.name?.trim() || !b.framework || !b.startDate || !b.endDate) return reply.code(400).send({ error: "missing fields" });
+    if (!PERIOD_FRAMEWORKS.includes(b.framework)) return reply.code(400).send({ error: "unknown framework" });
+    if (b.tier && !PERIOD_TIERS.includes(b.tier)) return reply.code(400).send({ error: "bad tier" });
+    // The active period drives scoping + reporting, so garbage dates here would
+    // silently corrupt everything downstream — validate before insert.
+    const start = new Date(b.startDate);
+    const end = new Date(b.endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return reply.code(400).send({ error: "unparseable date" });
+    if (end.getTime() <= start.getTime()) return reply.code(400).send({ error: "endDate must be after startDate" });
     const [row] = await db
       .insert(s.assessmentPeriods)
-      .values({ name: b.name, framework: b.framework, tier: b.tier ?? null, startDate: new Date(b.startDate), endDate: new Date(b.endDate), status: "planning", tscCategories: b.tscCategories ?? null })
+      .values({ name: b.name.trim(), framework: b.framework, tier: b.tier ?? null, startDate: start, endDate: end, status: "planning", tscCategories: b.tscCategories ?? null })
       .returning();
     await db.insert(s.auditLog).values({ actorId: me.id, action: "period-create", targetType: "period", targetId: String(row.id) });
     return { ok: true, period: row };
@@ -779,7 +837,13 @@ export async function buildApp() {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     if (!["planning", "active", "closed"].includes(req.body.status)) return reply.code(400).send({ error: "bad status" });
-    const [row] = await db.update(s.assessmentPeriods).set({ status: req.body.status }).where(eq(s.assessmentPeriods.id, Number(req.params.id))).returning();
+    const id = Number(req.params.id);
+    const existing = (await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id)).limit(1))[0];
+    if (!existing) return reply.code(404).send({ error: "not found" });
+    const [row] = await db.update(s.assessmentPeriods).set({ status: req.body.status }).where(eq(s.assessmentPeriods.id, id)).returning();
+    // Status transitions change what's in scope — they belong in the audit trail
+    // just like creation.
+    await db.insert(s.auditLog).values({ actorId: me.id, action: "period-status", targetType: "period", targetId: String(id), payload: { from: existing.status, to: req.body.status } });
     return { ok: true, period: row };
   });
 
@@ -815,6 +879,9 @@ export async function buildApp() {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     const { userId, control } = req.body;
+    if (!(await controlExists(control))) return reply.code(404).send({ error: "unknown control" });
+    const target = (await db.select({ id: s.users.id }).from(s.users).where(eq(s.users.id, userId)).limit(1))[0];
+    if (!target) return reply.code(404).send({ error: "unknown user" });
     const existing = await db.select().from(s.controlAssignments).where(and(eq(s.controlAssignments.userId, userId), eq(s.controlAssignments.controlCode, control)));
     if (existing.length === 0) await db.insert(s.controlAssignments).values({ userId, controlCode: control });
     await db.insert(s.auditLog).values({ actorId: me.id, action: "assign", targetType: "control", targetId: control, payload: { userId } });
@@ -828,6 +895,38 @@ export async function buildApp() {
     await db.delete(s.controlAssignments).where(and(eq(s.controlAssignments.userId, userId), eq(s.controlAssignments.controlCode, control)));
     await db.insert(s.auditLog).values({ actorId: me.id, action: "unassign", targetType: "control", targetId: control, payload: { userId } });
     return { ok: true };
+  });
+
+  // ---- audit log (admin / auditor) ----
+  // Read side of the append-only audit trail: everything writes to it, and until
+  // now nothing could read it back. Paginated, newest-first, optional action filter.
+  app.get<{ Querystring: { limit?: string; offset?: string; action?: string } }>("/api/audit", async (req, reply) => {
+    const me = await currentUser(req);
+    if (!me || (me.role !== "admin" && me.role !== "auditor")) return reply.code(403).send({ error: "only admin/auditor can read the audit log" });
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    const action = req.query.action?.trim();
+    const where = action ? eq(s.auditLog.action, action) : undefined;
+    const [rows, totals] = await Promise.all([
+      db
+        .select({
+          id: s.auditLog.id,
+          ts: s.auditLog.ts,
+          action: s.auditLog.action,
+          targetType: s.auditLog.targetType,
+          targetId: s.auditLog.targetId,
+          payload: s.auditLog.payload,
+          actor: s.users.email,
+        })
+        .from(s.auditLog)
+        .leftJoin(s.users, eq(s.auditLog.actorId, s.users.id))
+        .where(where)
+        .orderBy(desc(s.auditLog.ts), desc(s.auditLog.id))
+        .limit(limit)
+        .offset(offset),
+      db.select({ n: count() }).from(s.auditLog).where(where),
+    ]);
+    return { total: totals[0]?.n ?? 0, limit, offset, entries: rows };
   });
 
   // ---- scoped API tokens (admin) — bearer creds for machine callers (GRCen sync, CI) ----

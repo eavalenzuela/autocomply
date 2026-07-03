@@ -6,7 +6,7 @@ import { GlyphCell } from "./components/Glyph";
 import { Grid } from "./components/Grid";
 import { Drawer } from "./components/Drawer";
 import { TweaksPanel, useTweaks } from "./components/Tweaks";
-import { LoginPage } from "./components/auth";
+import { LoginPage, ChangePasswordModal } from "./components/auth";
 import { StepUpGate } from "./components/StepUp";
 import { Sidebar, WorklistPage, EvidencePage, ExceptionsPage, RequirementsPage, DashboardPage, AdminPage, ReportsPage, IntegrationsPage, ControlsPage, PeriodsPage, SoaPage } from "./components/shell";
 
@@ -34,7 +34,7 @@ function applyAccent(name: string) {
   r.setProperty("--accent-bg", v[3]);
 }
 
-function Topbar({ me, onLogout, period }: { me: CurrentUser; onLogout: () => void; period: AssessmentPeriodInfo | null }) {
+function Topbar({ me, onLogout, onChangePassword, period }: { me: CurrentUser; onLogout: () => void; onChangePassword: () => void; period: AssessmentPeriodInfo | null }) {
   const cycle = period ? `${period.tier ? cap(period.tier) + " · " : ""}${period.start.slice(0, 4)} cycle` : "no active period";
   return (
     <div className="topbar">
@@ -61,6 +61,10 @@ function Topbar({ me, onLogout, period }: { me: CurrentUser; onLogout: () => voi
             <span className="user-role">{me.role.replace("_", " ")}</span>
           </span>
         </span>
+        {/* SSO accounts manage credentials at their IdP; only local accounts change passwords here. */}
+        {(!me.authProvider || me.authProvider === "local") && (
+          <button className="btn ghost logout-btn" onClick={onChangePassword} title="Change password">Password</button>
+        )}
         <button className="btn ghost logout-btn" onClick={onLogout}>Sign out</button>
       </div>
     </div>
@@ -251,6 +255,7 @@ export default function App() {
   const [active, setActive] = useState("matrix");
   const [stepupMsg, setStepupMsg] = useState<{ text: string; bad: boolean } | null>(null);
   const [query, setQuery] = useState("");
+  const [pwOpen, setPwOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const loadMatrix = useCallback(() => {
@@ -381,7 +386,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Topbar me={me} onLogout={handleLogout} period={summary?.period ?? null} />
+      <Topbar me={me} onLogout={handleLogout} onChangePassword={() => setPwOpen(true)} period={summary?.period ?? null} />
       <div className="shell-body">
         <Sidebar active={active} onNav={setActive} />
         <div className="content">
@@ -446,6 +451,7 @@ export default function App() {
       />
       <TweaksPanel t={t} setTweak={setTweak} />
       <StepUpGate me={me} />
+      {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
     </div>
   );
 }

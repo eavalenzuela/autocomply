@@ -2,9 +2,11 @@ import "dotenv/config";
 import { buildApp } from "./app";
 import { runMonitorTick } from "./collectors/monitor";
 import { exportCatalogToFile } from "./catalog";
+import { sweepExpiredSessions } from "./auth";
 
 const port = Number(process.env.PORT ?? 3001);
 const CATALOG_DEFAULT_INTERVAL_MS = 6 * 3600 * 1000; // 6h
+const SESSION_SWEEP_INTERVAL_MS = 3600 * 1000; // 1h
 
 buildApp()
   .then((app) => app.listen({ port, host: "0.0.0.0" }))
@@ -21,6 +23,15 @@ buildApp()
           .catch((e) => console.error("[monitor]", e));
       }, ms);
     }
+
+    // Expired-session sweep: currentUser already ignores expired rows, but nothing
+    // deleted them, so the sessions table grew forever. Once on boot, then hourly.
+    const sweep = () =>
+      sweepExpiredSessions()
+        .then((n) => n > 0 && console.log(`[sessions] swept ${n} expired session(s)`))
+        .catch((e) => console.error("[sessions]", e));
+    sweep();
+    setInterval(sweep, SESSION_SWEEP_INTERVAL_MS);
 
     // Scheduled catalog export to a file (opt-in via CATALOG_EXPORT_PATH) so an
     // external syncer can pick it up; runs once on boot then on an interval.
