@@ -27,6 +27,6 @@
   },
   "overrides": {
     "esbuild": "^0.28.1",
-    "shell-quote": "^1.8.4"
+    "shell-quote": "^1.10.0"
   }
 }
