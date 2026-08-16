@@ -1,10 +1,16 @@
-// Login screen (P3). Local-account auth; quick-login buttons make the RBAC
-// roles easy to demo. SSO buttons would sit alongside these later.
+// Login screen (P3). Local-account auth. SSO buttons would sit alongside these
+// later. The shared-password quick-login block below is development-only: it is
+// compiled out of production builds by the `import.meta.env.DEV` guard, because
+// it previously shipped in the built bundle and printed a working password on
+// the sign-in page of every deployment.
 // Also hosts the local-account password-change modal (topbar-launched).
 import { useEffect, useState } from "react";
 import { login, fetchAuthProviders, changePassword, type CurrentUser } from "../api";
 
 const PROVIDER_LABEL: Record<string, string> = { github: "Continue with GitHub", google: "Continue with Google" };
+
+// Development-only: the shared password `seed.ts` gives the demo accounts.
+const DEMO_PASSWORD = "autocomply";
 
 const QUICK = [
   { email: "admin@autocomply.local", label: "Admin" },
@@ -15,8 +21,8 @@ const QUICK = [
 ];
 
 export function LoginPage({ onLogin }: { onLogin: (u: CurrentUser) => void }) {
-  const [email, setEmail] = useState("admin@autocomply.local");
-  const [password, setPassword] = useState("autocomply");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [providers, setProviders] = useState<string[]>([]);
@@ -24,11 +30,11 @@ export function LoginPage({ onLogin }: { onLogin: (u: CurrentUser) => void }) {
     fetchAuthProviders().then(setProviders);
   }, []);
 
-  async function submit(asEmail?: string) {
+  async function submit(asEmail?: string, asPassword?: string) {
     setBusy(true);
     setErr(null);
     try {
-      const u = await login(asEmail ?? email, password);
+      const u = await login(asEmail ?? email, asPassword ?? password);
       onLogin(u);
     } catch (e: any) {
       setErr(String(e.message ?? e));
@@ -72,15 +78,19 @@ export function LoginPage({ onLogin }: { onLogin: (u: CurrentUser) => void }) {
             </div>
           </>
         )}
-        <div className="login-divider">demo quick-login</div>
-        <div className="login-quick">
-          {QUICK.map((q) => (
-            <button key={q.email} className="btn" disabled={busy} onClick={() => submit(q.email)}>
-              {q.label}
-            </button>
-          ))}
-        </div>
-        <div className="login-note">All demo accounts use password <code>autocomply</code>. Auditor is time-boxed.</div>
+        {import.meta.env.DEV && (
+          <>
+            <div className="login-divider">demo quick-login (development only)</div>
+            <div className="login-quick">
+              {QUICK.map((q) => (
+                <button key={q.email} className="btn" disabled={busy} onClick={() => submit(q.email, DEMO_PASSWORD)}>
+                  {q.label}
+                </button>
+              ))}
+            </div>
+            <div className="login-note">Seeded demo accounts, development builds only. Auditor is time-boxed.</div>
+          </>
+        )}
       </div>
     </div>
   );
