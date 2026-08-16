@@ -593,16 +593,21 @@ export async function buildApp() {
         title: r.title,
         theme: extra.theme ?? null,
         new2022: extra.new_2022 ?? false,
-        applicable: e?.applicable ?? true,
-        status: e?.status ?? "planned",
+        // Undecided is null, not true. This defaulted to applicable:true /
+        // status:"planned", so every Annex A control nobody had ruled on was
+        // exported as an affirmative applicability decision — 93 of them here,
+        // attributed to no one, in a document an ISO auditor reads as claims.
+        applicable: e?.applicable ?? null,
+        status: e ? e.status : "unset",
         justification: e?.justification ?? null,
         coverage: covByCode.get(r.code) ?? null,
       };
     });
     const summary = {
       total: rows.length,
-      applicable: rows.filter((r) => r.applicable).length,
-      excluded: rows.filter((r) => !r.applicable).length,
+      applicable: rows.filter((r) => r.applicable === true).length,
+      excluded: rows.filter((r) => r.applicable === false).length,
+      undecided: rows.filter((r) => r.applicable == null).length,
       documented: rows.filter((r) => r.justification && r.justification.trim()).length,
       implemented: rows.filter((r) => r.status === "implemented").length,
     };

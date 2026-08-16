@@ -307,8 +307,10 @@ function soaCsv(entries: SoaEntry[]): string {
         r.title ?? "",
         r.theme ?? "",
         r.new2022 ? "yes" : "no",
-        r.applicable ? "yes" : "no",
-        r.applicable ? r.status : "excluded",
+        // An undecided control exports as blank, not "yes". A CSV row that says
+        // "applicable: yes" is a claim, and nobody made it.
+        r.applicable == null ? "" : r.applicable ? "yes" : "no",
+        r.applicable == null ? "undecided" : r.applicable ? r.status : "excluded",
         r.justification ?? "",
         r.coverage?.status ?? "",
         r.coverage?.score ?? "",
@@ -398,17 +400,30 @@ export function SoaPage({ role }: { role: string }) {
               <span className="req-mapped">no map</span>
             )}
             {canEdit ? (
-              <select className="adm-role" value={r.status} disabled={!r.applicable} onChange={(e) => update(r.requirementId, { status: e.target.value })}>
+              <select className="adm-role" value={r.status} disabled={r.applicable !== true} onChange={(e) => update(r.requirementId, { status: e.target.value })}>
                 {SOA_STATUS.map((x) => (
                   <option key={x} value={x}>{x}</option>
                 ))}
               </select>
             ) : (
-              <span className="soa-status-ro">{r.applicable ? r.status : "excluded"}</span>
+              <span className="soa-status-ro">
+                {r.applicable == null ? "undecided" : r.applicable ? r.status : "excluded"}
+              </span>
             )}
             {canEdit && (
               <label className="soa-appl">
-                <input type="checkbox" checked={r.applicable} onChange={(e) => update(r.requirementId, { applicable: e.target.checked })} /> applicable
+                {/* Three states, not two: an undecided control renders indeterminate
+                    rather than unchecked, so "nobody has ruled on this" cannot be
+                    misread as "we excluded it". */}
+                <input
+                  type="checkbox"
+                  ref={(el) => {
+                    if (el) el.indeterminate = r.applicable == null;
+                  }}
+                  checked={r.applicable === true}
+                  onChange={(e) => update(r.requirementId, { applicable: e.target.checked })}
+                />{" "}
+                applicable
               </label>
             )}
             {editing === r.requirementId ? (

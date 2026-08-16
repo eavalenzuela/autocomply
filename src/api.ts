@@ -257,13 +257,14 @@ export interface SoaEntry {
   title: string | null;
   theme: string | null;
   new2022: boolean;
-  applicable: boolean;
+  /** null = nobody has decided; the UI must render that as undecided, not as "no" */
+  applicable: boolean | null;
   status: "implemented" | "partial" | "planned" | "na";
   justification: string | null;
   coverage: { status: string; score: number | null; mapped: number } | null;
 }
 export interface SoaResponse {
-  summary: { total: number; applicable: number; excluded: number; documented: number; implemented: number };
+  summary: { total: number; applicable: number; excluded: number; undecided: number; documented: number; implemented: number };
   entries: SoaEntry[];
 }
 export async function fetchSoa(): Promise<SoaResponse> {
