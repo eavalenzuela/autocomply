@@ -1,0 +1,54 @@
+# SOC 2 TSC -> NIST 800-53 Rev 5 — gap closures authored for this project.
+# ----------------------------------------------------------------------------
+# HAND-WRITTEN editorial judgement.
+#
+# The original ccf-crosswalk.yaml left 26 SOC 2 criteria unmapped, clustered in
+# Privacy (13), Processing Integrity (4) and the governance-oriented Common
+# Criteria (8). 800-53 Rev 5 added the PT family and the PM privacy controls,
+# which cover most of the privacy series properly — the original crosswalk
+# predates or overlooked them.
+#
+# Loaded through POST /api/mappings so they land source="manual" and audit-logged.
+# AICPA TSC text is copyrighted and is not reproduced anywhere; these are
+# correspondences between identifiers.
+#
+# REVIEW BEFORE RELYING ON THEM. SOC 2 is an attestation framework — an auditor
+# will ask why a control was deemed to satisfy a criterion, and "the tool said
+# so" is not an answer.
+#
+# direct  -> the control substantively addresses the criterion   (partial / high)
+# support -> the control contributes without covering it         (related / medium)
+direct:
+  # Confidentiality
+  "C1.2": [MP-6, SI-12]
+  # Common Criteria — governance and control environment
+  "CC1.2": [PM-1, PM-2, PM-29]
+  "CC2.1": [PM-1, PM-11, CA-7]
+  "CC2.3": [PM-15, IR-6, SR-8]
+  "CC3.3": [RA-3, PM-12, PM-16]
+  "CC3.4": [CM-3, CM-4, RA-3]
+  "CC5.1": [PM-9, RA-3, CA-2]
+  "CC5.2": [CM-2, CM-6, AC-3]
+  # Processing Integrity
+  "PI1.1": [PM-11, SI-10]
+  "PI1.3": [SI-10, SI-7, AU-12]
+  "PI1.4": [SI-10, SI-7, AU-12]
+  "PI1.5": [SI-7, SC-28, CP-9]
+  # Privacy — Rev 5's PT family and the privacy PM controls
+  "P2.1": [PT-4, PT-5]
+  "P4.1": [PT-2, PT-3, PM-25]
+  "P4.2": [SI-12, PT-3]
+  "P4.3": [MP-6, SI-12]
+  "P5.2": [PM-22, SI-18]
+  "P6.1": [PT-4, PT-2, AC-21]
+  "P6.2": [PM-21, AU-12]
+  "P6.3": [PM-21, IR-6, AU-12]
+  "P6.4": [SR-6, SA-9, PT-2]
+  "P6.5": [SA-9, IR-6, SR-8]
+  "P6.6": [IR-6, PM-27]
+  "P6.7": [PM-21]
+  "P7.1": [PM-22, SI-18]
+  "P8.1": [PM-26, IR-7]
+support:
+  "CC2.1": [AU-6]
+  "PI1.1": [CA-7]
