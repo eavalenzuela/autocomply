@@ -106,6 +106,11 @@ const TITLES: Record<Section, string> = {
   admin: "Admin",
 };
 
+/** Human name for a section — used by the breadcrumb as well as the title. */
+export function sectionTitle(section: Section): string {
+  return TITLES[section];
+}
+
 /** Document title for a route — a browser tab and a bookmark should say where they are. */
 export function titleFor(route: Route): string {
   if (!route.section) return "Not found · autocomply";

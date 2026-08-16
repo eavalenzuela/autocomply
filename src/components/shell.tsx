@@ -58,19 +58,27 @@ export interface NavItem {
   group?: string;
 }
 
+// Below "Programs" the rail was seven flat entries in no particular order, so
+// the only organised part of it was the first four. Each block now answers a
+// different question: how are we doing against a framework, what needs doing,
+// what does the catalog say, and how is this instance set up.
+//
+// "Controls (CCF)" became "Control library": it sat next to "Control Matrix"
+// with an acronym doing the work of telling them apart, which it only does for
+// someone who already knows the difference.
 export const NAV: NavItem[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "matrix", label: "Control Matrix", group: "Programs" },
   { key: "requirements", label: "Requirements + gaps", group: "Programs" },
   { key: "soa", label: "ISO SoA", group: "Programs" },
   { key: "periods", label: "Assessment periods", group: "Programs" },
-  { key: "worklist", label: "Worklist" },
-  { key: "evidence", label: "Evidence" },
-  { key: "controls", label: "Controls (CCF)" },
-  { key: "risks", label: "Risks & Exceptions" },
-  { key: "integrations", label: "Integrations" },
-  { key: "reports", label: "Reports" },
-  { key: "admin", label: "Admin" },
+  { key: "worklist", label: "Worklist", group: "Operate" },
+  { key: "evidence", label: "Evidence", group: "Operate" },
+  { key: "risks", label: "Risks & Exceptions", group: "Operate" },
+  { key: "controls", label: "Control library", group: "Reference" },
+  { key: "reports", label: "Reports", group: "Reference" },
+  { key: "integrations", label: "Integrations", group: "Setup" },
+  { key: "admin", label: "Admin", group: "Setup" },
 ];
 
 
@@ -99,7 +107,7 @@ export function ListState({
 export function Sidebar({ active, onNav, hide = [] }: { active: string; onNav: (k: string) => void; hide?: string[] }) {
   let lastGroup: string | undefined;
   return (
-    <nav className="sidebar">
+    <nav className="sidebar" aria-label="Sections">
       {NAV.filter((item) => !hide.includes(item.key)).map((item) => {
         const showGroup = item.group && item.group !== lastGroup;
         lastGroup = item.group;
@@ -108,6 +116,7 @@ export function Sidebar({ active, onNav, hide = [] }: { active: string; onNav: (
             {showGroup && <div className="nav-group">{item.group}</div>}
             <button
               className={`nav-item ${active === item.key ? "active" : ""} ${item.group ? "indented" : ""}`}
+              aria-current={active === item.key ? "page" : undefined}
               onClick={() => onNav(item.key)}
             >
               <span>{item.label}</span>
@@ -1008,9 +1017,13 @@ export function AdminPage({ me }: { me: { role: string } }) {
 
 const RATING_LABEL: Record<string, string> = { fc: "Fully", mc: "Mostly", pc: "Partially", sc: "Somewhat", nc: "Non-compliant" };
 
-export function ReportsPage() {
+export function ReportsPage({ framework, onFramework }: { framework?: string | null; onFramework?: (id: string) => void } = {}) {
   const frameworks = useEnabledFrameworks();
-  const [fw, setFw] = useState<string>("soc2");
+  // Same treatment as Requirements: the chosen framework belongs in the URL, so
+  // "the CSF readiness report" is a link rather than a set of instructions.
+  const [localFw, setLocalFw] = useState<string>("soc2");
+  const fw = framework ?? localFw;
+  const setFw = (id: string) => (onFramework ? onFramework(id) : setLocalFw(id));
   useEffect(() => {
     if (frameworks.length && !frameworks.some((f) => f.id === fw)) setFw(frameworks[0].id);
   }, [frameworks, fw]);

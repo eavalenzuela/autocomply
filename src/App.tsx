@@ -4,6 +4,7 @@ import {
   parseLocation,
   buildUrl,
   titleFor,
+  sectionTitle,
   DEFAULT_SECTION,
   type Route,
   type Section,
@@ -43,7 +44,7 @@ function applyAccent(name: string) {
   r.setProperty("--accent-bg", v[3]);
 }
 
-function Topbar({ me, onLogout, onChangePassword, period, onSearch }: { me: CurrentUser; onLogout: () => void; onChangePassword: () => void; period: AssessmentPeriodInfo | null; onSearch: () => void }) {
+function Topbar({ me, onLogout, onChangePassword, period, onSearch, route, onNav }: { me: CurrentUser; onLogout: () => void; onChangePassword: () => void; period: AssessmentPeriodInfo | null; onSearch: () => void; route: Route; onNav: (section: Section, code?: string | null) => void }) {
   const cycle = period ? `${period.tier ? cap(period.tier) + " · " : ""}${period.start.slice(0, 4)} cycle` : "no active period";
   return (
     <div className="topbar">
@@ -53,13 +54,28 @@ function Topbar({ me, onLogout, onChangePassword, period, onSearch }: { me: Curr
           autocomply<span> / control center</span>
         </span>
       </div>
-      <div className="crumbs">
-        <span>Programs</span>
+      {/* Was three inert spans that named the active period's framework and never
+          changed — so it read "SOC 2" while you were on a CSF page, and pointed
+          nowhere. A breadcrumb that neither tracks where you are nor takes you
+          anywhere is furniture. It now follows the route and each ancestor is a
+          link; only the current page is plain text. */}
+      <nav className="crumbs" aria-label="Breadcrumb">
+        <button className="crumb-link" onClick={() => onNav("periods")} title="Assessment periods">
+          {period ? `${period.frameworkLabel} · ${cycle}` : "No active period"}
+        </button>
         <span className="sep">/</span>
-        <span>{period ? period.frameworkLabel : "no active period"}</span>
-        <span className="sep">/</span>
-        <strong>{cycle}</strong>
-      </div>
+        {route.section && route.code ? (
+          <>
+            <button className="crumb-link" onClick={() => onNav(route.section as Section, null)}>
+              {sectionTitle(route.section)}
+            </button>
+            <span className="sep">/</span>
+            <strong aria-current="page">{route.code}</strong>
+          </>
+        ) : (
+          <strong aria-current="page">{route.section ? sectionTitle(route.section) : "Not found"}</strong>
+        )}
+      </nav>
       <div className="topbar-right">
         {/* Was decorative. It advertises a shortcut, so it should also be a
             button that does the same thing — a hint you cannot click is worse
@@ -489,6 +505,8 @@ export default function App() {
         onLogout={handleLogout}
         onChangePassword={() => setPwOpen(true)}
         period={summary?.period ?? null}
+        route={route}
+        onNav={(section, code) => navigate({ section, code: code ?? null })}
         onSearch={() => {
           setActive("matrix");
           requestAnimationFrame(() => searchRef.current?.focus());
@@ -566,7 +584,9 @@ export default function App() {
             />
           )}
           {route.section !== null && active === "soa" && <SoaPage role={me.role} />}
-          {route.section !== null && active === "reports" && <ReportsPage />}
+          {route.section !== null && active === "reports" && (
+            <ReportsPage framework={route.framework} onFramework={(id) => navigate({ framework: id })} />
+          )}
           {route.section !== null && active === "integrations" && <IntegrationsPage />}
           {route.section !== null && active === "controls" && <ControlsPage onOpenControl={setSelectedId} />}
           {route.section !== null && active === "periods" && <PeriodsPage role={me.role} />}

@@ -171,9 +171,13 @@ function ControlRow({
       <EvidenceCell evidence={control.evidence} />
       {showOwners && (
         <td className="owner-cell">
-          {control.owner && (
+          {control.owner ? (
             <span className="av" style={{ background: ownerColor(control.owner.name) }} title={control.owner.name}>
               {control.owner.initials}
+            </span>
+          ) : (
+            <span className="av av-none" title="No owner assigned — assign one in Admin" aria-label="No owner assigned">
+              &mdash;
             </span>
           )}
         </td>
@@ -230,9 +234,13 @@ function DomainRow({
       />
       {showOwners && (
         <td className="owner-cell">
-          {domain.owner && (
+          {domain.owner ? (
             <span className="av" style={{ background: ownerColor(domain.owner.name) }} title={domain.owner.name}>
               {domain.owner.initials}
+            </span>
+          ) : (
+            <span className="av av-none" title="No owner assigned — assign one in Admin" aria-label="No owner assigned">
+              &mdash;
             </span>
           )}
         </td>
