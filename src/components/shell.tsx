@@ -173,7 +173,7 @@ export function EvidencePage({ onOpenControl }: { onOpenControl?: (code: string)
             {e.drifted ? <span className="tag drift">drift</span> : <span className="ev-ok">✓ current</span>}
           </div>
         ))}
-        {data && data.evidence.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>No evidence yet. Run <code>npm run db:docs</code>.</div>}
+        {data && data.evidence.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>No evidence has been attached yet.</div>}
       </div>
     </div>
   );

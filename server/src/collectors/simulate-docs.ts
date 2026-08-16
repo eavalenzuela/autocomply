@@ -6,6 +6,7 @@ import "dotenv/config";
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "../db/index";
+import { assertSafeToReset } from "./guard";
 import * as s from "../db/schema";
 
 const DOC_CONTROLS = ["SC-28", "IA-2", "AU-2", "AU-8", "IA-5", "SI-4", "CP-9"];
@@ -17,6 +18,8 @@ function hash(seed: string) {
 async function main() {
   const owner = (await db.select().from(s.users).where(eq(s.users.email, "owner@autocomply.local")).limit(1))[0];
   const cm = (await db.select().from(s.users).where(eq(s.users.email, "cm@autocomply.local")).limit(1))[0];
+
+  await assertSafeToReset("db:docs (simulate-docs)");
 
   // idempotent: clear doc evidence + human attestations + exceptions
   await db.delete(s.evidenceItems);

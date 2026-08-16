@@ -7,6 +7,7 @@ import "dotenv/config";
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "../db/index";
+import { assertSafeToReset } from "./guard";
 import * as s from "../db/schema";
 import { RATING_PCT, type Rating } from "../scoring";
 
@@ -44,6 +45,8 @@ function rubric(passRate: number, coverageOk: boolean): { rating: Rating; marker
 
 async function main() {
   const collector = (await db.select().from(s.users).where(eq(s.users.email, "admin@autocomply.local")).limit(1))[0];
+
+  await assertSafeToReset("db:collect (simulate)");
 
   // reset prior simulated runs (idempotent re-run)
   await db.delete(s.automatedFindings);
