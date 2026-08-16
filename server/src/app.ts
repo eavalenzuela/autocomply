@@ -456,12 +456,17 @@ export async function buildApp() {
   });
 
   // Create an attestation (append-only). RBAC + assignment-scoping enforced.
-  app.post<{ Body: { control: string; dimension: Dimension; rating: Rating; justification?: string; marker?: string } }>(
+  // `marker` is deliberately absent from this body type. It records machine
+  // provenance (aws = collector suggestion, gap = coverage gap, drift = source
+  // changed) and the worklist and matrix both read it as such — so accepting it
+  // from a writer let a hand-entered rating claim to have come from a collector.
+  // It is server-derived: a human attestation carries no marker.
+  app.post<{ Body: { control: string; dimension: Dimension; rating: Rating; justification?: string } }>(
     "/api/attest",
     async (req, reply) => {
       const user = await currentUser(req);
       if (!user) return reply.code(401).send({ error: "unauthenticated" });
-      const { control, dimension, rating, justification, marker } = req.body;
+      const { control, dimension, rating, justification } = req.body;
       if (!DIMENSIONS.includes(dimension)) return reply.code(400).send({ error: "bad dimension" });
       if (!RATINGS.includes(rating)) return reply.code(400).send({ error: "bad rating" });
       if (!(await controlExists(control))) return reply.code(404).send({ error: "unknown control" });
@@ -470,7 +475,7 @@ export async function buildApp() {
 
       const [row] = await db
         .insert(s.attestations)
-        .values({ controlCode: control, dimension, rating, justification: justification ?? null, marker: marker ?? null, actorId: user.id, source: "human" })
+        .values({ controlCode: control, dimension, rating, justification: justification ?? null, marker: null, actorId: user.id, source: "human" })
         .returning();
       await db.insert(s.auditLog).values({ actorId: user.id, action: "attest", targetType: "control", targetId: `${control}:${dimension}`, payload: { rating } });
       return { ok: true, attestation: row };
