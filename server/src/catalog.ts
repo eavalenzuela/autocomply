@@ -188,7 +188,9 @@ export function deriveCrosswalks(mapped: MappedRequirement[]): CatalogCrosswalk[
 // ISO-8601 timestamp (omitted if not supplied — keeps output deterministic).
 export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Catalog; droppedSatisfies: number }> {
   const [fws, reqs, ctrls, cats, maps] = await Promise.all([
-    db.select().from(s.frameworks).orderBy(asc(s.frameworks.id)),
+    // Disabled catalogs are not exported: the consumer would otherwise be told
+    // about frameworks this organisation has not adopted.
+    db.select().from(s.frameworks).where(eq(s.frameworks.enabled, true)).orderBy(asc(s.frameworks.id)),
     db.select().from(s.requirements).orderBy(asc(s.requirements.frameworkId), asc(s.requirements.code)),
     db.select().from(s.controls).orderBy(asc(s.controls.code)),
     db.select().from(s.controlCategories),

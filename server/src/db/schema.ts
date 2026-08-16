@@ -56,9 +56,19 @@ export const controlBaselines = pgTable(
 /* ===== Frameworks + crosswalk ===== */
 
 export const frameworks = pgTable("frameworks", {
-  id: varchar("id", { length: 32 }).primaryKey(), // "soc2" | "iso27001"
+  id: varchar("id", { length: 32 }).primaryKey(), // "soc2" | "iso27001" | "csf2" | ...
   name: text("name").notNull(),
   version: text("version"),
+  // Opt-in, deliberately. A catalog being present in the repo is not consent to
+  // assess against it: an organisation that has not adopted CSF should not find
+  // its dashboard reporting a CSF readiness figure. Loading is a build concern,
+  // enablement is a runtime decision.
+  enabled: boolean("enabled").notNull().default(false),
+  // Provenance travels with the data rather than living in a YAML comment,
+  // because the licence is the binding constraint on what may ship and whoever
+  // audits this instance will ask where each catalog came from.
+  licence: text("licence"),
+  sourceUrl: text("source_url"),
 });
 
 export const requirements = pgTable(

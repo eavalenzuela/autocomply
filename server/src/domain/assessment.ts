@@ -47,6 +47,24 @@ export async function controlExists(code: string | undefined): Promise<boolean> 
 /** Id of the active period, or null. Facts are stamped with this at write time
  *  so a report for a closed window can be answered with what was true then
  *  rather than with whatever is current. */
+/** Ids of the frameworks an organisation has actually adopted.
+ *  Everything that reports against a framework filters on this: a catalog being
+ *  loaded is not the same as an organisation having chosen to be measured by it. */
+export async function enabledFrameworkIds(): Promise<string[]> {
+  const rows = await db.select({ id: s.frameworks.id }).from(s.frameworks).where(eq(s.frameworks.enabled, true));
+  return rows.map((r) => r.id);
+}
+
+/** Whether a specific framework is enabled — for routes that take one by name. */
+export async function isFrameworkEnabled(id: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: s.frameworks.id })
+    .from(s.frameworks)
+    .where(and(eq(s.frameworks.id, id), eq(s.frameworks.enabled, true)))
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function activePeriodId(): Promise<number | null> {
   const rows = await db
     .select({ id: s.assessmentPeriods.id })

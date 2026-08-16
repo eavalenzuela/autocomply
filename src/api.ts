@@ -473,3 +473,25 @@ export async function deleteMapping(id: number): Promise<void> {
   const r = await request(`/api/mappings/${id}`, { method: "DELETE" });
   if (!r.ok) throw new Error(await describe(`/api/mappings/${id}`, r));
 }
+
+/* ── Framework catalogs ────────────────────────────────────────────────────
+   Which catalogs are loaded, and which this organisation has adopted. Loading
+   is a build concern; enablement is a runtime decision an admin makes. */
+
+export interface FrameworkInfo {
+  id: string;
+  name: string;
+  version: string | null;
+  enabled: boolean;
+  licence: string | null;
+  sourceUrl: string | null;
+  requirements: number;
+}
+
+export async function fetchFrameworks(): Promise<{ frameworks: FrameworkInfo[] }> {
+  return get("/api/frameworks");
+}
+
+export async function setFrameworkEnabled(id: string, enabled: boolean): Promise<void> {
+  await post(`/api/frameworks/${id}/enabled`, { enabled });
+}

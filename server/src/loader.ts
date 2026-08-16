@@ -17,7 +17,16 @@ export interface LoadedCategory { id: string; title: string; }
 export interface LoadedObjective { code: string; title: string; categoryId: string; }
 export interface LoadedControl { code: string; title: string; categoryId: string; objectiveCode: string; }
 export interface LoadedBaseline { controlCode: string; baseline: string; }
-export interface LoadedFramework { id: string; name: string; version: string; }
+export interface LoadedFramework {
+  id: string;
+  name: string;
+  version: string;
+  /** Opt-in: a catalog in the repo is not consent to be measured by it. */
+  enabled: boolean;
+  /** Provenance travels with the data — the licence is what decides what may ship. */
+  licence: string | null;
+  sourceUrl: string | null;
+}
 export interface LoadedRequirement { frameworkId: string; code: string; title: string; kind: string; extra: unknown; }
 export interface LoadedMapping { frameworkId: string; control: string; requirement: string; relationship: string; confidence: string; source: string; }
 
@@ -64,14 +73,35 @@ export function loadAll(): LoadedData {
   for (const a of iso.annex_a)
     requirements.push({ frameworkId: "iso27001", code: a.code, title: a.title, kind: "iso-annexa", extra: { theme: a.theme, new_2022: a.new_2022 ?? false } });
 
+  const fw = (id: string, doc: any, fallbackName: string): LoadedFramework => ({
+    id,
+    name: doc?.meta?.framework ?? fallbackName,
+    version: String(doc?.meta?.version ?? ""),
+    // Default off. seed.ts preserves whatever an existing database already has,
+    // so enabling a framework is a decision made once and not undone by a reload.
+    enabled: doc?.meta?.enabled === true,
+    licence: doc?.meta?.licence ?? null,
+    sourceUrl: doc?.meta?.source_url ?? null,
+  });
+
   const frameworks: LoadedFramework[] = [
-    { id: "soc2", name: soc2.meta?.framework ?? "SOC 2", version: String(soc2.meta?.version ?? "") },
-    { id: "iso27001", name: iso.meta?.framework ?? "ISO/IEC 27001", version: String(iso.meta?.version ?? "") },
+    fw("soc2", soc2, "SOC 2"),
+    fw("iso27001", iso, "ISO/IEC 27001"),
   ];
 
+  const mapFor = (frameworkId: string, rows: any[] = []): LoadedMapping[] =>
+    rows.map((m: any) => ({
+      frameworkId,
+      control: m.control,
+      requirement: String(m.requirement),
+      relationship: m.relationship,
+      confidence: m.confidence,
+      source: m.source,
+    }));
+
   const mappings: LoadedMapping[] = [
-    ...crosswalk.soc2.map((m: any) => ({ frameworkId: "soc2", control: m.control, requirement: String(m.requirement), relationship: m.relationship, confidence: m.confidence, source: m.source })),
-    ...crosswalk.iso27001.map((m: any) => ({ frameworkId: "iso27001", control: m.control, requirement: String(m.requirement), relationship: m.relationship, confidence: m.confidence, source: m.source })),
+    ...mapFor("soc2", crosswalk.soc2),
+    ...mapFor("iso27001", crosswalk.iso27001),
   ];
 
   return { categories, objectives, controls, baselines, frameworks, requirements, mappings };

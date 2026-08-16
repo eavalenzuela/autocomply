@@ -203,3 +203,9 @@ export const mappingBody = {
     note: { type: "string", maxLength: 2000 },
   },
 };
+
+export const enabledBody = {
+  type: "object" as const,
+  required: ["enabled"],
+  properties: { enabled: { type: "boolean" } },
+};

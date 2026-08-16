@@ -43,6 +43,9 @@ import {
   setUserActive,
   createMapping,
   deleteMapping,
+  fetchFrameworks,
+  setFrameworkEnabled,
+  type FrameworkInfo,
 } from "../api";
 import { ControlPicker } from "./ControlPicker";
 
@@ -656,6 +659,19 @@ export function AdminPage({ me }: { me: { role: string } }) {
   const [newRole, setNewRole] = useState<Role>("viewer");
   const [busy, setBusy] = useState(false);
   const [invite, setInvite] = useState<{ email: string; token: string; hours: number } | null>(null);
+  const [frameworks, setFrameworks] = useState<FrameworkInfo[]>([]);
+  const loadFrameworks = () =>
+    fetchFrameworks().then((d) => setFrameworks(d.frameworks)).catch(() => { /* non-fatal */ });
+
+  async function toggleFramework(id: string, enabled: boolean) {
+    setErr(null);
+    try {
+      await setFrameworkEnabled(id, enabled);
+      await loadFrameworks();
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    }
+  }
   const load = () => fetchUsers().then((d) => setUsers(d.users)).catch((e) => setErr(String(e.message ?? e)));
 
   async function addUser() {
@@ -696,6 +712,7 @@ export function AdminPage({ me }: { me: { role: string } }) {
   }
   useEffect(() => {
     load();
+    loadFrameworks();
   }, []);
   const isAdmin = me.role === "admin";
   async function changeRole(id: number, role: Role) {
@@ -739,6 +756,45 @@ export function AdminPage({ me }: { me: { role: string } }) {
         </h1>
       </div>
       {err && <div className="api-banner error">{err}</div>}
+
+      {frameworks.length > 0 && (
+        <div className="subsection" style={{ marginBottom: 14 }}>
+          <div className="section-label">Framework catalogs</div>
+          <small className="stub-sub">
+            Which standards this organisation is measured against. A catalog being installed is not
+            the same as having adopted it — disabled catalogs are excluded from readiness, the SoA
+            and the GRCen export.
+          </small>
+          <div className="worklist" style={{ marginTop: 8 }}>
+            {frameworks.map((f) => (
+              <div key={f.id} className="adm-row">
+                <div className="adm-id">
+                  <div className="adm-name">
+                    {f.name} {f.version ? <span className="adm-exp">· {f.version}</span> : null}
+                  </div>
+                  <div className="adm-email">
+                    {f.requirements} requirements
+                    {f.licence ? ` · ${f.licence}` : ""}
+                  </div>
+                </div>
+                {isAdmin ? (
+                  <label className="checkbox-inline">
+                    <input
+                      type="checkbox"
+                      checked={f.enabled}
+                      onChange={(e) => toggleFramework(f.id, e.target.checked)}
+                      aria-label={`Enable ${f.name}`}
+                    />{" "}
+                    enabled
+                  </label>
+                ) : (
+                  <span className="req-status">{f.enabled ? "enabled" : "not adopted"}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isAdmin && (
         <div className="subsection" style={{ marginBottom: 14 }}>

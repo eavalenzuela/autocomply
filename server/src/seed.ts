@@ -1,6 +1,6 @@
 // Seed the DB from data/*.yaml via the loader. Idempotent: clears then inserts.
 import "dotenv/config";
-import { count } from "drizzle-orm";
+import { count , eq} from "drizzle-orm";
 import { db, pool } from "./db/index";
 import * as s from "./db/schema";
 import { loadAll } from "./loader";
@@ -73,6 +73,10 @@ async function main() {
   await db.delete(s.controlAssignments);
   await db.delete(s.mappings);
   await db.delete(s.requirements);
+  // Capture enablement before the wipe so it survives the reload.
+  const prevEnabledFrameworks = (
+    await db.select({ id: s.frameworks.id }).from(s.frameworks).where(eq(s.frameworks.enabled, true))
+  ).map((r) => r.id);
   await db.delete(s.frameworks);
   await db.delete(s.controlBaselines);
   await db.delete(s.controls);
@@ -132,7 +136,13 @@ async function main() {
     await db.insert(s.controlAssignments).values(["AC-1", "AC-2", "AU-6", "SC-7"].map((c) => ({ userId: owner.id, controlCode: c })));
   }
 
-  await db.insert(s.frameworks).values(data.frameworks);
+  // Enablement is an operator decision, not catalog content: a reload of the
+  // data must not silently switch a framework on or off. Anything previously
+  // enabled stays enabled.
+  const previouslyEnabled = new Set(prevEnabledFrameworks);
+  await db.insert(s.frameworks).values(
+    data.frameworks.map((f) => ({ ...f, enabled: f.enabled || previouslyEnabled.has(f.id) })),
+  );
 
   await db.insert(s.assessmentPeriods).values([
     { name: "NIST 800-53 Rev 5 — Moderate baseline 2026", framework: "nist80053", tier: "moderate", startDate: new Date("2026-02-20"), endDate: new Date("2026-05-21"), status: "active" },

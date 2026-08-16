@@ -10,7 +10,7 @@ import { captureUrl, captureInline, EvidenceFetchError } from "./evidence";
 import {
   idParam, codeParam, loginBody, stepUpBody, passwordBody, attestBody, exceptionBody,
   decideBody, soaBody, roleBody, tokenBody, assignBody, frameworkQuery, periodBody,
-  periodStatusBody, evidenceBody, createUserBody, acceptInviteBody, activeBody, mappingBody,
+  periodStatusBody, evidenceBody, createUserBody, acceptInviteBody, activeBody, mappingBody, enabledBody,
 } from "./schemas";
 import { RateLimiter } from "./ratelimit";
 import {
@@ -44,6 +44,8 @@ import {
   computeRequirements,
   controlScoreMap,
   activePeriodId,
+  isFrameworkEnabled,
+  enabledFrameworkIds,
   REL_W,
   GATE_FLOOR,
 } from "./domain/assessment";
@@ -253,7 +255,7 @@ export async function buildApp() {
         .select({ controlCode: s.mappings.controlCode, code: s.requirements.code })
         .from(s.mappings)
         .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id)),
-      db.select().from(s.frameworks),
+      db.select().from(s.frameworks).where(eq(s.frameworks.enabled, true)),
       db.select({ controlCode: s.evidenceItems.controlCode, collectedAt: s.evidenceItems.collectedAt, drifted: s.evidenceItems.drifted, sourceType: s.evidenceItems.sourceType }).from(s.evidenceItems),
       currentPeriod(),
       db.select().from(s.controlAssignments),
@@ -680,9 +682,65 @@ export async function buildApp() {
   });
 
   // Reverse roll-up: framework requirements ← mapped controls' status, + gap report.
-  app.get<{ Querystring: { framework?: string } }>("/api/requirements", async (req) => {
-    return computeRequirements(req.query.framework === "iso27001" ? "iso27001" : "soc2");
+  app.get<{ Querystring: { framework?: string } }>("/api/requirements", async (req, reply) => {
+    const fw = req.query.framework === "iso27001" ? "iso27001" : "soc2";
+    // Refuse rather than answer: a readiness figure for a framework this
+    // organisation has not adopted is a number nobody asked for and everybody
+    // would read as meaningful.
+    if (!(await isFrameworkEnabled(fw)))
+      return reply.code(404).send({ error: `${fw} is not enabled for this organisation`, code: "framework_disabled" });
+    return computeRequirements(fw);
   });
+
+  // Which catalogs exist, and which this organisation has adopted.
+  app.get("/api/frameworks", async () => {
+    const rows = await db.select().from(s.frameworks).orderBy(asc(s.frameworks.id));
+    const counts = await db
+      .select({ fw: s.requirements.frameworkId, n: count() })
+      .from(s.requirements)
+      .groupBy(s.requirements.frameworkId);
+    const byFw = new Map(counts.map((c) => [c.fw, Number(c.n)]));
+    return {
+      frameworks: rows.map((f) => ({
+        id: f.id,
+        name: f.name,
+        version: f.version,
+        enabled: f.enabled,
+        licence: f.licence,
+        sourceUrl: f.sourceUrl,
+        requirements: byFw.get(f.id) ?? 0,
+      })),
+    };
+  });
+
+  app.post<{ Params: { id: string }; Body: { enabled: boolean } }>(
+    "/api/frameworks/:id/enabled",
+    { schema: { body: enabledBody } },
+    async (req, reply) => {
+      const me = await currentUser(req);
+      if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can enable frameworks" });
+      const id = req.params.id;
+      const existing = (await db.select().from(s.frameworks).where(eq(s.frameworks.id, id)).limit(1))[0];
+      if (!existing) return reply.code(404).send({ error: "unknown framework" });
+      const row = await db.transaction(async (tx) => {
+        const [updated] = await tx
+          .update(s.frameworks)
+          .set({ enabled: req.body.enabled })
+          .where(eq(s.frameworks.id, id))
+          .returning();
+        // Adopting or dropping a framework changes what the organisation is
+        // measured against — squarely an audit-trail event.
+        await recordAudit(tx, req, me, {
+          action: req.body.enabled ? "framework-enable" : "framework-disable",
+          targetType: "framework",
+          targetId: id,
+          payload: { name: existing.name },
+        });
+        return updated;
+      });
+      return { ok: true, framework: { id: row.id, enabled: row.enabled } };
+    },
+  );
 
   // Crosswalk writes. The gap report told you which requirements no control
   // covers and gave you no way to say otherwise: mappings could only be created
@@ -770,7 +828,9 @@ export async function buildApp() {
 
   // ISO 27001 Statement of Applicability — every Annex A control with its
   // applicability decision, status, justification, and crosswalk-derived coverage.
-  app.get("/api/soa", async () => {
+  app.get("/api/soa", async (_req, reply) => {
+    if (!(await isFrameworkEnabled("iso27001")))
+      return reply.code(404).send({ error: "ISO 27001 is not enabled for this organisation", code: "framework_disabled" });
     const [reqs, entries, iso] = await Promise.all([
       db.select().from(s.requirements).where(and(eq(s.requirements.frameworkId, "iso27001"), eq(s.requirements.kind, "iso-annexa"))).orderBy(asc(s.requirements.code)),
       db.select().from(s.soaEntries),
@@ -957,7 +1017,7 @@ export async function buildApp() {
       db.select().from(s.checkRuns).orderBy(desc(s.checkRuns.startedAt)),
       db.select().from(s.automatedFindings),
       db.select().from(s.evidenceItems),
-      db.select({ id: s.frameworks.id }).from(s.frameworks),
+      db.select({ id: s.frameworks.id }).from(s.frameworks).where(eq(s.frameworks.enabled, true)),
       db.select({ id: s.requirements.id }).from(s.requirements),
       db.select({ code: s.controls.code }).from(s.controls),
       db
