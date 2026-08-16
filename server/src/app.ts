@@ -6,10 +6,11 @@ import { db } from "./db/index";
 import * as s from "./db/schema";
 import { controlScore, ratingToGrade, COVERAGE_FLOOR, DIMENSIONS, type Dimension, type Rating } from "./scoring";
 import { recordAudit, recordSecurityEvent } from "./audit";
+import { captureUrl, captureInline, EvidenceFetchError } from "./evidence";
 import {
   idParam, codeParam, loginBody, stepUpBody, passwordBody, attestBody, exceptionBody,
   decideBody, soaBody, roleBody, tokenBody, assignBody, frameworkQuery, periodBody,
-  periodStatusBody,
+  periodStatusBody, evidenceBody,
 } from "./schemas";
 import { RateLimiter } from "./ratelimit";
 import {
@@ -598,6 +599,120 @@ export async function buildApp() {
     const rows = await db.select().from(s.evidenceItems).orderBy(asc(s.evidenceItems.controlCode));
     return { count: rows.length, evidence: rows };
   });
+
+  // Evidence ingress. Until this route existed there was no way to attach
+  // evidence to a control at all: every row in evidence_items came from a seed
+  // script, so `GET /api/evidence` returning empty was not a demo artifact, it
+  // was the permanent state of every deployment.
+  //
+  // Capture happens server-side so the hash is over bytes we actually hold and
+  // can recompute. `url` fetches (guarded against SSRF — see evidence.ts);
+  // `content` accepts a paste for sources the server cannot reach, which is most
+  // of them in a real organisation.
+  app.post<{
+    Body: {
+      control: string;
+      dimension: Dimension;
+      title: string;
+      kind?: string;
+      url?: string;
+      content?: string;
+      contentType?: string;
+    };
+  }>("/api/evidence", { schema: { body: evidenceBody } }, async (req, reply) => {
+    const user = await currentUser(req);
+    if (!user) return reply.code(401).send({ error: "unauthenticated" });
+    const { control, dimension, title, kind, url, content, contentType } = req.body;
+    if (!canWrite(user.role)) return reply.code(403).send({ error: "your role cannot attach evidence" });
+    if (!(await canWriteControl(user, control)))
+      return reply.code(403).send({ error: "control owners may only attach evidence to their assigned controls" });
+    if (!!url === !!content)
+      return reply.code(400).send({ error: "provide exactly one of url or content" });
+
+    const ctrl = (await db.select().from(s.controls).where(eq(s.controls.code, control)).limit(1))[0];
+    if (!ctrl) return reply.code(404).send({ error: "unknown control" });
+
+    let capture;
+    try {
+      capture = url ? await captureUrl(url) : captureInline(content!, contentType);
+    } catch (e: any) {
+      if (e instanceof EvidenceFetchError) {
+        // The caller gets why it was refused — a blocked address is a
+        // configuration answer, not an internal error.
+        return reply.code(422).send({ error: e.message, code: e.code });
+      }
+      throw e;
+    }
+
+    const created = await db.transaction(async (tx) => {
+      const [ev] = await tx
+        .insert(s.evidenceItems)
+        .values({
+          controlCode: control,
+          dimension,
+          title,
+          kind: kind ?? null,
+          sourceType: url ? "url" : "manual",
+          liveUrl: capture.sourceUrl,
+          contentHash: capture.contentHash,
+          drifted: false,
+        })
+        .returning();
+      const [snap] = await tx
+        .insert(s.snapshots)
+        .values({
+          evidenceId: ev.id,
+          contentHash: capture.contentHash,
+          bytes: capture.bytes,
+          contentType: capture.contentType,
+          content: capture.content,
+          sourceUrl: capture.sourceUrl,
+          fetchedBy: user.id,
+        })
+        .returning();
+      await recordAudit(tx, req, user, {
+        action: "evidence-attach",
+        targetType: "control",
+        targetId: control,
+        payload: { evidenceId: ev.id, snapshotId: snap.id, hash: capture.contentHash, bytes: capture.bytes },
+      });
+      return { evidence: ev, snapshot: snap };
+    });
+
+    return reply.code(201).send({
+      evidence: created.evidence,
+      // Return the id the caller pins when they attest against this.
+      snapshot: {
+        id: created.snapshot.id,
+        contentHash: created.snapshot.contentHash,
+        bytes: created.snapshot.bytes,
+        fetchedAt: created.snapshot.fetchedAt,
+      },
+    });
+  });
+
+  // Snapshots for one evidence item, newest first — the drift chain.
+  app.get<{ Params: { id: string } }>(
+    "/api/evidence/:id/snapshots",
+    { schema: { params: idParam("id") } },
+    async (req) => {
+      const rows = await db
+        .select({
+          id: s.snapshots.id,
+          contentHash: s.snapshots.contentHash,
+          bytes: s.snapshots.bytes,
+          contentType: s.snapshots.contentType,
+          sourceUrl: s.snapshots.sourceUrl,
+          fetchedAt: s.snapshots.fetchedAt,
+          fetchedBy: s.snapshots.fetchedBy,
+          supersedes: s.snapshots.supersedes,
+        })
+        .from(s.snapshots)
+        .where(eq(s.snapshots.evidenceId, Number(req.params.id)))
+        .orderBy(desc(s.snapshots.id));
+      return { count: rows.length, snapshots: rows };
+    },
+  );
 
   // Exceptions list.
   app.get("/api/exceptions", async () => {

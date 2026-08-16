@@ -179,6 +179,50 @@ export const evidenceItems = pgTable("evidence_items", {
   collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Immutable point-in-time capture of an evidence item (DESIGN.md:460). Evidence
+// is the mutable pointer — title, live URL, which control it speaks to. A
+// Snapshot is what was actually fetched, when, by whom, and its hash over the
+// real bytes. A new hash for the same evidence is a drift event.
+//
+// DESIGN.md puts the bytes in S3. A self-hosted single-node deployment has no
+// S3, so captures are stored inline here and `bytes` records the true size
+// either way. What must not vary is that `contentHash` is computed over content
+// genuinely retrieved: the hash this codebase shipped was sha256 of the
+// control's own code, which proved nothing about any document.
+export const snapshots = pgTable("snapshots", {
+  id: serial("id").primaryKey(),
+  evidenceId: integer("evidence_id")
+    .notNull()
+    .references(() => evidenceItems.id),
+  contentHash: varchar("content_hash", { length: 80 }).notNull(),
+  bytes: integer("bytes").notNull(),
+  contentType: varchar("content_type", { length: 128 }),
+  content: text("content"),
+  sourceUrl: text("source_url"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  fetchedBy: integer("fetched_by").references(() => users.id),
+  // The snapshot this one replaced, so a drift chain is walkable.
+  supersedes: integer("supersedes"),
+});
+
+// An attestation pins the exact snapshots it was made against (DESIGN.md:470).
+// This replaces attestations.evidence_refs, an unconstrained jsonb blob pointing
+// at mutable rows: a rating "backed by evidence" could silently come to mean
+// something the attestor never saw. Pinning makes drift detectable — a newer
+// snapshot the attestation does not pin is precisely the re-attest trigger.
+export const attestationEvidence = pgTable(
+  "attestation_evidence",
+  {
+    attestationId: integer("attestation_id")
+      .notNull()
+      .references(() => attestations.id),
+    snapshotId: integer("snapshot_id")
+      .notNull()
+      .references(() => snapshots.id),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.attestationId, t.snapshotId] }) }),
+);
+
 /* ===== ISO 27001 Statement of Applicability ===== */
 // One entry per ISO Annex A control (an iso27001 / iso-annexa requirement): is it
 // applicable, the implementation status, and the justification an assessor reads.

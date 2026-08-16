@@ -146,3 +146,19 @@ export const periodStatusBody = {
   required: ["status"],
   properties: { status: { type: "string", enum: ["planning", "active", "closed"] } },
 };
+
+export const evidenceBody = {
+  type: "object" as const,
+  required: ["control", "dimension", "title"],
+  properties: {
+    control: { type: "string", minLength: 1, maxLength: 32 },
+    dimension: { type: "string", enum: [...DIMENSIONS] },
+    title: { type: "string", minLength: 1, maxLength: 300 },
+    kind: { type: "string", maxLength: 24 },
+    // Exactly one of url/content — enforced in the handler, since expressing
+    // "exactly one of" in JSON Schema draft-7 is a oneOf that reports badly.
+    url: { type: "string", maxLength: 2048 },
+    content: { type: "string", maxLength: 2097152 },
+    contentType: { type: "string", maxLength: 128 },
+  },
+};
