@@ -7,7 +7,25 @@ import { hashPassword } from "./auth";
 
 const PW = hashPassword("autocomply"); // all demo users share this password
 
+// Validate before touching the database. This check used to sit further down,
+// next to where the hash is computed -- which is after the delete cascade below,
+// so a missing ADMIN_PASSWORD wiped the database and *then* complained.
+function requireAdminPassword(): string {
+  const pw = process.env.ADMIN_PASSWORD;
+  if (!pw) {
+    console.error(
+      "\nseed: ADMIN_PASSWORD is not set.\n\n" +
+        "This seeds the admin account, so there is no safe default -- it used to fall\n" +
+        "back to \"autocomply\", the password the sign-in page printed on screen.\n" +
+        "Set it in the environment (see deploy/.env.prod.example) and re-run.\n",
+    );
+    process.exit(1);
+  }
+  return pw;
+}
+
 async function main() {
+  const adminPassword = requireAdminPassword();
   const data = loadAll();
 
   // Clear in FK-safe order.
@@ -20,6 +38,10 @@ async function main() {
   await db.delete(s.evidenceItems);
   await db.delete(s.auditLog);
   await db.delete(s.sessions);
+  // api_tokens.created_by references users, so it has to go before the users
+  // delete below -- otherwise this cascade dies on a foreign-key violation part
+  // way through, leaving the database half-wiped.
+  await db.delete(s.apiTokens);
   await db.delete(s.controlAssignments);
   await db.delete(s.mappings);
   await db.delete(s.requirements);
@@ -42,7 +64,7 @@ async function main() {
   const demo = process.env.SEED_DEMO_USERS === "true";
   const auditorExpiry = new Date(Date.now() + 30 * 24 * 3600 * 1000);
   const adminEmail = process.env.ADMIN_EMAIL || "admin@autocomply.local";
-  const adminHash = hashPassword(process.env.ADMIN_PASSWORD || "autocomply");
+  const adminHash = hashPassword(adminPassword);
   if (demo) {
     console.warn(
       "WARNING: SEED_DEMO_USERS=true seeds four extra accounts that all share the " +
