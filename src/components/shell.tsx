@@ -44,6 +44,7 @@ import {
   createMapping,
   deleteMapping,
 } from "../api";
+import { ControlPicker } from "./ControlPicker";
 
 const ROLES: Role[] = ["admin", "compliance_manager", "control_owner", "auditor", "viewer"];
 
@@ -257,14 +258,15 @@ export function RequirementsPage({ role }: { role?: string }) {
   const [mapCode, setMapCode] = useState("");
   const [mapBusy, setMapBusy] = useState(false);
 
-  async function doMap(r: { code: string; requirementId?: number }) {
+  async function doMap(r: { code: string; requirementId?: number }, picked?: string) {
     const requirementId = (r as any).requirementId;
-    if (!requirementId || !mapCode.trim()) return;
+    const code = (picked ?? mapCode).trim();
+    if (!requirementId || !code) return;
     setMapBusy(true);
     setErr(null);
     try {
       await createMapping({
-        control: mapCode.trim().toUpperCase(),
+        control: code.toUpperCase(),
         requirementId,
         // Conservative defaults for a hand-made link: it covers part of the
         // requirement, and a human said so rather than a crosswalk deriving it.
@@ -329,14 +331,12 @@ export function RequirementsPage({ role }: { role?: string }) {
             {canMap && r.status === "gap" && (
               mapFor === r.code ? (
                 <span className="adm-add">
-                  <input
-                    className="adm-add-input"
-                    placeholder="control code, e.g. AC-2"
+                  <ControlPicker
                     value={mapCode}
+                    onChange={setMapCode}
+                    onPick={(code) => doMap(r, code)}
                     autoFocus
-                    onChange={(e) => setMapCode(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && doMap(r)}
-                    aria-label={`Control to map to ${r.code}`}
+                    ariaLabel={`Control to map to ${r.code}`}
                   />
                   <button className="btn" onClick={() => doMap(r)} disabled={mapBusy}>
                     {mapBusy ? "…" : "map"}
@@ -707,11 +707,14 @@ export function AdminPage({ me }: { me: { role: string } }) {
       setErr(String(e.message ?? e));
     }
   }
-  async function addAssign(userId: number) {
-    if (!addCode.trim()) return;
+  async function addAssign(userId: number, picked?: string) {
+    // Take the picked code directly: when the typeahead fires onPick in the
+    // same tick, the state update behind it has not flushed yet.
+    const code = (picked ?? addCode).trim();
+    if (!code) return;
     setErr(null);
     try {
-      await assignControl(userId, addCode.trim());
+      await assignControl(userId, code);
       setAddCode("");
       setAddFor(null);
       await load();
@@ -835,8 +838,16 @@ export function AdminPage({ me }: { me: { role: string } }) {
                   ))}
                   {addFor === u.id ? (
                     <span className="adm-add">
-                      <input className="adm-add-input" placeholder="01.a" value={addCode} onChange={(e) => setAddCode(e.target.value)} autoFocus
-                        onKeyDown={(e) => e.key === "Enter" && addAssign(u.id)} />
+                      {/* Was placeholder "01.a" — a code format from a
+                          pre-pivot catalog that does not exist in the loaded
+                          data, so following the hint returned "unknown control". */}
+                      <ControlPicker
+                        value={addCode}
+                        onChange={setAddCode}
+                        onPick={(code) => addAssign(u.id, code)}
+                        autoFocus
+                        ariaLabel={`Control to assign to ${u.name}`}
+                      />
                       <button className="btn" onClick={() => addAssign(u.id)}>add</button>
                     </span>
                   ) : (
