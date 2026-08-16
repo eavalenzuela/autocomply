@@ -7,7 +7,9 @@ services:
       POSTGRES_PASSWORD: autocomply
       POSTGRES_DB: autocomply
     ports:
-      - "5433:5432"
+      # Loopback only: host tooling (npm run db:push, psql) needs this port,
+      # but binding 0.0.0.0 published the database to the whole network.
+      - "127.0.0.1:5433:5432"
     volumes:
       - autocomply_pg:/var/lib/postgresql/data
     healthcheck:
