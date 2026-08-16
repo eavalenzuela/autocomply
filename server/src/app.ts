@@ -1028,7 +1028,13 @@ export async function buildApp() {
                 asOf: periodRow?.closedAt?.toISOString() ?? null,
                 note: "This period closed before scope snapshots recorded requirements and mappings. Ratings are as at the close date, but the requirement set and crosswalk are read live and may have changed since.",
               }
-            : { kind: "live" as const, asOf: null },
+            : periodRow
+              ? { kind: "live" as const, asOf: null }
+              : // No period at all — the state every new instance starts in.
+                // Calling that "live" claimed an open observation window that
+                // does not exist, which is the first thing a new user would be
+                // told and it would be false.
+                { kind: "no-period" as const, asOf: null },
         ...(coverage ? { windowCoverage: coverage } : {}),
         ...(periodRow?.reopenCount
           ? {

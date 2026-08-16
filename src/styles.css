@@ -1543,6 +1543,6 @@ tr:focus-visible {
   color: var(--ink-2);
   background: var(--surface-2);
 }
-.report-basis.b-live, .report-basis.b-partially-frozen, .report-basis.b-reopened, .report-basis.b-coverage {
+.report-basis.b-live, .report-basis.b-partially-frozen, .report-basis.b-reopened, .report-basis.b-coverage, .report-basis.b-no-period {
   border-color: var(--warn);
 }

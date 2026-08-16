@@ -896,3 +896,23 @@ test("closing a period sweeps up ratings made before it was activated", async ()
     for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
   }
 });
+
+test("with no assessment period at all, a report does not claim to be live", async () => {
+  // The state a fresh instance is in. "Live" asserts an open observation window
+  // and there is none, so it is the first thing a new user would be told and it
+  // would be false.
+  const cookie = await loginStepped(U.admin);
+  const fw = "soc2";
+  const priorPeriods = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.framework, fw));
+  for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: `${fw}-parked` }).where(eq(s.assessmentPeriods.id, p.id));
+  try {
+    const res = await app.inject({ method: "GET", url: `/api/report?framework=${fw}`, headers: auth(cookie) });
+    assert.equal(res.statusCode, 200, res.body);
+    const meta = res.json().meta;
+    assert.equal(meta.basis.kind, "no-period");
+    assert.equal(meta.period.start, "—");
+    assert.ok(!meta.windowCoverage, "there is no window to report coverage against");
+  } finally {
+    for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: fw }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});

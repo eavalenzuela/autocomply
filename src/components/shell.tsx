@@ -1092,6 +1092,12 @@ export function ReportsPage({ framework, onFramework }: { framework?: string | n
                     <b>Partially frozen</b> as at {report.meta.basis.asOf?.slice(0, 10)} — {report.meta.basis.note}
                   </>
                 )}
+                {report.meta.basis.kind === "no-period" && (
+                  <>
+                    <b>No assessment period</b> — these figures are current state, not a finding against an
+                    observation window. Create a period on the Assessment periods page to assess against one.
+                  </>
+                )}
                 {report.meta.basis.kind === "live" && (
                   <>
                     <b>Live</b> — the assessment window is open, so these figures move with the catalog, the
