@@ -267,7 +267,7 @@ export function RequirementsPage() {
       {err && <div className="api-banner error">{err}</div>}
       {s && (
         <div className="kpi-strip" style={{ marginBottom: 16 }}>
-          <div className="kpi"><span className="kpi-label">Readiness</span><span className="kpi-value">{s.readiness ?? "—"}<span className="unit">%</span></span><span className="kpi-delta">assessed reqs</span></div>
+          <div className="kpi"><span className="kpi-label">Readiness</span><span className="kpi-value">{s.readiness ?? "—"}<span className="unit">%</span></span><span className="kpi-delta">{s.assessed ?? 0} of {s.assessedOf ?? data!.total} assessed</span></div>
           <div className="kpi"><span className="kpi-label">Covered</span><span className="kpi-value">{s.covered}<span className="unit">/{data!.total}</span></span><span className="kpi-delta">have ≥1 control</span></div>
           <div className="kpi"><span className="kpi-label">Gaps</span><span className="kpi-value">{s.gaps}</span><span className="kpi-delta">no CCF coverage</span></div>
           <div className="kpi"><span className="kpi-label">Status</span><span className="kpi-value" style={{ fontSize: 14 }}>{s.met}✓ {s.partial}◐ {s.unassessed}○</span><span className="kpi-delta">met · partial · unassessed</span></div>
@@ -446,7 +446,9 @@ export function DashboardPage({ onNav }: { onNav: (k: string) => void }) {
     <button className="dash-fw" onClick={() => onNav("requirements")}>
       <div className="dash-fw-name">{label}</div>
       <div className="dash-fw-readiness">{d?.summary.readiness ?? "—"}<span className="unit">%</span></div>
-      <div className="dash-fw-meta">{d ? `${d.summary.covered}/${d.total} covered · ${d.summary.gaps} gaps` : "…"}</div>
+      <div className="dash-fw-meta">
+        {d ? `${d.summary.assessed ?? 0}/${d.total} assessed · ${d.summary.gaps} gaps` : "…"}
+      </div>
     </button>
   );
   return (

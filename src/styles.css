@@ -624,6 +624,19 @@ button { font: inherit; color: inherit; }
   color: var(--ok);
 }
 .gate-cell .triangle { font-size: 11px; }
+/* Coverage rides along inside the gate badge: a certification gate should never
+   be readable without the share of the family it was computed from. Quieter
+   than the gate figure so it reads as qualification, not as a second number. */
+.gate-cell .gate-coverage {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+  padding-left: 4px;
+  border-left: 1px solid currentColor;
+  margin-left: 2px;
+  white-space: nowrap;
+}
 
 .evid-cell {
   font-family: var(--font-mono);

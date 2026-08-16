@@ -54,8 +54,17 @@ export interface Domain {
   id: string;
   name: string;
   score: number | null;
+  /** posture over only the assessed controls — shown beside coverage, never instead */
+  assessedOnly?: number | null;
+  /** in-scope controls with any rating, and the total they are drawn from */
+  assessed?: number;
+  total?: number;
+  /** percent of in-scope controls assessed */
+  coverage?: number;
   gate: number | null;
   gateFail: boolean;
+  /** "coverage" = fails because nobody looked; "posture" = fails because the control is weak */
+  gateFailReason?: "coverage" | "posture" | null;
   /** lowest in-scope assessed control score (the gate floor signal) */
   weakest?: number | null;
   /** count of in-scope controls in this family */

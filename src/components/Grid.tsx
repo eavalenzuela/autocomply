@@ -49,20 +49,41 @@ function EvidenceCell({
   evidence,
   gate,
   gateFail,
+  gateFailReason,
+  assessed,
+  total,
   isDomain,
 }: {
   evidence?: Evidence;
   gate?: number | null;
   gateFail?: boolean;
+  gateFailReason?: string | null;
+  assessed?: number;
+  total?: number;
   isDomain?: boolean;
 }) {
   if (isDomain) {
     return (
       <td className="gate-cell">
         {gate != null && (
-          <span className={`gate-badge ${gateFail ? "fail" : "pass"}`}>
+          <span
+            className={`gate-badge ${gateFail ? "fail" : "pass"}`}
+            title={
+              total != null
+                ? `${assessed ?? 0} of ${total} in-scope controls assessed` +
+                  (gateFailReason === "coverage" ? " — this gate fails for lack of assessment, not weak controls" : "")
+                : undefined
+            }
+          >
             <span className="triangle">{gateFail ? "▲" : "✓"}</span>
             <span>GATE {gate.toFixed(1)}</span>
+            {/* A gate is a certification decision. It never appears without the
+                coverage it was computed from. */}
+            {total != null && (
+              <span className="gate-coverage">
+                {assessed ?? 0}/{total} assessed{gateFailReason === "coverage" ? " · coverage" : ""}
+              </span>
+            )}
           </span>
         )}
       </td>
@@ -172,7 +193,14 @@ function DomainRow({
       </td>
       <td colSpan={5} />
       <ScoreCell value={domain.score} />
-      <EvidenceCell isDomain gate={domain.gate} gateFail={domain.gateFail} />
+      <EvidenceCell
+        isDomain
+        gate={domain.gate}
+        gateFail={domain.gateFail}
+        gateFailReason={domain.gateFailReason}
+        assessed={domain.assessed}
+        total={domain.total}
+      />
       {showOwners && (
         <td className="owner-cell">
           {domain.owner && (

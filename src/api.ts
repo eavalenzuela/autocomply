@@ -230,7 +230,21 @@ export interface RequirementRow {
 export interface RequirementsResponse {
   framework: string;
   total: number;
-  summary: { covered: number; gaps: number; met: number; partial: number; weak: number; unassessed: number; readiness: number | null };
+  summary: {
+    covered: number;
+    gaps: number;
+    met: number;
+    partial: number;
+    weak: number;
+    unassessed: number;
+    readiness: number | null;
+    // Coverage travels with the score so no render site can show one without
+    // the other. readiness is computed over every requirement, unassessed
+    // counting as 0, so a low number with low coverage is the honest reading.
+    assessed: number;
+    assessedOf: number;
+    coverage: number;
+  };
   requirements: RequirementRow[];
 }
 export async function fetchRequirements(framework: "soc2" | "iso27001"): Promise<RequirementsResponse> {

@@ -4,7 +4,7 @@ import cookie from "@fastify/cookie";
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
-import { controlScore, ratingToGrade, DIMENSIONS, type Dimension, type Rating } from "./scoring";
+import { controlScore, ratingToGrade, COVERAGE_FLOOR, DIMENSIONS, type Dimension, type Rating } from "./scoring";
 import { RateLimiter } from "./ratelimit";
 import {
   currentUser,
@@ -123,26 +123,65 @@ async function computeRequirements(fw: "soc2" | "iso27001") {
     summary.covered++;
     let num = 0;
     let den = 0;
+    let assessedControls = 0;
     const mappedControls = mc.map((m) => {
       const sc = scoreMap.get(m.control) ?? null;
       const w = REL_W[m.relationship] ?? 0.5;
-      if (sc != null) {
-        num += w * sc;
-        den += w;
-      }
+      // An unassessed mapped control contributes 0 and still carries its weight.
+      // Previously it was skipped entirely, so a requirement mapped to 21
+      // controls with 1 assessed reported that one control's score as the
+      // requirement's posture — "met, 100%" on a single data point.
+      num += w * (sc ?? 0);
+      den += w;
+      if (sc != null) assessedControls++;
       return { control: m.control, relationship: m.relationship, score: sc };
     });
     const score = den ? Math.round(num / den) : null;
+    // Posture over just what was assessed — shown beside coverage, never instead.
+    const assessedOnly = assessedControls
+      ? Math.round(
+          mappedControls.reduce((a, m) => a + (m.score ?? 0) * (REL_W[m.relationship] ?? 0.5), 0) /
+            mappedControls.reduce((a, m) => a + (m.score == null ? 0 : REL_W[m.relationship] ?? 0.5), 0),
+        )
+      : null;
     let status: string;
-    if (score == null) (status = "unassessed"), summary.unassessed++;
-    else if (score >= 75) (status = "met"), summary.met++;
-    else if (score >= 50) (status = "partial"), summary.partial++;
+    // Nothing assessed stays its own state rather than reading as a hard zero.
+    if (assessedControls === 0) (status = "unassessed"), summary.unassessed++;
+    else if (score! >= 75) (status = "met"), summary.met++;
+    else if (score! >= 50) (status = "partial"), summary.partial++;
     else (status = "weak"), summary.weak++;
-    return { code: r.code, title: r.title, kind: r.kind, status, score, mapped: mc.length, mappedControls };
+    return {
+      code: r.code,
+      title: r.title,
+      kind: r.kind,
+      status,
+      score,
+      assessedOnly,
+      mapped: mc.length,
+      assessed: assessedControls,
+      mappedControls,
+    };
   });
-  const assessed = requirements.filter((r) => r.score != null).map((r) => r.score as number);
-  const readiness = assessed.length ? Math.round(assessed.reduce((a, b) => a + b, 0) / assessed.length) : null;
-  return { framework: fw, total: reqs.length, summary: { ...summary, readiness }, requirements };
+  // Readiness divides by every requirement in the framework. A requirement that
+  // is unmapped (a gap) or mapped-but-unassessed counts as 0, because the
+  // alternative — dividing only by what has been assessed — makes the number
+  // rise as assessment shrinks.
+  const scores = requirements.map((r) => r.score ?? 0);
+  const readiness = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const assessedReqs = requirements.filter((r) => (r as any).assessed > 0).length;
+  return {
+    framework: fw,
+    total: reqs.length,
+    summary: {
+      ...summary,
+      readiness,
+      // Every render site is expected to print these beside the number.
+      assessed: assessedReqs,
+      assessedOf: reqs.length,
+      coverage: reqs.length ? Math.round((assessedReqs / reqs.length) * 100) : 0,
+    },
+    requirements,
+  };
 }
 
 // current score per control, from its latest attestations
@@ -342,16 +381,36 @@ export async function buildApp() {
       // Scores + gates are computed over IN-SCOPE controls only (the active period's tier).
       const inScope = all.filter((c) => c.inScope);
       const scored = inScope.map((c) => c.score).filter((x): x is number => x != null);
-      const score = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
+      // Family mean over EVERY in-scope control, unassessed counting as 0. It
+      // previously averaged only the assessed ones, so a family with 3 of 39
+      // controls rated reported the posture of those 3 as the family's gate —
+      // the certification decision surface, computed from 8% of the family.
+      const score = inScope.length
+        ? Math.round(inScope.reduce((a, c) => a + (c.score ?? 0), 0) / inScope.length)
+        : null;
+      // Posture over just the assessed controls, for display beside coverage.
+      const assessedOnly = scored.length
+        ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length)
+        : null;
       const gate = score != null ? Math.round((score / 20) * 10) / 10 : null; // 0–5 scale (family mean)
       const weakest = scored.length ? Math.min(...scored) : null;
+      const coverage = inScope.length ? scored.length / inScope.length : 0;
       // Real certification gate: fail if the family mean is sub-par OR any single in-scope
       // assessed control is below the maturity floor (an average can't hide a weak control).
       const gateFail = gate != null && (gate < 3.0 || (weakest != null && weakest < GATE_FLOOR));
+      // A gate that fails because nobody looked is a different problem from one
+      // that fails because the control is weak, and DESIGN.md requires them to
+      // stay visibly distinct ("collection broke" vs "control broke").
+      const gateFailReason = !gateFail ? null : coverage < COVERAGE_FLOOR ? "coverage" : "posture";
       return {
         id: cat.id,
         name: cat.title,
         score,
+        assessedOnly,
+        assessed: scored.length,
+        total: inScope.length,
+        coverage: inScope.length ? Math.round(coverage * 100) : 0,
+        gateFailReason,
         gate,
         gateFail,
         weakest,
