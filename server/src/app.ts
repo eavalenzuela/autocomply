@@ -5,6 +5,7 @@ import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
 import { controlScore, ratingToGrade, COVERAGE_FLOOR, DIMENSIONS, type Dimension, type Rating } from "./scoring";
+import { recordAudit, recordSecurityEvent } from "./audit";
 import { RateLimiter } from "./ratelimit";
 import {
   currentUser,
@@ -268,15 +269,37 @@ export async function buildApp() {
 
   // ---- auth ----
   app.post<{ Body: { email: string; password: string } }>("/api/login", async (req, reply) => {
-    if (!authLimiter.allow(`login:${req.ip}`))
-      return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
     const { email, password } = req.body ?? {};
+    // Denials are audited too. A trail that records only successful logins
+    // cannot show a brute-force attempt, a credential-stuffing run, or an
+    // account being probed — the events most worth having afterwards.
+    if (!authLimiter.allow(`login:${req.ip}`)) {
+      await recordSecurityEvent(req, null, {
+        action: "login-throttled",
+        targetType: "user",
+        targetId: typeof email === "string" ? email.slice(0, 64) : null,
+      });
+      return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
+    }
     const u = (await db.select().from(s.users).where(eq(s.users.email, email)).limit(1))[0];
-    if (!u || !verifyPassword(password, u.passwordHash)) return reply.code(401).send({ error: "invalid credentials" });
-    if (u.expiresAt && u.expiresAt.getTime() < Date.now()) return reply.code(403).send({ error: "account expired" });
+    if (!u || !verifyPassword(password, u.passwordHash)) {
+      await recordSecurityEvent(req, u ?? null, {
+        action: "login-failed",
+        targetType: "user",
+        targetId: typeof email === "string" ? email.slice(0, 64) : null,
+        // Distinguishes "no such account" from "wrong password" for the
+        // operator without telling the caller which it was.
+        payload: { reason: u ? "bad-password" : "unknown-account" },
+      });
+      return reply.code(401).send({ error: "invalid credentials" });
+    }
+    if (u.expiresAt && u.expiresAt.getTime() < Date.now()) {
+      await recordSecurityEvent(req, u, { action: "login-denied", targetType: "user", targetId: u.email, payload: { reason: "expired" } });
+      return reply.code(403).send({ error: "account expired" });
+    }
     const token = await createSession(u.id);
     setSessionCookie(reply, token);
-    await db.insert(s.auditLog).values({ actorId: u.id, action: "login", targetType: "user", targetId: u.email });
+    await recordAudit(db, req, u, { action: "login", targetType: "user", targetId: u.email });
     return { id: u.id, email: u.email, name: u.name, role: u.role, authProvider: u.authProvider };
   });
 
@@ -306,7 +329,7 @@ export async function buildApp() {
     if (!u?.passwordHash) return reply.code(400).send({ error: "step-up requires re-authentication with your identity provider" });
     if (!verifyPassword(req.body?.password ?? "", u.passwordHash)) return reply.code(401).send({ error: "incorrect password" });
     await recordStepUp(token);
-    await db.insert(s.auditLog).values({ actorId: user.id, action: "step-up", targetType: "session" });
+    await recordAudit(db, req, user, { action: "step-up", targetType: "session" });
     return { ok: true, expiresInMs: STEP_UP_TTL_MS };
   });
 
@@ -330,7 +353,7 @@ export async function buildApp() {
     if (newPassword === currentPassword) return reply.code(400).send({ error: "new password must differ from the current one" });
     await db.update(s.users).set({ passwordHash: hashPassword(newPassword) }).where(eq(s.users.id, u.id));
     const revoked = await revokeOtherSessions(u.id, sessionToken(req));
-    await db.insert(s.auditLog).values({ actorId: u.id, action: "password-change", targetType: "user", targetId: u.email, payload: { revokedSessions: revoked } });
+    await recordAudit(db, req, u, { action: "password-change", targetType: "user", targetId: u.email, payload: { revokedSessions: revoked } });
     return { ok: true, revokedSessions: revoked };
   });
 
@@ -509,11 +532,19 @@ export async function buildApp() {
       if (!(await canWriteControl(user, control))) return reply.code(403).send({ error: "forbidden (role or assignment scope)" });
       if (!(await hasFreshStepUp(req))) return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
 
-      const [row] = await db
-        .insert(s.attestations)
-        .values({ controlCode: control, dimension, rating, justification: justification ?? null, marker: null, actorId: user.id, source: "human" })
-        .returning();
-      await db.insert(s.auditLog).values({ actorId: user.id, action: "attest", targetType: "control", targetId: `${control}:${dimension}`, payload: { rating } });
+      const row = await db.transaction(async (tx) => {
+        const [inserted] = await tx
+          .insert(s.attestations)
+          .values({ controlCode: control, dimension, rating, justification: justification ?? null, marker: null, actorId: user.id, source: "human" })
+          .returning();
+        await recordAudit(tx, req, user, {
+          action: "attest",
+          targetType: "control",
+          targetId: `${control}:${dimension}`,
+          payload: { rating },
+        });
+        return inserted;
+      });
       return { ok: true, attestation: row };
     },
   );
@@ -585,7 +616,7 @@ export async function buildApp() {
       .insert(s.exceptions)
       .values({ controlCode: control, dimension: dimension ?? null, reason: reason.trim(), status: "pending", requestedBy: user.id, expiresAt: expires })
       .returning();
-    await db.insert(s.auditLog).values({ actorId: user.id, action: "exception-request", targetType: "control", targetId: control, payload: { id: row.id } });
+    await recordAudit(db, req, user, { action: "exception-request", targetType: "control", targetId: control, payload: { id: row.id } });
     return { ok: true, exception: row };
   });
 
@@ -600,8 +631,26 @@ export async function buildApp() {
     if (exc.requestedBy === user.id) return reply.code(403).send({ error: "separation of duties: the requester cannot approve their own exception" });
     if (!(await hasFreshStepUp(req))) return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
     const status = req.body.decision === "approve" ? "approved" : "rejected";
-    const [row] = await db.update(s.exceptions).set({ status, approvedBy: user.id, decidedAt: new Date() }).where(eq(s.exceptions.id, id)).returning();
-    await db.insert(s.auditLog).values({ actorId: user.id, action: `exception-${status}`, targetType: "control", targetId: exc.controlCode, payload: { id } });
+    // One transaction, and the entry is only written if the update actually
+    // moved a row. Previously the audit insert was unconditional and separate:
+    // if the exception vanished between the read above and this write, the log
+    // recorded a decision that never happened.
+    const row = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(s.exceptions)
+        .set({ status, approvedBy: user.id, decidedAt: new Date() })
+        .where(eq(s.exceptions.id, id))
+        .returning();
+      if (!updated) return null;
+      await recordAudit(tx, req, user, {
+        action: `exception-${status}`,
+        targetType: "control",
+        targetId: exc.controlCode,
+        payload: { id },
+      });
+      return updated;
+    });
+    if (!row) return reply.code(409).send({ error: "exception changed before the decision was applied" });
     return { ok: true, exception: row };
   });
 
@@ -670,7 +719,7 @@ export async function buildApp() {
     };
     if (existing) await db.update(s.soaEntries).set(values).where(eq(s.soaEntries.requirementId, reqId));
     else await db.insert(s.soaEntries).values(values);
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "soa-update", targetType: "requirement", targetId: String(reqId), payload: { applicable: values.applicable, status: values.status } });
+    await recordAudit(db, req, me, { action: "soa-update", targetType: "requirement", targetId: String(reqId), payload: { applicable: values.applicable, status: values.status } });
     return { ok: true };
   });
 
@@ -693,12 +742,9 @@ export async function buildApp() {
       return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
     // Every detailed response is recorded; the flag now only distinguishes a
     // download from an on-screen read.
-    await db.insert(s.auditLog).values({
-      actorId: me.id,
-      action: isExport ? "report-export" : "report-view",
-      targetType: "framework",
-      targetId: fw,
-    });
+    // Recorded after the report is actually assembled, below — logging the read
+    // before doing the work would leave an entry for a response that never
+    // reached anyone if assembly threw.
     const reqData = await computeRequirements(fw);
     const [att, scoreMap, ctrls, evidence, maps, excs, period] = await Promise.all([
       latestAttestations(),
@@ -732,7 +778,7 @@ export async function buildApp() {
         }),
         evidence: evidence.filter((e) => e.controlCode === c.code).map((e) => ({ title: e.title, kind: e.kind, sourceType: e.sourceType, contentHash: e.contentHash, drifted: e.drifted })),
       }));
-    return {
+    const body = {
       meta: {
         org: process.env.ORG_NAME || "autocomply",
         framework: fwName,
@@ -748,6 +794,16 @@ export async function buildApp() {
       gaps: reqData.requirements.filter((r) => r.status === "gap").map((r) => ({ code: r.code, title: r.title, kind: r.kind })),
       exceptions: excs.map((e) => ({ control: e.controlCode, reason: e.reason, status: e.status, expiresAt: e.expiresAt })),
     };
+    // Recorded now that the report exists: an entry here means a caller actually
+    // received this data. Coverage rides in the payload so the trail says what
+    // was disclosed, not merely that something was.
+    await recordAudit(db, req, me, {
+      action: isExport ? "report-export" : "report-view",
+      targetType: "framework",
+      targetId: fw,
+      payload: { export: isExport, readiness: reqData.summary.readiness, coverage: reqData.summary.coverage },
+    });
+    return body;
   });
 
   // Computed notifications feed (what a real notifier sends). Shared by the pull
@@ -781,7 +837,7 @@ export async function buildApp() {
     if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can trigger delivery" });
     const items = await computeNotifications();
     const delivered = await deliverNotifications(items, new Date().toISOString());
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "notify-deliver", targetType: "system", payload: { delivered, total: items.length } });
+    await recordAudit(db, req, me, { action: "notify-deliver", targetType: "system", payload: { delivered, total: items.length } });
     return { ok: true, configured: !!process.env.NOTIFY_WEBHOOK_URL, total: items.length, delivered };
   });
 
@@ -919,7 +975,7 @@ export async function buildApp() {
       console.warn(`[catalog] export dropped ${droppedSatisfies} mapping(s) to unknown requirements`);
     }
     const me = await currentUser(req);
-    await recordCatalogExport(me?.id ?? null, "api");
+    await recordCatalogExport(me ?? null, "api", undefined, req);
     return catalog;
   });
 
@@ -947,7 +1003,7 @@ export async function buildApp() {
       .insert(s.assessmentPeriods)
       .values({ name: b.name.trim(), framework: b.framework, tier: b.tier ?? null, startDate: start, endDate: end, status: "planning", tscCategories: b.tscCategories ?? null })
       .returning();
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "period-create", targetType: "period", targetId: String(row.id) });
+    await recordAudit(db, req, me, { action: "period-create", targetType: "period", targetId: String(row.id) });
     return { ok: true, period: row };
   });
   app.post<{ Params: { id: string }; Body: { status: string } }>("/api/periods/:id/status", async (req, reply) => {
@@ -960,7 +1016,7 @@ export async function buildApp() {
     const [row] = await db.update(s.assessmentPeriods).set({ status: req.body.status }).where(eq(s.assessmentPeriods.id, id)).returning();
     // Status transitions change what's in scope — they belong in the audit trail
     // just like creation.
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "period-status", targetType: "period", targetId: String(id), payload: { from: existing.status, to: req.body.status } });
+    await recordAudit(db, req, me, { action: "period-status", targetType: "period", targetId: String(id), payload: { from: existing.status, to: req.body.status } });
     return { ok: true, period: row };
   });
 
@@ -988,7 +1044,7 @@ export async function buildApp() {
     const roles = ["admin", "compliance_manager", "control_owner", "auditor", "viewer"];
     if (!roles.includes(req.body.role)) return reply.code(400).send({ error: "bad role" });
     const [row] = await db.update(s.users).set({ role: req.body.role }).where(eq(s.users.id, Number(req.params.id))).returning();
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "role-change", targetType: "user", targetId: String(req.params.id), payload: { role: req.body.role } });
+    await recordAudit(db, req, me, { action: "role-change", targetType: "user", targetId: String(req.params.id), payload: { role: req.body.role } });
     return { ok: true, user: { id: row.id, role: row.role } };
   });
 
@@ -1001,7 +1057,7 @@ export async function buildApp() {
     if (!target) return reply.code(404).send({ error: "unknown user" });
     const existing = await db.select().from(s.controlAssignments).where(and(eq(s.controlAssignments.userId, userId), eq(s.controlAssignments.controlCode, control)));
     if (existing.length === 0) await db.insert(s.controlAssignments).values({ userId, controlCode: control });
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "assign", targetType: "control", targetId: control, payload: { userId } });
+    await recordAudit(db, req, me, { action: "assign", targetType: "control", targetId: control, payload: { userId } });
     return { ok: true };
   });
 
@@ -1010,7 +1066,7 @@ export async function buildApp() {
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     const { userId, control } = req.body;
     await db.delete(s.controlAssignments).where(and(eq(s.controlAssignments.userId, userId), eq(s.controlAssignments.controlCode, control)));
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "unassign", targetType: "control", targetId: control, payload: { userId } });
+    await recordAudit(db, req, me, { action: "unassign", targetType: "control", targetId: control, payload: { userId } });
     return { ok: true };
   });
 
@@ -1069,7 +1125,7 @@ export async function buildApp() {
       .insert(s.apiTokens)
       .values({ name: req.body.name.trim(), tokenHash: hash, role, createdBy: me.id, expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null })
       .returning();
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "token-create", targetType: "api_token", targetId: String(row.id), payload: { role } });
+    await recordAudit(db, req, me, { action: "token-create", targetType: "api_token", targetId: String(row.id), payload: { role } });
     // Plaintext is returned ONCE — only the sha256 hash is stored.
     return { ok: true, token, id: row.id, name: row.name, role: row.role };
   });
@@ -1077,7 +1133,7 @@ export async function buildApp() {
     const me = await currentUser(req);
     if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can manage API tokens" });
     await db.update(s.apiTokens).set({ revoked: true }).where(eq(s.apiTokens.id, Number(req.params.id)));
-    await db.insert(s.auditLog).values({ actorId: me.id, action: "token-revoke", targetType: "api_token", targetId: req.params.id });
+    await recordAudit(db, req, me, { action: "token-revoke", targetType: "api_token", targetId: req.params.id });
     return { ok: true };
   });
 

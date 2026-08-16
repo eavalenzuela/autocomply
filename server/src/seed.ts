@@ -36,7 +36,11 @@ async function main() {
   await db.delete(s.assessmentPeriods);
   await db.delete(s.attestations);
   await db.delete(s.evidenceItems);
-  await db.delete(s.auditLog);
+  // audit_log is deliberately NOT cleared. It is append-only in the database
+  // (server/sql/audit_append_only.sql) and this delete would now fail — but the
+  // point is not that it fails, it is that a reseed has no business erasing the
+  // record of what was done to the previous database. Entries whose actor no
+  // longer exists are expected: an audit trail outlives the rows it references.
   await db.delete(s.sessions);
   // api_tokens.created_by references users, so it has to go before the users
   // delete below -- otherwise this cascade dies on a foreign-key violation part

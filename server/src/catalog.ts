@@ -12,7 +12,9 @@ import path from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { asc, desc, eq } from "drizzle-orm";
+import type { FastifyRequest } from "fastify";
 import { db } from "./db/index";
+import { recordAudit, type AuditActor } from "./audit";
 import * as s from "./db/schema";
 
 export const CATALOG_VERSION = "1";
@@ -285,12 +287,31 @@ export async function buildCatalog(generatedAt?: string): Promise<{ catalog: Cat
   return { catalog, droppedSatisfies };
 }
 
-// Record a catalog export in the append-only audit log. `actorId` is the session
-// user or API-token owner for live pulls (GRCen's sync authenticates with a scoped
-// API token — see /api/tokens), and null for scheduled file exports.
-export async function recordCatalogExport(actorId: number | null, mode: "api" | "scheduled" | "dump", extra?: Record<string, unknown>) {
+// Record a catalog export in the append-only audit log.
+//
+// GRCen's sync authenticates with a scoped API token, and this used to record
+// only the token OWNER's user id — so the single most common machine-driven
+// export in the product was indistinguishable in the trail from that person
+// pulling it by hand. Pass the actor (whose tokenId identifies the credential)
+// and, for live pulls, the request, so the entry carries where it came from.
+// Scheduled file exports legitimately have neither.
+export async function recordCatalogExport(
+  actor: AuditActor,
+  mode: "api" | "scheduled" | "dump",
+  extra?: Record<string, unknown>,
+  req?: FastifyRequest,
+) {
+  if (req) {
+    await recordAudit(db, req, actor, {
+      action: "catalog-export",
+      targetType: "catalog",
+      payload: { mode, ...extra },
+    });
+    return;
+  }
   await db.insert(s.auditLog).values({
-    actorId: actorId ?? null,
+    actorId: actor?.id ?? null,
+    actorTokenId: actor?.tokenId ?? null,
     action: "catalog-export",
     targetType: "catalog",
     payload: { mode, ...extra },

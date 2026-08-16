@@ -128,6 +128,16 @@ export const auditLog = pgTable("audit_log", {
   id: serial("id").primaryKey(),
   ts: timestamp("ts", { withTimezone: true }).notNull().defaultNow(),
   actorId: integer("actor_id"),
+  // A machine credential is its own principal. Without this, an API token's
+  // actions were recorded under the human who created it — the trail could not
+  // distinguish "Alice did this" from "a token Alice made months ago did this",
+  // which is the first question asked of an audit log after an incident.
+  actorTokenId: integer("actor_token_id"),
+  // Where the action came from. An audit entry that cannot place an action is
+  // hard to act on and impossible to corroborate against other systems.
+  ip: varchar("ip", { length: 64 }),
+  userAgent: varchar("user_agent", { length: 256 }),
+  sessionId: varchar("session_id", { length: 64 }),
   action: varchar("action", { length: 64 }).notNull(),
   targetType: varchar("target_type", { length: 32 }),
   targetId: varchar("target_id", { length: 64 }),

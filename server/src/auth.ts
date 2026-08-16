@@ -9,7 +9,16 @@ import { db } from "./db/index";
 import * as s from "./db/schema";
 
 export type Role = "admin" | "compliance_manager" | "control_owner" | "auditor" | "viewer";
-export interface CurrentUser { id: number; email: string; name: string; role: Role; authProvider: string; }
+export interface CurrentUser {
+  id: number;
+  email: string;
+  name: string;
+  role: Role;
+  authProvider: string;
+  /** Set when the caller authenticated with an API token — the token is the
+   *  acting principal, `id` is only the human who owns it. */
+  tokenId?: number;
+}
 
 const WRITE_ROLES: Role[] = ["admin", "compliance_manager", "control_owner"];
 const SESSION_TTL_MS = 12 * 3600 * 1000;
@@ -122,7 +131,14 @@ export async function currentUser(req: FastifyRequest): Promise<CurrentUser | nu
     const t = (await db.select().from(s.apiTokens).where(eq(s.apiTokens.tokenHash, th)).limit(1))[0];
     if (t && !t.revoked && t.createdBy != null && !(t.expiresAt && t.expiresAt.getTime() < Date.now())) {
       void db.update(s.apiTokens).set({ lastUsedAt: new Date() }).where(eq(s.apiTokens.id, t.id)); // best-effort
-      return { id: t.createdBy, email: `token:${t.name}`, name: `API token: ${t.name}`, role: t.role as Role, authProvider: "token" };
+      return {
+        id: t.createdBy,
+        tokenId: t.id,
+        email: `token:${t.name}`,
+        name: `API token: ${t.name}`,
+        role: t.role as Role,
+        authProvider: "token",
+      };
     }
   }
   // 3) dev/script fallback header — DISABLED in production (it would let any
