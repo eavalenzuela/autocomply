@@ -1,5 +1,6 @@
 // Seed the DB from data/*.yaml via the loader. Idempotent: clears then inserts.
 import "dotenv/config";
+import { count } from "drizzle-orm";
 import { db, pool } from "./db/index";
 import * as s from "./db/schema";
 import { loadAll } from "./loader";
@@ -24,8 +25,31 @@ function requireAdminPassword(): string {
   return pw;
 }
 
+/**
+ * The seed clears eighteen tables before inserting. That is right for an empty
+ * database and catastrophic for one in use, and nothing distinguished the two:
+ * `npm run db:seed` on a populated database silently destroyed it. Require the
+ * destruction to be asked for.
+ */
+async function assertResetAllowed(): Promise<void> {
+  const reset = process.argv.includes("--reset") || process.env.SEED_RESET === "1";
+  if (reset) return;
+  const [{ n }] = await db.select({ n: count() }).from(s.controls);
+  const [{ u }] = await db.select({ u: count() }).from(s.users);
+  if (Number(n) === 0 && Number(u) === 0) return; // empty database — nothing to lose
+  console.error(
+    `\nseed: this database already contains ${n} controls and ${u} users.\n\n` +
+      `Seeding clears the catalog, users, attestations, evidence and exceptions\n` +
+      `before reloading, and there is no undo. Re-run with --reset if that is\n` +
+      `genuinely what you want:\n\n` +
+      `  npm --prefix server run db:seed -- --reset\n`,
+  );
+  process.exit(1);
+}
+
 async function main() {
   const adminPassword = requireAdminPassword();
+  await assertResetAllowed();
   const data = loadAll();
 
   // Clear in FK-safe order.

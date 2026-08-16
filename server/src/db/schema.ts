@@ -101,6 +101,30 @@ export const users = pgTable("users", {
   role: varchar("role", { length: 24 }).notNull().default("viewer"),
   authProvider: varchar("auth_provider", { length: 16 }).notNull().default("local"), // local | github | google
   expiresAt: timestamp("expires_at", { withTimezone: true }), // for time-boxed auditors
+  // Deactivation, not deletion. The audit trail references users by id and is
+  // append-only; deleting the row would leave the record pointing at nobody.
+  deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Single-use, time-boxed links for setting a password — both the initial invite
+// and a reset. Only the hash is stored, as with api_tokens: a leaked database
+// should not hand out working links, and an admin who can read the table should
+// not be able to silently assume someone else's account.
+//
+// This exists because there was no way to create a user at all outside the seed
+// script. A deployment therefore had no path to a first login, and no path to a
+// second person.
+export const userInvites = pgTable("user_invites", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  purpose: varchar("purpose", { length: 16 }).notNull(), // invite | reset
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -51,6 +51,13 @@ export function generateApiToken(): { token: string; hash: string } {
   return { token, hash: hashToken(token) };
 }
 
+/** Single-use link secret for an invite or password reset. Same storage rule as
+ *  API tokens: the plaintext is shown once, only the hash is kept. */
+export function generateInviteToken(): { token: string; hash: string } {
+  const token = `inv_${randomBytes(24).toString("hex")}`;
+  return { token, hash: hashToken(token) };
+}
+
 /* ---- sessions ---- */
 export async function createSession(userId: number): Promise<string> {
   const token = randomBytes(32).toString("hex");
@@ -121,7 +128,11 @@ export async function currentUser(req: FastifyRequest): Promise<CurrentUser | nu
       .where(and(eq(s.sessions.token, token), gt(s.sessions.expiresAt, new Date())))
       .limit(1);
     const u = rows[0]?.u;
-    if (u && !(u.expiresAt && u.expiresAt.getTime() < Date.now())) return { id: u.id, email: u.email, name: u.name, role: u.role as Role, authProvider: u.authProvider };
+    // Deactivation is checked here, not only at login: an existing session must
+    // stop working the moment the account is disabled, otherwise "deactivate"
+    // means "cannot log in again" rather than "cannot act".
+    if (u && !u.deactivatedAt && !(u.expiresAt && u.expiresAt.getTime() < Date.now()))
+      return { id: u.id, email: u.email, name: u.name, role: u.role as Role, authProvider: u.authProvider };
   }
   // 2) scoped API bearer token (machine callers: GRCen catalog sync, CI, scripts).
   // Works in production (unlike the dev header) — resolves to the token's scoped role.

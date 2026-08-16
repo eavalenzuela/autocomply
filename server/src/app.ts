@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql , isNull} from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
 import { controlScore, ratingToGrade, COVERAGE_FLOOR, DIMENSIONS, type Dimension, type Rating } from "./scoring";
@@ -10,7 +10,7 @@ import { captureUrl, captureInline, EvidenceFetchError } from "./evidence";
 import {
   idParam, codeParam, loginBody, stepUpBody, passwordBody, attestBody, exceptionBody,
   decideBody, soaBody, roleBody, tokenBody, assignBody, frameworkQuery, periodBody,
-  periodStatusBody, evidenceBody,
+  periodStatusBody, evidenceBody, createUserBody, acceptInviteBody, activeBody,
 } from "./schemas";
 import { RateLimiter } from "./ratelimit";
 import {
@@ -30,6 +30,8 @@ import {
   generateApiToken,
   STEP_UP_TTL_MS,
   SESSION_COOKIE,
+  generateInviteToken,
+  hashToken,
 } from "./auth";
 import { registerOAuth } from "./oauth";
 import { buildCatalog, recordCatalogExport, lastCatalogExportAt, deriveCrosswalks } from "./catalog";
@@ -253,7 +255,9 @@ export async function buildApp() {
   // Global auth gate: every /api route requires a logged-in user except the
   // login/session-bootstrap allowlist. Write routes keep their own finer-grained
   // role/scope checks; this just stops anonymous reads of the org's posture.
-  const PUBLIC_PATHS = new Set(["/api/health", "/api/login", "/api/logout", "/api/me"]);
+  // /api/invite/accept is public by necessity: the holder of an invite has no
+  // session yet. It is rate limited, and its token is single-use and time-boxed.
+  const PUBLIC_PATHS = new Set(["/api/health", "/api/login", "/api/logout", "/api/me", "/api/invite/accept"]);
   app.addHook("preHandler", async (req, reply) => {
     const path = req.url.split("?")[0];
     if (!path.startsWith("/api/")) return;
@@ -298,6 +302,14 @@ export async function buildApp() {
         payload: { reason: u ? "bad-password" : "unknown-account" },
       });
       return reply.code(401).send({ error: "invalid credentials" });
+    }
+    if (u.deactivatedAt) {
+      // Checked here as well as in currentUser: without this a deactivated
+      // account still minted a session (which then failed on every request),
+      // which is confusing to the user and confirms their password to someone
+      // whose access was supposed to be over.
+      await recordSecurityEvent(req, u, { action: "login-denied", targetType: "user", targetId: u.email, payload: { reason: "deactivated" } });
+      return reply.code(403).send({ error: "this account has been deactivated" });
     }
     if (u.expiresAt && u.expiresAt.getTime() < Date.now()) {
       await recordSecurityEvent(req, u, { action: "login-denied", targetType: "user", targetId: u.email, payload: { reason: "expired" } });
@@ -344,6 +356,8 @@ export async function buildApp() {
   // a stolen session elsewhere doesn't survive the rotation. SSO accounts manage
   // credentials at their IdP.
   const MIN_PASSWORD_LEN = 8;
+  // Long enough to survive a weekend, short enough that a forgotten link expires.
+  const INVITE_TTL_MS = 72 * 3600 * 1000;
   app.post<{ Body: { currentPassword: string; newPassword: string } }>("/api/me/password", { schema: { body: passwordBody } }, async (req, reply) => {
     if (!authLimiter.allow(`pwchange:${req.ip}`))
       return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
@@ -1158,6 +1172,169 @@ export async function buildApp() {
       })),
     };
   });
+
+  // Create a user. There was no route for this: seed.ts held the only INSERT
+  // into users in the codebase, so a deployment had no path to a first login and
+  // no path to a second person. The account is created WITHOUT a password and an
+  // invite link is returned once — the admin never chooses someone else's
+  // credential, and the plaintext is not stored.
+  app.post<{ Body: { email: string; name: string; role?: string; expiresAt?: string } }>(
+    "/api/users",
+    { schema: { body: createUserBody } },
+    async (req, reply) => {
+      const me = await currentUser(req);
+      if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can create users" });
+      if (!(await hasFreshStepUp(req)))
+        return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
+      const email = req.body.email.trim().toLowerCase();
+      const existing = (await db.select({ id: s.users.id }).from(s.users).where(eq(s.users.email, email)).limit(1))[0];
+      if (existing) return reply.code(409).send({ error: "a user with that email already exists" });
+
+      const { token, hash } = generateInviteToken();
+      const created = await db.transaction(async (tx) => {
+        const [u] = await tx
+          .insert(s.users)
+          .values({
+            email,
+            name: req.body.name.trim(),
+            role: req.body.role ?? "viewer",
+            passwordHash: null,
+            expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null,
+          })
+          .returning();
+        await tx.insert(s.userInvites).values({
+          userId: u.id,
+          tokenHash: hash,
+          purpose: "invite",
+          expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+          createdBy: me.id,
+        });
+        await recordAudit(tx, req, me, {
+          action: "user-create",
+          targetType: "user",
+          targetId: String(u.id),
+          payload: { email, role: u.role },
+        });
+        return u;
+      });
+
+      return reply.code(201).send({
+        user: { id: created.id, email: created.email, name: created.name, role: created.role },
+        // Shown once. Deliberately not persisted and not emailed from here —
+        // wiring mail is a deployment decision, and a link an admin can copy is
+        // honest about that rather than pretending delivery happened.
+        inviteToken: token,
+        expiresInHours: INVITE_TTL_MS / 3600_000,
+      });
+    },
+  );
+
+  // Reissue a link — the password reset the product had no answer for.
+  app.post<{ Params: { id: string } }>(
+    "/api/users/:id/invite",
+    { schema: { params: idParam("id") } },
+    async (req, reply) => {
+      const me = await currentUser(req);
+      if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can issue invites" });
+      if (!(await hasFreshStepUp(req)))
+        return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
+      const id = Number(req.params.id);
+      const u = (await db.select().from(s.users).where(eq(s.users.id, id)).limit(1))[0];
+      if (!u) return reply.code(404).send({ error: "unknown user" });
+      const { token, hash } = generateInviteToken();
+      await db.transaction(async (tx) => {
+        // Any outstanding link for this user stops working: two live reset links
+        // is one more than anybody needs.
+        await tx
+          .update(s.userInvites)
+          .set({ usedAt: new Date() })
+          .where(and(eq(s.userInvites.userId, id), isNull(s.userInvites.usedAt)));
+        await tx.insert(s.userInvites).values({
+          userId: id,
+          tokenHash: hash,
+          purpose: "reset",
+          expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+          createdBy: me.id,
+        });
+        await recordAudit(tx, req, me, { action: "user-invite", targetType: "user", targetId: String(id) });
+      });
+      return { inviteToken: token, expiresInHours: INVITE_TTL_MS / 3600_000 };
+    },
+  );
+
+  // Accept an invite: set a password and activate. Public by necessity — the
+  // holder has no session yet — so it is rate limited and the token is single
+  // use and time boxed.
+  app.post<{ Body: { token: string; password: string } }>(
+    "/api/invite/accept",
+    { schema: { body: acceptInviteBody } },
+    async (req, reply) => {
+      if (!authLimiter.allow(`invite:${req.ip}`)) {
+        await recordSecurityEvent(req, null, { action: "invite-throttled", targetType: "user" });
+        return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
+      }
+      const { token, password } = req.body;
+      const inv = (
+        await db.select().from(s.userInvites).where(eq(s.userInvites.tokenHash, hashToken(token))).limit(1)
+      )[0];
+      if (!inv || inv.usedAt || inv.expiresAt.getTime() < Date.now()) {
+        await recordSecurityEvent(req, null, { action: "invite-rejected", targetType: "user", payload: { reason: !inv ? "unknown" : inv.usedAt ? "used" : "expired" } });
+        return reply.code(400).send({ error: "this link is no longer valid — ask an admin for a new one" });
+      }
+      if (password.length < MIN_PASSWORD_LEN)
+        return reply.code(400).send({ error: `password must be at least ${MIN_PASSWORD_LEN} characters` });
+
+      await db.transaction(async (tx) => {
+        await tx.update(s.users).set({ passwordHash: hashPassword(password), deactivatedAt: null }).where(eq(s.users.id, inv.userId));
+        await tx.update(s.userInvites).set({ usedAt: new Date() }).where(eq(s.userInvites.id, inv.id));
+        // Any session that existed before a password was set or reset is not
+        // the person who just proved they hold the link.
+        await tx.delete(s.sessions).where(eq(s.sessions.userId, inv.userId));
+        await recordAudit(tx, req, { id: inv.userId }, {
+          action: "invite-accepted",
+          targetType: "user",
+          targetId: String(inv.userId),
+          payload: { purpose: inv.purpose },
+        });
+      });
+      return { ok: true };
+    },
+  );
+
+  // Deactivate / reactivate. Not delete: the audit trail references users by id.
+  app.post<{ Params: { id: string }; Body: { active: boolean } }>(
+    "/api/users/:id/active",
+    { schema: { params: idParam("id"), body: activeBody } },
+    async (req, reply) => {
+      const me = await currentUser(req);
+      if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can deactivate users" });
+      if (!(await hasFreshStepUp(req)))
+        return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
+      const id = Number(req.params.id);
+      if (id === me.id) return reply.code(400).send({ error: "you cannot deactivate your own account" });
+      const u = (await db.select().from(s.users).where(eq(s.users.id, id)).limit(1))[0];
+      if (!u) return reply.code(404).send({ error: "unknown user" });
+      const active = req.body.active;
+
+      await db.transaction(async (tx) => {
+        await tx.update(s.users).set({ deactivatedAt: active ? null : new Date() }).where(eq(s.users.id, id));
+        if (!active) {
+          // Deactivation that leaves live credentials behind is a label, not a
+          // control: drop the sessions AND revoke the API tokens they minted,
+          // which would otherwise keep acting with their role.
+          await tx.delete(s.sessions).where(eq(s.sessions.userId, id));
+          await tx.update(s.apiTokens).set({ revoked: true }).where(eq(s.apiTokens.createdBy, id));
+          await tx.update(s.userInvites).set({ usedAt: new Date() }).where(and(eq(s.userInvites.userId, id), isNull(s.userInvites.usedAt)));
+        }
+        await recordAudit(tx, req, me, {
+          action: active ? "user-reactivate" : "user-deactivate",
+          targetType: "user",
+          targetId: String(id),
+        });
+      });
+      return { ok: true, id, active };
+    },
+  );
 
   app.post<{ Params: { id: string }; Body: { role: string } }>("/api/users/:id/role", { schema: { params: idParam("id"), body: roleBody } }, async (req, reply) => {
     const me = await currentUser(req);

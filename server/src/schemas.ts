@@ -162,3 +162,29 @@ export const evidenceBody = {
     contentType: { type: "string", maxLength: 128 },
   },
 };
+
+export const createUserBody = {
+  type: "object" as const,
+  required: ["email", "name"],
+  properties: {
+    email: { type: "string", minLength: 3, maxLength: 254 },
+    name: { type: "string", minLength: 1, maxLength: 200 },
+    role: { type: "string", enum: [...ROLES] },
+    expiresAt: { type: "string", maxLength: 64 },
+  },
+};
+
+export const acceptInviteBody = {
+  type: "object" as const,
+  required: ["token", "password"],
+  properties: {
+    token: { type: "string", minLength: 8, maxLength: 128 },
+    password: { type: "string", minLength: 8, maxLength: 512 },
+  },
+};
+
+export const activeBody = {
+  type: "object" as const,
+  required: ["active"],
+  properties: { active: { type: "boolean" } },
+};
