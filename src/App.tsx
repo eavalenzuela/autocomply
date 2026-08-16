@@ -14,7 +14,7 @@ import { GlyphCell } from "./components/Glyph";
 import { Grid } from "./components/Grid";
 import { Drawer } from "./components/Drawer";
 import { TweaksPanel, useTweaks } from "./components/Tweaks";
-import { LoginPage, ChangePasswordModal } from "./components/auth";
+import { LoginPage, InvitePage, ChangePasswordModal } from "./components/auth";
 import { StepUpGate } from "./components/StepUp";
 import { Sidebar, WorklistPage, EvidencePage, ExceptionsPage, RequirementsPage, DashboardPage, AdminPage, ReportsPage, IntegrationsPage, ControlsPage, PeriodsPage, SoaPage } from "./components/shell";
 
@@ -434,6 +434,17 @@ export default function App() {
   }, [query]);
 
   if (!authChecked) return null;
+  // /invite is reachable without a session by definition — the holder does not
+  // have one yet. Checked before the login gate so the link actually works.
+  if (window.location.pathname.replace(/\/$/, "") === "/invite")
+    return (
+      <InvitePage
+        onDone={() => {
+          window.history.replaceState(null, "", "/");
+          setRoute(parseLocation("/", ""));
+        }}
+      />
+    );
   if (!me) return <LoginPage onLogin={setMe} />;
 
   const handleLogout = async () => {
@@ -508,7 +519,7 @@ export default function App() {
           {route.section !== null && active === "worklist" && <WorklistPage onOpenControl={setSelectedId} />}
           {route.section !== null && active === "evidence" && <EvidencePage onOpenControl={setSelectedId} />}
           {route.section !== null && active === "risks" && <ExceptionsPage role={me.role} />}
-          {route.section !== null && active === "requirements" && <RequirementsPage />}
+          {route.section !== null && active === "requirements" && <RequirementsPage role={me.role} />}
           {route.section !== null && active === "soa" && <SoaPage role={me.role} />}
           {route.section !== null && active === "reports" && <ReportsPage />}
           {route.section !== null && active === "integrations" && <IntegrationsPage />}

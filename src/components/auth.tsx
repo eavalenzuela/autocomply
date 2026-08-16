@@ -5,7 +5,7 @@
 // the sign-in page of every deployment.
 // Also hosts the local-account password-change modal (topbar-launched).
 import { useEffect, useState } from "react";
-import { login, fetchAuthProviders, changePassword, type CurrentUser } from "../api";
+import { login, fetchAuthProviders, changePassword, type CurrentUser , acceptInvite} from "../api";
 
 const PROVIDER_LABEL: Record<string, string> = { github: "Continue with GitHub", google: "Continue with Google" };
 
@@ -164,6 +164,96 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
             </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Invite / password-reset acceptance.
+ *
+ * Reached at /invite#<token>. The token lives in the fragment deliberately:
+ * fragments are not sent to the server, so the secret stays out of access logs,
+ * Referer headers and anything that records URLs.
+ */
+export function InvitePage({ onDone }: { onDone: () => void }) {
+  const token = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (password !== confirm) return setErr("Those passwords do not match.");
+    if (password.length < 8) return setErr("Use at least 8 characters.");
+    setBusy(true);
+    try {
+      await acceptInvite(token, password);
+      setDone(true);
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="login-screen">
+      <div className="login-card">
+        <div className="brand" style={{ marginBottom: 4 }}>
+          <span className="brand-mark" />
+          <span className="brand-name">autocomply<span> / control center</span></span>
+        </div>
+        {!token ? (
+          <>
+            <div className="login-sub">This link is incomplete</div>
+            <div className="login-note">
+              It may have been truncated in transit. Ask an admin to issue a new one.
+            </div>
+          </>
+        ) : done ? (
+          <>
+            <div className="login-sub">Password set</div>
+            <div className="login-note">You can sign in now.</div>
+            <button className="btn" style={{ marginTop: 10 }} onClick={onDone}>
+              Go to sign in
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="login-sub">Choose a password</div>
+            <form onSubmit={submit}>
+              <label className="login-label" htmlFor="invite-pw">New password</label>
+              <input
+                id="invite-pw"
+                className="login-input"
+                type="password"
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <label className="login-label" htmlFor="invite-pw2">Confirm password</label>
+              <input
+                id="invite-pw2"
+                className="login-input"
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+              {err && <div className="login-err">{err}</div>}
+              <button className="btn login-submit" disabled={busy} type="submit">
+                {busy ? "Setting…" : "Set password"}
+              </button>
+            </form>
+            <div className="login-note">
+              This link works once and expires. Setting a password also ends any existing sessions
+              for the account.
+            </div>
           </>
         )}
       </div>

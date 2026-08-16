@@ -161,6 +161,7 @@ export interface AdminUser {
   email: string;
   name: string;
   role: Role;
+  deactivatedAt?: string | null;
   expiresAt: string | null;
   assignments: string[];
 }
@@ -267,6 +268,7 @@ export async function requestException(body: { control: string; dimension?: stri
 }
 
 export interface RequirementRow {
+  requirementId: number;
   code: string;
   title: string | null;
   kind: string;
@@ -402,4 +404,72 @@ export async function fetchAudit(opts: { limit?: number; offset?: number; action
 // Local-account password change; the server revokes the user's other sessions.
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ revokedSessions: number }> {
   return post("/api/me/password", { currentPassword, newPassword });
+}
+
+/* ── Evidence ingress ──────────────────────────────────────────────────────
+   Attaching evidence existed only as an API until now: the schema, the read
+   paths and the snapshot table were all there, with no way for a person to put
+   anything in. */
+
+export interface AttachedEvidence {
+  evidence: { id: number; controlCode: string; dimension: string; title: string; contentHash: string | null };
+  snapshot: { id: number; contentHash: string; bytes: number; fetchedAt: string };
+}
+
+export async function attachEvidence(body: {
+  control: string;
+  dimension: "pol" | "proc" | "impl" | "meas" | "mang";
+  title: string;
+  kind?: string;
+  url?: string;
+  content?: string;
+}): Promise<AttachedEvidence> {
+  return post("/api/evidence", body);
+}
+
+export async function fetchSnapshots(evidenceId: number): Promise<{
+  count: number;
+  snapshots: { id: number; contentHash: string; bytes: number; sourceUrl: string | null; fetchedAt: string }[];
+}> {
+  return get(`/api/evidence/${evidenceId}/snapshots`);
+}
+
+/* ── User lifecycle ───────────────────────────────────────────────────────── */
+
+export async function createUser(body: {
+  email: string;
+  name: string;
+  role?: string;
+  expiresAt?: string;
+}): Promise<{ user: { id: number; email: string; name: string; role: string }; inviteToken: string; expiresInHours: number }> {
+  return post("/api/users", body);
+}
+
+export async function reissueInvite(userId: number): Promise<{ inviteToken: string; expiresInHours: number }> {
+  return post(`/api/users/${userId}/invite`);
+}
+
+export async function setUserActive(userId: number, active: boolean): Promise<void> {
+  await post(`/api/users/${userId}/active`, { active });
+}
+
+export async function acceptInvite(token: string, password: string): Promise<void> {
+  await post("/api/invite/accept", { token, password });
+}
+
+/* ── Crosswalk writes ─────────────────────────────────────────────────────── */
+
+export async function createMapping(body: {
+  control: string;
+  requirementId: number;
+  relationship: "equivalent" | "superset" | "subset" | "partial" | "related";
+  confidence: "high" | "medium" | "low";
+  note?: string;
+}): Promise<void> {
+  await post("/api/mappings", body);
+}
+
+export async function deleteMapping(id: number): Promise<void> {
+  const r = await request(`/api/mappings/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(await describe(`/api/mappings/${id}`, r));
 }

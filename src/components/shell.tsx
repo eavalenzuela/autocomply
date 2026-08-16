@@ -38,6 +38,11 @@ import {
   type MatrixSummary,
   type AdminUser,
   type Role,
+  createUser,
+  reissueInvite,
+  setUserActive,
+  createMapping,
+  deleteMapping,
 } from "../api";
 
 const ROLES: Role[] = ["admin", "compliance_manager", "control_owner", "auditor", "viewer"];
@@ -243,15 +248,45 @@ export function ExceptionsPage({ role }: { role: string }) {
   );
 }
 
-export function RequirementsPage() {
+export function RequirementsPage({ role }: { role?: string }) {
   const [fw, setFw] = useState<"soc2" | "iso27001">("soc2");
   const [data, setData] = useState<RequirementsResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [gapsOnly, setGapsOnly] = useState(false);
+  const [mapFor, setMapFor] = useState<string | null>(null);
+  const [mapCode, setMapCode] = useState("");
+  const [mapBusy, setMapBusy] = useState(false);
+
+  async function doMap(r: { code: string; requirementId?: number }) {
+    const requirementId = (r as any).requirementId;
+    if (!requirementId || !mapCode.trim()) return;
+    setMapBusy(true);
+    setErr(null);
+    try {
+      await createMapping({
+        control: mapCode.trim().toUpperCase(),
+        requirementId,
+        // Conservative defaults for a hand-made link: it covers part of the
+        // requirement, and a human said so rather than a crosswalk deriving it.
+        relationship: "partial",
+        confidence: "medium",
+      });
+      setMapFor(null);
+      setMapCode("");
+      await loadReqs();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setMapBusy(false);
+    }
+  }
+  const loadReqs = () => fetchRequirements(fw).then(setData).catch((e) => setErr(String(e.message ?? e)));
   useEffect(() => {
     setData(null);
-    fetchRequirements(fw).then(setData).catch((e) => setErr(String(e.message ?? e)));
+    loadReqs();
   }, [fw]);
+  // Editing the crosswalk is the same authority as editing the SoA.
+  const canMap = role === "admin" || role === "compliance_manager";
   const rows = (data?.requirements ?? []).filter((r) => !gapsOnly || r.status === "gap");
   const s = data?.summary;
   return (
@@ -288,6 +323,32 @@ export function RequirementsPage() {
             <span className="wl-name">{r.title}</span>
             <span className="req-score">{r.score == null ? "—" : `${r.score}%`}</span>
             <span className="req-mapped">{r.status === "gap" ? "no controls" : `${r.mapped} control${r.mapped === 1 ? "" : "s"}`}</span>
+            {/* A gap you cannot close in the product is a to-do list. Mappings
+                could only come from the loader, so closing one meant editing
+                YAML and reseeding — which wipes the database. */}
+            {canMap && r.status === "gap" && (
+              mapFor === r.code ? (
+                <span className="adm-add">
+                  <input
+                    className="adm-add-input"
+                    placeholder="control code, e.g. AC-2"
+                    value={mapCode}
+                    autoFocus
+                    onChange={(e) => setMapCode(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && doMap(r)}
+                    aria-label={`Control to map to ${r.code}`}
+                  />
+                  <button className="btn" onClick={() => doMap(r)} disabled={mapBusy}>
+                    {mapBusy ? "…" : "map"}
+                  </button>
+                  <button className="btn ghost" onClick={() => { setMapFor(null); setMapCode(""); }}>cancel</button>
+                </span>
+              ) : (
+                <button className="btn ghost" onClick={() => { setMapFor(r.code); setMapCode(""); }}>
+                  map a control
+                </button>
+              )
+            )}
           </div>
         ))}
         {data && rows.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>None.</div>}
@@ -588,7 +649,51 @@ export function AdminPage({ me }: { me: { role: string } }) {
   const [err, setErr] = useState<string | null>(null);
   const [addFor, setAddFor] = useState<number | null>(null);
   const [addCode, setAddCode] = useState("");
+  // Creating a user existed only as an API: seed.ts held the only INSERT into
+  // users, so there was no way to add a colleague from inside the product.
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newRole, setNewRole] = useState<Role>("viewer");
+  const [busy, setBusy] = useState(false);
+  const [invite, setInvite] = useState<{ email: string; token: string; hours: number } | null>(null);
   const load = () => fetchUsers().then((d) => setUsers(d.users)).catch((e) => setErr(String(e.message ?? e)));
+
+  async function addUser() {
+    setErr(null);
+    setBusy(true);
+    try {
+      const res = await createUser({ email: newEmail.trim(), name: newName.trim(), role: newRole });
+      // Shown once, and never stored. The admin copies it to the person.
+      setInvite({ email: res.user.email, token: res.inviteToken, hours: res.expiresInHours });
+      setNewEmail("");
+      setNewName("");
+      await load();
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPassword(u: AdminUser) {
+    setErr(null);
+    try {
+      const res = await reissueInvite(u.id);
+      setInvite({ email: u.email, token: res.inviteToken, hours: res.expiresInHours });
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    }
+  }
+
+  async function toggleActive(u: AdminUser, active: boolean) {
+    setErr(null);
+    try {
+      await setUserActive(u.id, active);
+      await load();
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    }
+  }
   useEffect(() => {
     load();
   }, []);
@@ -631,11 +736,69 @@ export function AdminPage({ me }: { me: { role: string } }) {
         </h1>
       </div>
       {err && <div className="api-banner error">{err}</div>}
+
+      {isAdmin && (
+        <div className="subsection" style={{ marginBottom: 14 }}>
+          <div className="section-label">Add a user</div>
+          <div className="row-inline" style={{ gap: 8, flexWrap: "wrap" }}>
+            <input
+              className="adm-add-input"
+              placeholder="name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              aria-label="New user name"
+            />
+            <input
+              className="adm-add-input"
+              placeholder="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              aria-label="New user email"
+            />
+            <select className="adm-role" value={newRole} onChange={(e) => setNewRole(e.target.value as Role)} aria-label="New user role">
+              {ROLES.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            <button className="btn" disabled={busy || !newEmail.trim() || !newName.trim()} onClick={addUser}>
+              {busy ? "Creating…" : "Create + invite"}
+            </button>
+          </div>
+          <small className="stub-sub">
+            The account is created without a password. You get a single-use link to send them.
+          </small>
+        </div>
+      )}
+
+      {invite && (
+        <div className="subsection" style={{ marginBottom: 14 }}>
+          <div className="section-label">Invite link for {invite.email}</div>
+          <code className="invite-token">{`${window.location.origin}/invite#${invite.token}`}</code>
+          <small className="stub-sub">
+            Shown once — it is not stored anywhere and cannot be shown again. Expires in {invite.hours} hours;
+            issue a new one from “reset password” if it lapses.
+          </small>
+          <div className="row-inline" style={{ marginTop: 8 }}>
+            <button
+              className="btn"
+              onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/invite#${invite.token}`)}
+            >
+              Copy link
+            </button>
+            <button className="btn ghost" onClick={() => setInvite(null)}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
       <div className="worklist">
         {users.map((u) => (
           <div key={u.id} className="adm-row">
             <div className="adm-id">
-              <div className="adm-name">{u.name}{u.expiresAt ? <span className="adm-exp"> · expires {u.expiresAt.slice(0, 10)}</span> : null}</div>
+              <div className="adm-name">
+                {u.name}
+                {u.deactivatedAt ? <span className="adm-exp"> · deactivated</span> : null}
+                {u.expiresAt ? <span className="adm-exp"> · expires {u.expiresAt.slice(0, 10)}</span> : null}
+              </div>
               <div className="adm-email">{u.email}</div>
             </div>
             <select className="adm-role" value={u.role} disabled={!isAdmin} onChange={(e) => changeRole(u.id, e.target.value as Role)}>
@@ -643,6 +806,24 @@ export function AdminPage({ me }: { me: { role: string } }) {
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
+            {isAdmin && (
+              <div className="row-inline" style={{ gap: 6 }}>
+                <button className="btn ghost" onClick={() => resetPassword(u)} title="Issue a new single-use link">
+                  reset password
+                </button>
+                {u.deactivatedAt ? (
+                  <button className="btn ghost" onClick={() => toggleActive(u, true)}>reactivate</button>
+                ) : (
+                  <button
+                    className="btn ghost"
+                    onClick={() => toggleActive(u, false)}
+                    title="Ends their sessions and revokes their API tokens immediately"
+                  >
+                    deactivate
+                  </button>
+                )}
+              </div>
+            )}
             <div className="adm-assigns">
               {u.role === "control_owner" ? (
                 <>

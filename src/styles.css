@@ -1432,3 +1432,17 @@ tr:focus-visible {
   background: var(--surface-2);
   border: 1px solid var(--line);
 }
+
+/* An invite link is shown once and must be selectable in full. */
+.invite-token {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  word-break: break-all;
+  user-select: all;
+}

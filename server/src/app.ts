@@ -1194,6 +1194,9 @@ export async function buildApp() {
         name: u.name,
         role: u.role,
         expiresAt: u.expiresAt,
+        // Without this the admin UI cannot tell a deactivated account from an
+        // active one, which makes the deactivate control unusable.
+        deactivatedAt: u.deactivatedAt,
         assignments: assigns.filter((a) => a.userId === u.id).map((a) => a.controlCode).sort(),
       })),
     };

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Control, Domain, GlyphStyle } from "../types";
 import { GlyphCell } from "./Glyph";
 import { MATURITY_COLS } from "../data";
-import { fetchControl, attest, requestException, type ControlDetail } from "../api";
+import { fetchControl, attest, requestException, type ControlDetail , attachEvidence} from "../api";
 
 const RUNG_SCORE = ["—", "20", "40", "60", "80", "100"];
 const RATINGS: { v: "nc" | "sc" | "pc" | "mc" | "fc"; label: string }[] = [
@@ -66,6 +66,37 @@ export function Drawer({
 
   const open = !!controlId;
   const panelRef = useRef<HTMLElement | null>(null);
+  const [evTitle, setEvTitle] = useState("");
+  const [evDim, setEvDim] = useState<(typeof DIMS)[number]>("pol");
+  const [evMode, setEvMode] = useState<"url" | "paste">("paste");
+  const [evUrl, setEvUrl] = useState("");
+  const [evText, setEvText] = useState("");
+  const [evBusy, setEvBusy] = useState(false);
+  const [evMsg, setEvMsg] = useState<{ text: string; bad: boolean } | null>(null);
+
+  async function doAttach() {
+    if (!controlId) return;
+    setEvBusy(true);
+    setEvMsg(null);
+    try {
+      const res = await attachEvidence({
+        control: controlId,
+        dimension: evDim,
+        title: evTitle.trim(),
+        ...(evMode === "url" ? { url: evUrl.trim() } : { content: evText }),
+      });
+      // Show the hash: the point of capturing is that the record can be checked.
+      setEvMsg({ text: `Attached — ${res.snapshot.bytes} bytes, ${res.snapshot.contentHash.slice(0, 23)}…`, bad: false });
+      setEvTitle("");
+      setEvUrl("");
+      setEvText("");
+      onChanged();
+    } catch (e: any) {
+      setEvMsg({ text: String(e?.message ?? e), bad: true });
+    } finally {
+      setEvBusy(false);
+    }
+  }
   // Where focus was before the drawer opened, so it can be handed back. A
   // dialog that dumps focus at the top of the document on close makes a
   // keyboard user retrace their whole path to get back to the row they opened.
@@ -218,6 +249,76 @@ export function Drawer({
                   <div className="attest-hint">Sets the {MATURITY_COLS[DIMS.indexOf(dim)].label} rating (appends an attestation).</div>
                 </div>
               </div>
+              )}
+
+              {/* Attach evidence (writers only). The capability existed only as an
+                  API: the schema, snapshots and read paths were all built, with
+                  no way for a person to put anything in. */}
+              {canWrite && (
+                <div className="section">
+                  <div className="section-label">Attach evidence</div>
+                  <div className="attest-box">
+                    <input
+                      className="login-input"
+                      value={evTitle}
+                      onChange={(e) => setEvTitle(e.target.value)}
+                      placeholder="What is this? e.g. Access Review Procedure v4"
+                      aria-label="Evidence title"
+                    />
+                    <div className="attest-dims" style={{ marginTop: 8 }}>
+                      {DIMS.map((d) => (
+                        <button
+                          key={d}
+                          className={`attest-dim ${evDim === d ? "on" : ""}`}
+                          onClick={() => setEvDim(d)}
+                          aria-pressed={evDim === d}
+                        >
+                          {MATURITY_COLS[DIMS.indexOf(d)].short}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="attest-dims" style={{ marginTop: 8 }}>
+                      <button className={`attest-dim ${evMode === "url" ? "on" : ""}`} onClick={() => setEvMode("url")} aria-pressed={evMode === "url"}>
+                        from URL
+                      </button>
+                      <button className={`attest-dim ${evMode === "paste" ? "on" : ""}`} onClick={() => setEvMode("paste")} aria-pressed={evMode === "paste"}>
+                        paste text
+                      </button>
+                    </div>
+                    {evMode === "url" ? (
+                      <input
+                        className="login-input"
+                        style={{ marginTop: 8 }}
+                        value={evUrl}
+                        onChange={(e) => setEvUrl(e.target.value)}
+                        placeholder="https://… (fetched and hashed now)"
+                        aria-label="Evidence source URL"
+                      />
+                    ) : (
+                      <textarea
+                        className="login-input"
+                        style={{ marginTop: 8, minHeight: 90 }}
+                        value={evText}
+                        onChange={(e) => setEvText(e.target.value)}
+                        placeholder="Paste the policy or procedure text — it is hashed and stored as a snapshot"
+                        aria-label="Evidence content"
+                      />
+                    )}
+                    <div className="attest-ratings" style={{ marginTop: 8 }}>
+                      <button className="btn" disabled={evBusy || !evTitle.trim()} onClick={doAttach}>
+                        {evBusy ? "Capturing…" : "Attach"}
+                      </button>
+                    </div>
+                    {evMsg && (
+                      <div className={`attest-hint ${evMsg.bad ? "bad" : ""}`}>{evMsg.text}</div>
+                    )}
+                    {!evMsg && (
+                      <div className="attest-hint">
+                        The content is hashed when captured, so the record shows what you actually attached.
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
               {/* Risk acceptance (writers only) — files a pending exception for this control */}

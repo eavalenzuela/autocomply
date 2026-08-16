@@ -127,6 +127,8 @@ export async function computeRequirements(fw: "soc2" | "iso27001") {
     else if (score! >= 50) (status = "partial"), summary.partial++;
     else (status = "weak"), summary.weak++;
     return {
+      // The id the client needs to create a mapping against this requirement.
+      requirementId: r.id,
       code: r.code,
       title: r.title,
       kind: r.kind,
