@@ -188,3 +188,18 @@ export const activeBody = {
   required: ["active"],
   properties: { active: { type: "boolean" } },
 };
+
+export const mappingBody = {
+  type: "object" as const,
+  required: ["control", "requirementId", "relationship", "confidence"],
+  // `source` is deliberately absent: a hand-added mapping must not be able to
+  // claim it came from the OLIR crosswalk. The server sets it to "manual".
+  additionalProperties: false,
+  properties: {
+    control: { type: "string", minLength: 1, maxLength: 32 },
+    requirementId: { type: "integer", minimum: 1, maximum: 2147483647 },
+    relationship: { type: "string", enum: ["equivalent", "superset", "subset", "partial", "related"] },
+    confidence: { type: "string", enum: ["high", "medium", "low"] },
+    note: { type: "string", maxLength: 2000 },
+  },
+};

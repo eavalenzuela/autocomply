@@ -272,6 +272,11 @@ export const assessmentPeriods = pgTable("assessment_periods", {
   endDate: timestamp("end_date", { withTimezone: true }).notNull(),
   status: varchar("status", { length: 12 }).notNull().default("active"), // planning | active | closed
   tscCategories: jsonb("tsc_categories"), // SOC 2 opt-in categories
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  // The control codes that were in scope when the period closed. "Closed" has
+  // to mean the assessment stopped moving; without a frozen scope set, editing
+  // a baseline later silently rewrites what a finished assessment covered.
+  scopeSnapshot: jsonb("scope_snapshot"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -303,6 +308,13 @@ export const attestations = pgTable("attestations", {
   rating: varchar("rating", { length: 4 }).notNull(),
   justification: text("justification"),
   evidenceRefs: jsonb("evidence_refs"), // array of {type, id}
+  // The period this attestation was made in, stamped at write time. Without it
+  // a report for a closed window is answered with whatever is current: no fact
+  // table carried a period, so "SOC 2 Type II, Feb-May" and "today" were the
+  // same query. Nullable because attestations written before periods existed
+  // genuinely belong to no window, and pretending otherwise would be a worse
+  // lie than admitting it.
+  periodId: integer("period_id"),
   marker: varchar("marker", { length: 8 }), // aws | drift | gap | null
   actorId: integer("actor_id").references(() => users.id),
   source: varchar("source", { length: 16 }).notNull().default("human"), // human | aws-suggested

@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
-import { and, asc, count, desc, eq, sql , isNull} from "drizzle-orm";
+import { and, asc, count, desc, eq, sql , isNull, ne} from "drizzle-orm";
 import { db } from "./db/index";
 import * as s from "./db/schema";
 import { controlScore, ratingToGrade, COVERAGE_FLOOR, DIMENSIONS, type Dimension, type Rating } from "./scoring";
@@ -10,7 +10,7 @@ import { captureUrl, captureInline, EvidenceFetchError } from "./evidence";
 import {
   idParam, codeParam, loginBody, stepUpBody, passwordBody, attestBody, exceptionBody,
   decideBody, soaBody, roleBody, tokenBody, assignBody, frameworkQuery, periodBody,
-  periodStatusBody, evidenceBody, createUserBody, acceptInviteBody, activeBody,
+  periodStatusBody, evidenceBody, createUserBody, acceptInviteBody, activeBody, mappingBody,
 } from "./schemas";
 import { RateLimiter } from "./ratelimit";
 import {
@@ -43,6 +43,7 @@ import {
   currentPeriod,
   computeRequirements,
   controlScoreMap,
+  activePeriodId,
   REL_W,
   GATE_FLOOR,
 } from "./domain/assessment";
@@ -423,7 +424,19 @@ export async function buildApp() {
       const row = await db.transaction(async (tx) => {
         const [inserted] = await tx
           .insert(s.attestations)
-          .values({ controlCode: control, dimension, rating, justification: justification ?? null, marker: null, actorId: user.id, source: "human" })
+          .values({
+            controlCode: control,
+            dimension,
+            rating,
+            justification: justification ?? null,
+            marker: null,
+            actorId: user.id,
+            source: "human",
+            // Stamped at write time. A rating belongs to the window it was made
+            // in; deriving that later from timestamps guesses, and guesses about
+            // what an assessment covered are the wrong kind of guess.
+            periodId: await activePeriodId(),
+          })
           .returning();
         await recordAudit(tx, req, user, {
           action: "attest",
@@ -660,6 +673,90 @@ export async function buildApp() {
   app.get<{ Querystring: { framework?: string } }>("/api/requirements", async (req) => {
     return computeRequirements(req.query.framework === "iso27001" ? "iso27001" : "soc2");
   });
+
+  // Crosswalk writes. The gap report told you which requirements no control
+  // covers and gave you no way to say otherwise: mappings could only be created
+  // by the loader, so closing a gap meant editing YAML and reseeding, which
+  // destroys the database. A gap you cannot close in the product is a to-do
+  // list, not a control.
+  app.post<{ Body: { control: string; requirementId: number; relationship: string; confidence: string; note?: string } }>(
+    "/api/mappings",
+    { schema: { body: mappingBody } },
+    async (req, reply) => {
+      const me = await currentUser(req);
+      if (!me) return reply.code(401).send({ error: "unauthenticated" });
+      if (me.role !== "admin" && me.role !== "compliance_manager")
+        return reply.code(403).send({ error: "only admin/compliance_manager can edit the crosswalk" });
+      const { control, requirementId, relationship, confidence, note } = req.body;
+
+      if (!(await controlExists(control))) return reply.code(404).send({ error: "unknown control" });
+      const reqRow = (await db.select().from(s.requirements).where(eq(s.requirements.id, requirementId)).limit(1))[0];
+      if (!reqRow) return reply.code(404).send({ error: "unknown requirement" });
+
+      const dupe = (
+        await db
+          .select({ id: s.mappings.id })
+          .from(s.mappings)
+          .where(and(eq(s.mappings.controlCode, control), eq(s.mappings.requirementId, requirementId)))
+          .limit(1)
+      )[0];
+      if (dupe) return reply.code(409).send({ error: "that control is already mapped to that requirement", id: dupe.id });
+
+      const row = await db.transaction(async (tx) => {
+        const [m] = await tx
+          .insert(s.mappings)
+          .values({
+            controlCode: control,
+            requirementId,
+            relationship,
+            confidence,
+            // Server-derived, like attestation provenance: a hand-added mapping
+            // must not be able to claim it came from the OLIR crosswalk.
+            source: "manual",
+            note: note ?? null,
+          })
+          .returning();
+        await recordAudit(tx, req, me, {
+          action: "mapping-create",
+          targetType: "control",
+          targetId: control,
+          payload: { requirement: `${reqRow.frameworkId}:${reqRow.code}`, relationship, confidence },
+        });
+        return m;
+      });
+      return reply.code(201).send({ mapping: row });
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    "/api/mappings/:id",
+    { schema: { params: idParam("id") } },
+    async (req, reply) => {
+      const me = await currentUser(req);
+      if (!me) return reply.code(401).send({ error: "unauthenticated" });
+      if (me.role !== "admin" && me.role !== "compliance_manager")
+        return reply.code(403).send({ error: "only admin/compliance_manager can edit the crosswalk" });
+      const id = Number(req.params.id);
+      const existing = (await db.select().from(s.mappings).where(eq(s.mappings.id, id)).limit(1))[0];
+      if (!existing) return reply.code(404).send({ error: "not found" });
+      // Loader-derived mappings are regenerated from data/; deleting one here
+      // would be undone by the next load and is a data-file change, not a
+      // product action.
+      if (existing.source !== "manual")
+        return reply.code(409).send({ error: `this mapping came from ${existing.source} — edit the source data instead` });
+
+      await db.transaction(async (tx) => {
+        await tx.delete(s.mappings).where(eq(s.mappings.id, id));
+        await recordAudit(tx, req, me, {
+          action: "mapping-delete",
+          targetType: "control",
+          targetId: existing.controlCode,
+          payload: { id, requirementId: existing.requirementId },
+        });
+      });
+      return { ok: true };
+    },
+  );
 
   // ISO 27001 Statement of Applicability — every Annex A control with its
   // applicability decision, status, justification, and crosswalk-derived coverage.
@@ -1015,10 +1112,62 @@ export async function buildApp() {
     const id = Number(req.params.id);
     const existing = (await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id)).limit(1))[0];
     if (!existing) return reply.code(404).send({ error: "not found" });
-    const [row] = await db.update(s.assessmentPeriods).set({ status: req.body.status }).where(eq(s.assessmentPeriods.id, id)).returning();
-    // Status transitions change what's in scope — they belong in the audit trail
-    // just like creation.
-    await recordAudit(db, req, me, { action: "period-status", targetType: "period", targetId: String(id), payload: { from: existing.status, to: req.body.status } });
+    const to = req.body.status;
+
+    // A real state machine. Any status could previously be set from any other,
+    // including reopening a closed assessment — which is the one transition an
+    // auditor would care most about, and it was silent.
+    const ALLOWED: Record<string, string[]> = {
+      planning: ["active", "closed"],
+      active: ["closed"],
+      closed: [], // terminal: a finished assessment does not reopen
+    };
+    if (existing.status === to) return { ok: true, period: existing };
+    if (!ALLOWED[existing.status]?.includes(to)) {
+      return reply.code(409).send({
+        error:
+          existing.status === "closed"
+            ? "this period is closed — closed assessments do not reopen; create a new period"
+            : `cannot move a period from ${existing.status} to ${to}`,
+      });
+    }
+
+    // One active period at a time: scoping and reporting both read "the active
+    // period", and two of them makes that phrase meaningless.
+    if (to === "active") {
+      const others = await db
+        .select({ id: s.assessmentPeriods.id, name: s.assessmentPeriods.name })
+        .from(s.assessmentPeriods)
+        .where(and(eq(s.assessmentPeriods.status, "active"), ne(s.assessmentPeriods.id, id)));
+      if (others.length) {
+        return reply.code(409).send({
+          error: `"${others[0].name}" is already active — close it before activating another`,
+        });
+      }
+    }
+
+    const row = await db.transaction(async (tx) => {
+      const patch: Record<string, unknown> = { status: to };
+      if (to === "closed") {
+        // Freeze the scope. Without this, editing a baseline later silently
+        // rewrites what a finished assessment covered.
+        const scope = await inScopeCodes(existing.tier);
+        patch.closedAt = new Date();
+        patch.scopeSnapshot = scope ? Array.from(scope).sort() : null;
+      }
+      const [updated] = await tx.update(s.assessmentPeriods).set(patch).where(eq(s.assessmentPeriods.id, id)).returning();
+      await recordAudit(tx, req, me, {
+        action: "period-status",
+        targetType: "period",
+        targetId: String(id),
+        payload: {
+          from: existing.status,
+          to,
+          ...(to === "closed" ? { frozenControls: (patch.scopeSnapshot as string[] | null)?.length ?? null } : {}),
+        },
+      });
+      return updated;
+    });
     return { ok: true, period: row };
   });
 

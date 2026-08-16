@@ -44,6 +44,18 @@ export async function controlExists(code: string | undefined): Promise<boolean> 
 
 // The org's current assessment window. Prefer an active period (the live cycle),
 // else the most recent. Drives the report/header period instead of hardcoded dates.
+/** Id of the active period, or null. Facts are stamped with this at write time
+ *  so a report for a closed window can be answered with what was true then
+ *  rather than with whatever is current. */
+export async function activePeriodId(): Promise<number | null> {
+  const rows = await db
+    .select({ id: s.assessmentPeriods.id })
+    .from(s.assessmentPeriods)
+    .where(eq(s.assessmentPeriods.status, "active"))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
 export async function currentPeriod() {
   const rows = await db.select().from(s.assessmentPeriods).orderBy(desc(s.assessmentPeriods.startDate));
   if (rows.length === 0) return null;
