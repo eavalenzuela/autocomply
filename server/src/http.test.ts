@@ -14,7 +14,7 @@
 //   DATABASE_URL=<test db> npm --prefix server run test:http
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app";
 import { db, pool } from "./db/index";
@@ -782,6 +782,117 @@ test("a period closed before snapshots existed says so rather than claiming to b
   } finally {
     if (id) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
     for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: fw }).where(eq(s.assessmentPeriods.id, p.id));
+    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Attestation ↔ period membership.
+//
+// attestations.period_id held one id and was read by nothing. Both halves were
+// wrong: overlapping windows mean a rating routinely belongs to several at
+// once, so a scalar column has to discard the rest.
+// ---------------------------------------------------------------------------
+
+test("one rating belongs to every open window it falls inside", async () => {
+  const cookie = await loginStepped(U.admin);
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+
+  const ids: number[] = [];
+  const now = new Date();
+  const start = new Date(now.getTime() - 30 * 864e5);
+  const end = new Date(now.getTime() + 30 * 864e5);
+  try {
+    // Two frameworks, overlapping windows — the exact shape the old column
+    // could not record.
+    const adopted = (await db.select({ id: s.frameworks.id }).from(s.frameworks).where(eq(s.frameworks.enabled, true))).map((f) => f.id);
+    assert.ok(adopted.length >= 2);
+    for (const fw of adopted.slice(0, 2)) {
+      const [row] = await db
+        .insert(s.assessmentPeriods)
+        .values({ name: `member-${fw}`, framework: fw, startDate: start, endDate: end, status: "active" })
+        .returning();
+      ids.push(row.id);
+    }
+    // A third window that does NOT cover today, so membership is by date rather
+    // than merely "every period that happens to be active".
+    const [outside] = await db
+      .insert(s.assessmentPeriods)
+      .values({
+        name: "member-outside", framework: "nist80053",
+        startDate: new Date(now.getTime() - 400 * 864e5), endDate: new Date(now.getTime() - 300 * 864e5),
+        status: "active",
+      })
+      .returning();
+    ids.push(outside.id);
+
+    const res = await app.inject({
+      method: "POST", url: "/api/attest", headers: auth(cookie),
+      payload: { control: ownedControl, dimension: "proc", rating: "mc", justification: "membership test" },
+    });
+    assert.equal(res.statusCode, 200, res.body);
+    const att = (
+      await db.select().from(s.attestations).where(eq(s.attestations.controlCode, ownedControl)).orderBy(s.attestations.id)
+    ).at(-1)!;
+
+    const links = (
+      await db.select().from(s.attestationPeriods).where(eq(s.attestationPeriods.attestationId, att.id))
+    ).map((l) => l.periodId).sort();
+    assert.deepEqual(links, ids.slice(0, 2).sort(), "the rating belongs to both overlapping windows and to neither closed nor out-of-range ones");
+  } finally {
+    await db.delete(s.attestationPeriods).where(inArray(s.attestationPeriods.periodId, ids));
+    for (const id of ids) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});
+
+test("closing a period sweeps up ratings made before it was activated", async () => {
+  // Links accrue at write time, so an attestation made while the period was
+  // still in planning — or before the period existed, which is what happens
+  // when a window is recorded retrospectively — would otherwise be missing from
+  // a window it plainly falls inside.
+  const cookie = await loginStepped(U.admin);
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+
+  let periodId: number | null = null;
+  try {
+    // Attest first, with no window open at all.
+    const res = await app.inject({
+      method: "POST", url: "/api/attest", headers: auth(cookie),
+      payload: { control: ownedControl, dimension: "impl", rating: "pc", justification: "before the window existed" },
+    });
+    assert.equal(res.statusCode, 200, res.body);
+    const att = (
+      await db.select().from(s.attestations).where(eq(s.attestations.controlCode, ownedControl)).orderBy(s.attestations.id)
+    ).at(-1)!;
+    const before = await db.select().from(s.attestationPeriods).where(eq(s.attestationPeriods.attestationId, att.id));
+    assert.equal(before.length, 0, "no window was open, so there is nothing to belong to yet");
+
+    // Now record the window retrospectively and close it.
+    const now = new Date();
+    const [row] = await db
+      .insert(s.assessmentPeriods)
+      .values({
+        name: "sweep-me", framework: "soc2",
+        startDate: new Date(now.getTime() - 10 * 864e5), endDate: new Date(now.getTime() + 10 * 864e5),
+        status: "active",
+      })
+      .returning();
+    periodId = row.id;
+    const closed = await app.inject({
+      method: "POST", url: `/api/periods/${periodId}/status`, headers: auth(cookie), payload: { status: "closed" },
+    });
+    assert.equal(closed.statusCode, 200, closed.body);
+
+    const after = await db.select().from(s.attestationPeriods).where(eq(s.attestationPeriods.attestationId, att.id));
+    assert.deepEqual(after.map((l) => l.periodId), [periodId], "closing completes the membership");
+  } finally {
+    if (periodId) {
+      await db.delete(s.attestationPeriods).where(eq(s.attestationPeriods.periodId, periodId));
+      await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, periodId));
+    }
     for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
   }
 });

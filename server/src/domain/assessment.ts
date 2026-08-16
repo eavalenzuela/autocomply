@@ -149,18 +149,88 @@ export async function baselinePeriod() {
 }
 
 /**
- * The period an attestation is stamped with. Nothing reads this column yet, so
- * the aim is to be defensible rather than clever: a rating is made against a
- * CCF control, so it belongs to the baseline assessment if one is running; with
- * no baseline period but exactly one active period, that one is unambiguous;
- * with several and no baseline, there is no single right answer and guessing is
- * worse than recording nothing.
+ * The open windows a moment falls inside.
+ *
+ * Membership is by date, not by "whatever was active when the row was written":
+ * an observation window covers a span of time, and a rating made inside it
+ * counts for it. Closed periods are excluded — a finished assessment does not
+ * acquire new findings.
  */
-export async function activePeriodId(): Promise<number | null> {
-  const baseline = await baselinePeriod();
-  if (baseline) return baseline.id;
-  const active = await activePeriods();
-  return active.length === 1 ? active[0].id : null;
+export async function openPeriodsCovering(at: Date) {
+  return db
+    .select({ id: s.assessmentPeriods.id })
+    .from(s.assessmentPeriods)
+    .where(
+      and(
+        eq(s.assessmentPeriods.status, "active"),
+        lte(s.assessmentPeriods.startDate, at),
+        gte(s.assessmentPeriods.endDate, at),
+      ),
+    );
+}
+
+/** Record which open windows an attestation falls inside. */
+export async function linkAttestationToPeriods(tx: typeof db, attestationId: number, at: Date) {
+  const periods = await openPeriodsCovering(at);
+  if (!periods.length) return 0;
+  await tx
+    .insert(s.attestationPeriods)
+    .values(periods.map((p) => ({ attestationId, periodId: p.id })))
+    .onConflictDoNothing();
+  return periods.length;
+}
+
+/**
+ * Sweep every attestation inside a period's window into its membership.
+ *
+ * Called when a period closes. Links normally accrue at write time, but an
+ * attestation written while the period was still in planning — or before the
+ * period existed at all, which is the common case when a window is recorded
+ * retrospectively — would otherwise be missing from a window it plainly falls
+ * inside. Closing is the moment the membership stops changing, so it is also
+ * the moment to make it complete.
+ */
+export async function sweepPeriodMembership(tx: typeof db, periodId: number, start: Date, end: Date) {
+  const rows = await tx
+    .select({ id: s.attestations.id })
+    .from(s.attestations)
+    .where(and(gte(s.attestations.createdAt, start), lte(s.attestations.createdAt, end)));
+  if (!rows.length) return 0;
+  await tx
+    .insert(s.attestationPeriods)
+    .values(rows.map((r) => ({ attestationId: r.id, periodId })))
+    .onConflictDoNothing();
+  return rows.length;
+}
+
+/**
+ * Counts of how much of the current posture was actually attested inside a
+ * window, versus carried in from before it. An auditor reading a Type II report
+ * needs to tell "we assessed this during the observation period" apart from
+ * "we are relying on a rating from two years ago", and the report could not
+ * previously answer that at all.
+ */
+export async function windowCoverage(periodId: number, controlCodes: string[], asOf?: Date | null) {
+  if (!controlCodes.length) return { withinWindow: 0, carriedIn: 0, total: 0 };
+  const inWindow = new Set(
+    (
+      await db
+        .select({ id: s.attestationPeriods.attestationId })
+        .from(s.attestationPeriods)
+        .where(eq(s.attestationPeriods.periodId, periodId))
+    ).map((r) => r.id),
+  );
+  const codes = new Set(controlCodes);
+  let withinWindow = 0;
+  let carriedIn = 0;
+  // Same cut-off the report's scores used, or the coverage figure would count
+  // ratings that the report itself does not show.
+  for (const [, a] of await latestAttestations(asOf)) {
+    if (!codes.has(a.controlCode)) continue;
+    if (inWindow.has(a.id)) withinWindow++;
+    else carriedIn++;
+  }
+  return { withinWindow, carriedIn, total: withinWindow + carriedIn };
 }
 
 const periodView = (p: typeof s.assessmentPeriods.$inferSelect, labels: Record<string, string>) => ({

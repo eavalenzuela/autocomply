@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { pool } from "./db/index";
 
 // Tables the cascade deletes last, whose dependants must be cleared first.
-const PARENTS = ["users", "controls", "requirements", "frameworks", "evidence_items", "attestations"];
+const PARENTS = ["users", "controls", "requirements", "frameworks", "evidence_items", "attestations", "assessment_periods"];
 
 async function main() {
   const seed = readFileSync(new URL("./seed.ts", import.meta.url), "utf8");

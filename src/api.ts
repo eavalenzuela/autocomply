@@ -343,6 +343,8 @@ export interface ReportResponse {
       mappings?: number;
       controlsInScope?: number | null;
     };
+    /** How much of the posture was attested inside the window vs carried in. */
+    windowCoverage?: { withinWindow: number; carriedIn: number; total: number };
     reopened?: { at: string | null; count: number; reason: string | null };
   };
   readiness: { covered: number; gaps: number; met: number; partial: number; weak: number; unassessed: number; readiness: number | null };

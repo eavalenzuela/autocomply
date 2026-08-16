@@ -59,6 +59,7 @@ async function main() {
   // gained a foreign key to `users` and nobody added it here. The rule: if a
   // table references users, controls or requirements, it is deleted BEFORE
   // them. `npm run db:fk-check` verifies that mechanically.
+  await db.delete(s.attestationPeriods); // pins attestations + assessment_periods
   await db.delete(s.attestationEvidence); // pins attestations + snapshots
   await db.delete(s.automatedFindings);
   await db.delete(s.checkRuns);

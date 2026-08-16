@@ -43,7 +43,9 @@ import {
   currentPeriod,
   computeRequirements,
   controlScoreMap,
-  activePeriodId,
+  linkAttestationToPeriods,
+  sweepPeriodMembership,
+  windowCoverage,
   baselinePeriod,
   activePeriodViews,
   resetFrameworkLabels,
@@ -451,12 +453,12 @@ export async function buildApp() {
             marker: null,
             actorId: user.id,
             source: "human",
-            // Stamped at write time. A rating belongs to the window it was made
-            // in; deriving that later from timestamps guesses, and guesses about
-            // what an assessment covered are the wrong kind of guess.
-            periodId: await activePeriodId(),
           })
           .returning();
+        // A rating belongs to every open window its date falls inside, which is
+        // routinely more than one. The single period_id this replaced could name
+        // only the first of them, and nothing ever read it.
+        await linkAttestationToPeriods(tx as any, inserted.id, inserted.createdAt);
         await recordAudit(tx, req, user, {
           action: "attest",
           targetType: "control",
@@ -996,6 +998,10 @@ export async function buildApp() {
         }),
         evidence: evidence.filter((e) => e.controlCode === c.code).map((e) => ({ title: e.title, kind: e.kind, sourceType: e.sourceType, contentHash: e.contentHash, drifted: e.drifted })),
       }));
+    // How much of the posture was attested inside the window, rather than
+    // carried in from before it. This is the question a Type II report is
+    // supposed to answer and previously could not.
+    const coverage = periodRow ? await windowCoverage(periodRow.id, controls.map((c) => c.code), asOf) : null;
     const body = {
       meta: {
         org: process.env.ORG_NAME || "autocomply",
@@ -1023,6 +1029,7 @@ export async function buildApp() {
                 note: "This period closed before scope snapshots recorded requirements and mappings. Ratings are as at the close date, but the requirement set and crosswalk are read live and may have changed since.",
               }
             : { kind: "live" as const, asOf: null },
+        ...(coverage ? { windowCoverage: coverage } : {}),
         ...(periodRow?.reopenCount
           ? {
               // A reopened period's report is drawn from live data again, and
@@ -1354,6 +1361,10 @@ export async function buildApp() {
         const scope = await inScopeCodes(existing.tier);
         patch.closedAt = new Date();
         patch.scopeSnapshot = await buildScopeSnapshot(existing.framework, scope);
+        // Membership stops changing here, so make it complete: anything attested
+        // inside this window that was not linked at write time — because the
+        // period was still in planning, or did not exist yet — belongs to it.
+        await sweepPeriodMembership(tx as any, id, existing.startDate, existing.endDate);
       }
       const [updated] = await tx.update(s.assessmentPeriods).set(patch).where(eq(s.assessmentPeriods.id, id)).returning();
       await recordAudit(tx, req, me, {

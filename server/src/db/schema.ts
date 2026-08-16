@@ -273,6 +273,30 @@ export const soaEntries = pgTable("soa_entries", {
 
 /* ===== Assessment periods (P4 scoping) ===== */
 
+/**
+ * Which assessment windows a rating falls inside.
+ *
+ * Replaces attestations.period_id, which could hold one id and was written but
+ * never read. Overlapping windows are ordinary, so membership is many-to-many:
+ * a rating made in March 2026 belongs to every window then open that covers the
+ * date. Rows accrue as attestations are written, and closing a period sweeps up
+ * anything in its window that predates the link (an attestation written while
+ * the period was still in planning, or before it was created at all), so a
+ * closed period's membership is complete as well as fixed.
+ */
+export const attestationPeriods = pgTable(
+  "attestation_periods",
+  {
+    attestationId: integer("attestation_id")
+      .notNull()
+      .references(() => attestations.id),
+    periodId: integer("period_id")
+      .notNull()
+      .references(() => assessmentPeriods.id),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.attestationId, t.periodId] }) }),
+);
+
 export const assessmentPeriods = pgTable("assessment_periods", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -328,13 +352,10 @@ export const attestations = pgTable("attestations", {
   rating: varchar("rating", { length: 4 }).notNull(),
   justification: text("justification"),
   evidenceRefs: jsonb("evidence_refs"), // array of {type, id}
-  // The period this attestation was made in, stamped at write time. Without it
-  // a report for a closed window is answered with whatever is current: no fact
-  // table carried a period, so "SOC 2 Type II, Feb-May" and "today" were the
-  // same query. Nullable because attestations written before periods existed
-  // genuinely belong to no window, and pretending otherwise would be a worse
-  // lie than admitting it.
-  periodId: integer("period_id"),
+  // NOTE: the single period_id column that used to sit here is gone. Assessment
+  // windows overlap, so one rating routinely belongs to several at once — a SOC
+  // 2 observation window and a CSF assessment running over the same months — and
+  // a scalar column can only ever name one of them. See attestation_periods.
   marker: varchar("marker", { length: 8 }), // aws | drift | gap | null
   actorId: integer("actor_id").references(() => users.id),
   source: varchar("source", { length: 16 }).notNull().default("human"), // human | aws-suggested

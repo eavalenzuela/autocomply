@@ -1100,6 +1100,14 @@ export function ReportsPage({ framework, onFramework }: { framework?: string | n
                 )}
               </div>
             )}
+            {report.meta.windowCoverage && report.meta.windowCoverage.total > 0 && (
+              <div className="report-basis b-coverage">
+                <b>{report.meta.windowCoverage.withinWindow}</b> of {report.meta.windowCoverage.total} current ratings
+                were attested inside this window;{" "}
+                <b>{report.meta.windowCoverage.carriedIn}</b> carried in from before it. A Type II opinion rests on
+                what was assessed during the observation period, so the second number is the one to justify.
+              </div>
+            )}
             {report.meta.reopened && (
               <div className="report-basis b-reopened">
                 <b>Reopened</b> {report.meta.reopened.at?.slice(0, 10)}
