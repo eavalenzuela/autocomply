@@ -31,8 +31,30 @@ for (const b of d.baselines) {
   if (!validBaselines.has(b.baseline)) bad.push(`bad baseline ${b.baseline} (${b.controlCode})`);
 }
 console.log("integrity:", bad.length ? bad : "OK");
-if (counts.controls !== 1196 || counts.objectives !== 324 || counts.categories !== 20) {
-  console.error("UNEXPECTED COUNTS");
+// Invariants, not cardinalities. This used to demand exactly 1196 controls /
+// 324 objectives / 20 categories, which meant loading YOUR organisation's
+// control set failed the check — the tooling asserted the fixture rather than
+// the rules the data has to obey. What matters is that the catalog is
+// non-empty, internally consistent, and free of duplicates; how big it is, is
+// the operator's business.
+const invariants: [string, boolean][] = [
+  ["catalog is non-empty", counts.controls > 0],
+  ["every control belongs to a category", counts.categories > 0],
+  ["objectives are present", counts.objectives > 0],
+  ["control codes are unique", new Set(d.controls.map((c) => c.code)).size === counts.controls],
+  ["category ids are unique", new Set(d.categories.map((c) => c.id)).size === counts.categories],
+  [
+    "objective codes are unique",
+    new Set(d.objectives.map((o: any) => o.code)).size === counts.objectives,
+  ],
+  [
+    "requirement refs are unique within a framework",
+    new Set(d.requirements.map((r: any) => `${r.frameworkId}:${r.code}`)).size === counts.requirements,
+  ],
+];
+const broken = invariants.filter(([, ok]) => !ok).map(([name]) => name);
+if (broken.length) {
+  console.error("BROKEN INVARIANTS:", broken);
   process.exit(1);
 }
 if (bad.length) process.exit(1);

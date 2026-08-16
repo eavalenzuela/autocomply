@@ -58,7 +58,10 @@ test("catalog builds, self-validates against the contract schema, and drops noth
   await validateCatalog(catalog); // throws on any schema violation
   assert.equal(droppedSatisfies, 0, "no satisfies edges should be dropped");
   assert.ok(catalog.frameworks.length >= 2, "expected >=2 frameworks");
-  assert.ok(catalog.controls.length > 1000, "expected the full 800-53 control set");
+  // An invariant, not a fixture size: this suite must pass against whatever
+  // catalog is loaded, including a real organisation's. It previously demanded
+  // >1000 controls, so loading your own control set turned the build red.
+  assert.ok(catalog.controls.length > 0, "catalog should not be empty");
 });
 
 test("requirement refs are unique and namespaced <fw>:<code>", async () => {
