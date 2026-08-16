@@ -47,6 +47,11 @@ import {
   baselinePeriod,
   activePeriodViews,
   resetFrameworkLabels,
+  activePeriodFor,
+  latestPeriodFor,
+  buildScopeSnapshot,
+  parseSnapshot,
+  periodViewOf,
   isFrameworkEnabled,
   enabledFrameworkIds,
   REL_W,
@@ -935,10 +940,25 @@ export async function buildApp() {
     // Recorded after the report is actually assembled, below — logging the read
     // before doing the work would leave an entry for a response that never
     // reached anyone if assembly threw.
-    const reqData = await computeRequirements(fw);
+    // A report on a CLOSED period must reproduce: it is the document that was
+    // issued. Reading live tables meant a catalog reload, a crosswalk edit or a
+    // new attestation retroactively changed a finished assessment's findings.
+    const periodRow = (await activePeriodFor(fw)) ?? (await latestPeriodFor(fw));
+    const isClosed = periodRow?.status === "closed";
+    const snapshot = isClosed ? parseSnapshot(periodRow!.scopeSnapshot) : null;
+    // Only a snapshot that actually captured requirements can drive a frozen
+    // report. Periods closed before this existed hold the v1 form — control
+    // codes only, and empty for anything that is not an 800-53 baseline. Those
+    // cannot be frozen retroactively, and saying "frozen" over live data would
+    // be a worse lie than admitting the gap.
+    const frozen = snapshot && snapshot.requirements.length ? snapshot : null;
+    // The attestation cut-off works from closedAt alone, so even a legacy period
+    // gets the half of the freeze that is still recoverable.
+    const asOf = frozen?.closedAt ? new Date(frozen.closedAt) : isClosed ? periodRow!.closedAt : null;
+    const reqData = await computeRequirements(fw, frozen);
     const [att, scoreMap, ctrls, evidence, maps, excs, period] = await Promise.all([
-      latestAttestations(),
-      controlScoreMap(),
+      latestAttestations(asOf),
+      controlScoreMap(asOf),
       db.select().from(s.controls).orderBy(asc(s.controls.code)),
       db.select().from(s.evidenceItems),
       db
@@ -947,13 +967,18 @@ export async function buildApp() {
         .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id))
         .where(eq(s.requirements.frameworkId, fw)),
       db.select().from(s.exceptions),
-      // The report is for one framework, so it must carry that framework's
-      // window. It previously took whichever period was active, which with
-      // overlapping windows stamps a SOC 2 report with a CSF observation period.
-      currentPeriod(fw),
+      // The window shown in meta must be the very row the freeze was taken from,
+      // not a separately-resolved "current" period that could land elsewhere.
+      periodRow ? periodViewOf(periodRow) : null,
     ]);
     const xwalk = new Map<string, string[]>();
-    for (const m of maps) {
+    // Frozen periods use the mappings recorded at close, so the control list and
+    // the crosswalk beside it cannot disagree with the requirement table above.
+    const reqCodeById = new Map((frozen?.requirements ?? []).map((r) => [r.id, r.code]));
+    const edges = frozen
+      ? frozen.mappings.map((m) => ({ control: m.control, code: reqCodeById.get(m.requirementId) ?? String(m.requirementId) }))
+      : maps;
+    for (const m of edges) {
       const arr = xwalk.get(m.control) ?? xwalk.set(m.control, []).get(m.control)!;
       arr.push(m.code);
     }
@@ -980,6 +1005,31 @@ export async function buildApp() {
           : { start: "—", end: "—", days: 0 },
         generatedAt: new Date().toISOString(),
         generatedBy: me?.name ?? "system",
+        // Says which kind of document this is. A frozen report reproduces the
+        // finding as at close; a live one moves with the data. Handing an
+        // auditor one while they believe it is the other is the whole risk.
+        basis: frozen
+          ? {
+              kind: "frozen" as const,
+              asOf: frozen.closedAt || periodRow?.closedAt?.toISOString() || null,
+              requirements: frozen.requirements.length,
+              mappings: frozen.mappings.length,
+              controlsInScope: frozen.controls?.length ?? null,
+            }
+          : isClosed
+            ? {
+                kind: "partially-frozen" as const,
+                asOf: periodRow?.closedAt?.toISOString() ?? null,
+                note: "This period closed before scope snapshots recorded requirements and mappings. Ratings are as at the close date, but the requirement set and crosswalk are read live and may have changed since.",
+              }
+            : { kind: "live" as const, asOf: null },
+        ...(periodRow?.reopenCount
+          ? {
+              // A reopened period's report is drawn from live data again, and
+              // saying so is the point of recording the reopen at all.
+              reopened: { at: periodRow.reopenedAt?.toISOString() ?? null, count: periodRow.reopenCount, reason: periodRow.reopenReason },
+            }
+          : {}),
       },
       readiness: reqData.summary,
       requirements: reqData.requirements,
@@ -1296,11 +1346,14 @@ export async function buildApp() {
         patch.reopenCount = (existing.reopenCount ?? 0) + 1;
       }
       if (to === "closed") {
-        // Freeze the scope. Without this, editing a baseline later silently
-        // rewrites what a finished assessment covered.
+        // Freeze what the finding depends on: the in-scope controls, and — new —
+        // the framework's requirements and their mappings. The old snapshot was
+        // control codes only, which a tier-less period (anything that is not an
+        // 800-53 baseline) never populated, so closing a SOC 2 period froze
+        // nothing. The report path reads this back.
         const scope = await inScopeCodes(existing.tier);
         patch.closedAt = new Date();
-        patch.scopeSnapshot = scope ? Array.from(scope).sort() : null;
+        patch.scopeSnapshot = await buildScopeSnapshot(existing.framework, scope);
       }
       const [updated] = await tx.update(s.assessmentPeriods).set(patch).where(eq(s.assessmentPeriods.id, id)).returning();
       await recordAudit(tx, req, me, {

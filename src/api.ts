@@ -328,7 +328,23 @@ export async function setSoaEntry(reqId: number, body: { applicable?: boolean; s
 }
 
 export interface ReportResponse {
-  meta: { org: string; framework: string; period: { start: string; end: string; days: number }; generatedAt: string; generatedBy: string };
+  meta: {
+    org: string;
+    framework: string;
+    period: { start: string; end: string; days: number };
+    generatedAt: string;
+    generatedBy: string;
+    /** Whether the figures reproduce (frozen at close) or move with the data. */
+    basis?: {
+      kind: "frozen" | "partially-frozen" | "live";
+      asOf: string | null;
+      note?: string;
+      requirements?: number;
+      mappings?: number;
+      controlsInScope?: number | null;
+    };
+    reopened?: { at: string | null; count: number; reason: string | null };
+  };
   readiness: { covered: number; gaps: number; met: number; partial: number; weak: number; unassessed: number; readiness: number | null };
   requirements: RequirementRow[];
   controls: {

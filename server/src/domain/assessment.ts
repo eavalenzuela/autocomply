@@ -43,10 +43,20 @@ export const REL_W: Record<string, number> = { equivalent: 1, superset: 1, subse
 // exactly one row per key in the database instead of shipping the whole
 // append-only table over the wire and deduping in JS on every request.
 // (id is the tiebreaker for same-timestamp inserts.)
-export async function latestAttestations() {
+/**
+ * Latest attestation per (controlCode, dimension).
+ *
+ * `asOf` restricts to what had been attested at a moment in time. The table is
+ * append-only, so this reconstructs the state exactly rather than approximating
+ * it — which is what makes a closed assessment stable: without it, attesting a
+ * control today changes the scores in a report for a period that closed last
+ * year, and the document an auditor was handed no longer reproduces.
+ */
+export async function latestAttestations(asOf?: Date | null) {
   const rows = await db
     .selectDistinctOn([s.attestations.controlCode, s.attestations.dimension])
     .from(s.attestations)
+    .where(asOf ? lte(s.attestations.createdAt, asOf) : undefined)
     .orderBy(asc(s.attestations.controlCode), asc(s.attestations.dimension), desc(s.attestations.createdAt), desc(s.attestations.id));
   const map = new Map<string, (typeof rows)[number]>();
   for (const a of rows) map.set(`${a.controlCode}:${a.dimension}`, a);
@@ -102,6 +112,21 @@ export async function activePeriods() {
     .orderBy(desc(s.assessmentPeriods.startDate));
 }
 
+/**
+ * The most recent period for a framework whatever its status — what a report
+ * falls back to when no window is currently open, which is the normal state
+ * after an assessment finishes.
+ */
+export async function latestPeriodFor(framework: string) {
+  const rows = await db
+    .select()
+    .from(s.assessmentPeriods)
+    .where(eq(s.assessmentPeriods.framework, framework))
+    .orderBy(desc(s.assessmentPeriods.startDate))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 /** The active period for one framework, or null. */
 export async function activePeriodFor(framework: string) {
   const rows = await db
@@ -150,6 +175,11 @@ const periodView = (p: typeof s.assessmentPeriods.$inferSelect, labels: Record<s
   status: p.status,
 });
 
+/** A display view of one specific period row. */
+export async function periodViewOf(p: typeof s.assessmentPeriods.$inferSelect) {
+  return periodView(p, await frameworkLabels());
+}
+
 /** Every active period, for surfaces that must not pretend there is only one. */
 export async function activePeriodViews() {
   const [rows, labels] = await Promise.all([activePeriods(), frameworkLabels()]);
@@ -176,16 +206,97 @@ export async function currentPeriod(framework?: string | null) {
 // Reverse roll-up: framework requirements ← mapped controls' scores, + gap report.
 // Generic over framework id — it was typed to two while the query was always
 // generic, which is how a third framework silently became soc2 at the route.
-export async function computeRequirements(fw: string) {
-  const [reqs, maps, scoreMap] = await Promise.all([
-    db.select().from(s.requirements).where(eq(s.requirements.frameworkId, fw)).orderBy(asc(s.requirements.code)),
+/**
+ * What a closed assessment covered, frozen at close.
+ *
+ * The column existed and was written on every close, and nothing ever read it —
+ * so the freeze it documented did not happen. Reloading a catalog, editing a
+ * crosswalk or attesting a control all silently rewrote what a finished
+ * assessment had found, and a report reprinted a year later would not match the
+ * one that was issued.
+ *
+ * v1 snapshots were a bare array of in-scope control codes, which only ever
+ * populated for baseline periods (a tier is an 800-53 concept), so a closed
+ * SOC 2 period froze nothing at all. v2 captures the framework's requirements
+ * and their mappings as well, and is read back below.
+ */
+export interface ScopeSnapshot {
+  version: 2;
+  closedAt: string;
+  /** In-scope CCF controls, when the period was scoped by a baseline tier. */
+  controls: string[] | null;
+  framework: string;
+  requirements: { id: number; code: string; title: string | null; kind: string }[];
+  mappings: { requirementId: number; control: string; relationship: string }[];
+}
+
+/** Read a stored snapshot, tolerating the v1 bare-array form. */
+export function parseSnapshot(raw: unknown): ScopeSnapshot | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    // v1: control codes only. Enough to freeze baseline scope, not requirements.
+    return { version: 2, closedAt: "", controls: raw as string[], framework: "", requirements: [], mappings: [] };
+  }
+  const o = raw as Partial<ScopeSnapshot>;
+  if (!o || typeof o !== "object" || !Array.isArray(o.requirements)) return null;
+  return {
+    version: 2,
+    closedAt: o.closedAt ?? "",
+    controls: o.controls ?? null,
+    framework: o.framework ?? "",
+    requirements: o.requirements ?? [],
+    mappings: o.mappings ?? [],
+  };
+}
+
+/** Capture everything a period's findings depend on, at the moment it closes. */
+export async function buildScopeSnapshot(framework: string, controls: Set<string> | null): Promise<ScopeSnapshot> {
+  const [reqs, maps] = await Promise.all([
     db
-      .select({ reqId: s.mappings.requirementId, control: s.mappings.controlCode, relationship: s.mappings.relationship })
+      .select({ id: s.requirements.id, code: s.requirements.code, title: s.requirements.title, kind: s.requirements.kind })
+      .from(s.requirements)
+      .where(eq(s.requirements.frameworkId, framework))
+      .orderBy(asc(s.requirements.code)),
+    db
+      .select({ requirementId: s.mappings.requirementId, control: s.mappings.controlCode, relationship: s.mappings.relationship })
       .from(s.mappings)
       .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id))
-      .where(eq(s.requirements.frameworkId, fw)),
-    controlScoreMap(),
+      .where(eq(s.requirements.frameworkId, framework)),
   ]);
+  return {
+    version: 2,
+    closedAt: new Date().toISOString(),
+    controls: controls ? Array.from(controls).sort() : null,
+    framework,
+    requirements: reqs.map((r) => ({ id: r.id, code: r.code, title: r.title, kind: r.kind })),
+    mappings: maps,
+  };
+}
+
+/**
+ * Requirement posture for a framework.
+ *
+ * With `frozen`, the requirement set, the mappings and the attestation cut-off
+ * all come from a closed period's snapshot instead of from live tables, so the
+ * finding reproduces however much the catalog and crosswalks have moved since.
+ */
+export async function computeRequirements(fw: string, frozen?: ScopeSnapshot | null) {
+  const asOf = frozen?.closedAt ? new Date(frozen.closedAt) : null;
+  const [reqs, maps, scoreMap] = frozen && frozen.requirements.length
+    ? [
+        frozen.requirements,
+        frozen.mappings.map((m) => ({ reqId: m.requirementId, control: m.control, relationship: m.relationship })),
+        await controlScoreMap(asOf),
+      ]
+    : await Promise.all([
+        db.select().from(s.requirements).where(eq(s.requirements.frameworkId, fw)).orderBy(asc(s.requirements.code)),
+        db
+          .select({ reqId: s.mappings.requirementId, control: s.mappings.controlCode, relationship: s.mappings.relationship })
+          .from(s.mappings)
+          .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id))
+          .where(eq(s.requirements.frameworkId, fw)),
+        controlScoreMap(asOf),
+      ]);
   const byReq = new Map<number, { control: string; relationship: string }[]>();
   for (const m of maps) {
     const arr = byReq.get(m.reqId) ?? byReq.set(m.reqId, []).get(m.reqId)!;
@@ -279,8 +390,8 @@ export async function computeRequirements(fw: string) {
 }
 
 // current score per control, from its latest attestations
-export async function controlScoreMap(): Promise<Map<string, number | null>> {
-  const att = await latestAttestations();
+export async function controlScoreMap(asOf?: Date | null): Promise<Map<string, number | null>> {
+  const att = await latestAttestations(asOf);
   const byControl = new Map<string, Partial<Record<Dimension, Rating>>>();
   for (const [key, a] of att) {
     const [code, dim] = key.split(":");

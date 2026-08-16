@@ -640,3 +640,148 @@ test("a report is stamped with its own framework's window, not whichever is acti
     for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
   }
 });
+
+// ---------------------------------------------------------------------------
+// Scope freeze.
+//
+// scope_snapshot was written on every close and read by nothing, so the freeze
+// its comment described did not exist: reloading a catalog, editing a crosswalk
+// or attesting a control all silently rewrote what a finished assessment had
+// found. These tests mutate the live data underneath a closed period and assert
+// the report does not move — and that a live one does, so the test cannot pass
+// by the report being broken.
+// ---------------------------------------------------------------------------
+
+test("a closed period's report does not move when the catalog moves under it", async () => {
+  const cookie = await loginStepped(U.admin);
+  const fw = "iso27001";
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+
+  const priorPeriods = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.framework, fw));
+  for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: `${fw}-parked` }).where(eq(s.assessmentPeriods.id, p.id));
+
+  let periodId: number | null = null;
+  let addedReqId: number | null = null;
+  try {
+    const created = await app.inject({
+      method: "POST", url: "/api/periods", headers: auth(cookie),
+      payload: { name: "freeze-me", framework: fw, startDate: "2050-01-01", endDate: "2050-12-31" },
+    });
+    periodId = created.json().period.id as number;
+    const closed = await app.inject({
+      method: "POST", url: `/api/periods/${periodId}/status`, headers: auth(cookie), payload: { status: "closed" },
+    });
+    assert.equal(closed.statusCode, 200, closed.body);
+
+    // The snapshot must actually contain something — the v1 form froze only
+    // control codes and so was empty for any framework period.
+    const row = (await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, periodId)))[0];
+    const snap = row.scopeSnapshot as any;
+    assert.ok(snap && Array.isArray(snap.requirements) && snap.requirements.length > 0,
+      "closing a framework period must freeze its requirements, not just baseline control codes");
+
+    const before = await app.inject({ method: "GET", url: `/api/report?framework=${fw}`, headers: auth(cookie) });
+    assert.equal(before.statusCode, 200, before.body);
+    const b = before.json();
+    assert.equal(b.meta.basis.kind, "frozen", "a closed period's report is a frozen document");
+
+    // Move the world underneath it: a new requirement, and a new attestation.
+    const [added] = await db.insert(s.requirements)
+      .values({ frameworkId: fw, code: "ZZ-9.9", title: "added after the close", kind: "control" })
+      .returning();
+    addedReqId = added.id;
+    await db.insert(s.attestations).values({
+      controlCode: ownedControl, dimension: "pol", rating: "fc",
+      justification: "attested after the period closed", source: "human",
+    });
+
+    const after = await app.inject({ method: "GET", url: `/api/report?framework=${fw}`, headers: auth(cookie) });
+    const a = after.json();
+    assert.equal(a.requirements.length, b.requirements.length,
+      "a requirement added after the close must not appear in the closed period's report");
+    assert.deepEqual(a.readiness, b.readiness,
+      "an attestation made after the close must not change the closed period's readiness");
+
+    // And the control set stays put too.
+    assert.equal(a.controls.length, b.controls.length);
+  } finally {
+    if (addedReqId) await db.delete(s.requirements).where(eq(s.requirements.id, addedReqId));
+    if (periodId) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, periodId));
+    for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: fw }).where(eq(s.assessmentPeriods.id, p.id));
+    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});
+
+test("an open period's report DOES follow the live data", async () => {
+  // The guard on the test above: if the report were simply broken, both would
+  // "pass". An open window must still move with the catalog.
+  const cookie = await loginStepped(U.admin);
+  const fw = "iso27001";
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+  const priorPeriods = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.framework, fw));
+  for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: `${fw}-parked` }).where(eq(s.assessmentPeriods.id, p.id));
+
+  let periodId: number | null = null;
+  let addedReqId: number | null = null;
+  try {
+    const [row] = await db.insert(s.assessmentPeriods)
+      .values({ name: "still-open", framework: fw, startDate: new Date("2051-01-01"), endDate: new Date("2051-12-31"), status: "active" })
+      .returning();
+    periodId = row.id;
+
+    const before = (await app.inject({ method: "GET", url: `/api/report?framework=${fw}`, headers: auth(cookie) })).json();
+    assert.equal(before.meta.basis.kind, "live");
+
+    const [added] = await db.insert(s.requirements)
+      .values({ frameworkId: fw, code: "ZZ-8.8", title: "added during the window", kind: "control" })
+      .returning();
+    addedReqId = added.id;
+
+    const after = (await app.inject({ method: "GET", url: `/api/report?framework=${fw}`, headers: auth(cookie) })).json();
+    assert.equal(after.requirements.length, before.requirements.length + 1,
+      "an open assessment must reflect the catalog as it stands");
+  } finally {
+    if (addedReqId) await db.delete(s.requirements).where(eq(s.requirements.id, addedReqId));
+    if (periodId) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, periodId));
+    for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: fw }).where(eq(s.assessmentPeriods.id, p.id));
+    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});
+
+test("a period closed before snapshots existed says so rather than claiming to be frozen", async () => {
+  // v1 snapshots were control codes only, so a framework period closed under the
+  // old code froze nothing. Reporting those as "frozen" would be a worse claim
+  // than the gap itself.
+  const cookie = await loginStepped(U.admin);
+  const fw = "iso27001";
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+  const priorPeriods = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.framework, fw));
+  for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: `${fw}-parked` }).where(eq(s.assessmentPeriods.id, p.id));
+
+  let id: number | null = null;
+  try {
+    const [row] = await db
+      .insert(s.assessmentPeriods)
+      .values({
+        name: "legacy-close", framework: fw,
+        startDate: new Date("2052-01-01"), endDate: new Date("2052-12-31"),
+        status: "closed", closedAt: new Date("2053-01-01"),
+        scopeSnapshot: ["AC-1", "AC-2"], // the v1 shape
+      })
+      .returning();
+    id = row.id;
+    const res = await app.inject({ method: "GET", url: `/api/report?framework=${fw}`, headers: auth(cookie) });
+    assert.equal(res.statusCode, 200, res.body);
+    const basis = res.json().meta.basis;
+    assert.equal(basis.kind, "partially-frozen");
+    assert.match(basis.note, /closed before scope snapshots/i);
+    assert.ok(basis.asOf, "ratings are still pinned to the close date");
+  } finally {
+    if (id) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+    for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: fw }).where(eq(s.assessmentPeriods.id, p.id));
+    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});

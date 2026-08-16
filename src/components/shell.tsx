@@ -1075,6 +1075,38 @@ export function ReportsPage({ framework, onFramework }: { framework?: string | n
               {report.meta.org} · period {report.meta.period.start} → {report.meta.period.end} ({report.meta.period.days}d) ·
               generated {new Date(report.meta.generatedAt).toLocaleString()} by {report.meta.generatedBy}
             </div>
+            {/* Whether this document reproduces is the first thing an auditor
+                needs to know about it, so it goes next to the title rather than
+                in a footnote. */}
+            {report.meta.basis && (
+              <div className={`report-basis b-${report.meta.basis.kind}`}>
+                {report.meta.basis.kind === "frozen" && (
+                  <>
+                    <b>Frozen</b> as at {report.meta.basis.asOf?.slice(0, 10)} — the assessment is closed, so these
+                    figures reproduce: {report.meta.basis.requirements} requirements and {report.meta.basis.mappings} mappings
+                    recorded at close, with ratings as they stood then.
+                  </>
+                )}
+                {report.meta.basis.kind === "partially-frozen" && (
+                  <>
+                    <b>Partially frozen</b> as at {report.meta.basis.asOf?.slice(0, 10)} — {report.meta.basis.note}
+                  </>
+                )}
+                {report.meta.basis.kind === "live" && (
+                  <>
+                    <b>Live</b> — the assessment window is open, so these figures move with the catalog, the
+                    crosswalk and every new attestation. Close the period to fix them.
+                  </>
+                )}
+              </div>
+            )}
+            {report.meta.reopened && (
+              <div className="report-basis b-reopened">
+                <b>Reopened</b> {report.meta.reopened.at?.slice(0, 10)}
+                {report.meta.reopened.count > 1 ? ` (${report.meta.reopened.count}×)` : ""}
+                {report.meta.reopened.reason ? ` — ${report.meta.reopened.reason}` : ""}
+              </div>
+            )}
           </div>
 
           <div className="report-section">
