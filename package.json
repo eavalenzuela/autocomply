@@ -11,8 +11,9 @@
     "preview": "vite preview",
     "db:push": "npm --prefix server run db:push",
     "db:seed": "npm --prefix server run db:seed",
-    "db:setup": "npm --prefix server run db:push && npm --prefix server run db:seed && npm --prefix server run db:collect && npm --prefix server run db:docs && npm --prefix server run db:monitor",
-    "test": "node --import tsx --test src/router.test.ts src/contrast.test.ts src/components/ControlPicker.test.ts"
+    "db:setup": "npm --prefix server run db:migrate && npm --prefix server run db:seed",
+    "test": "node --import tsx --test src/router.test.ts src/contrast.test.ts src/components/ControlPicker.test.ts",
+    "db:demo": "npm --prefix server run db:collect && npm --prefix server run db:docs && npm --prefix server run db:monitor"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -1003,7 +1003,10 @@ export async function buildApp() {
       type: "aws" as const,
       checks: k.checks,
       lastRun: k.lastRun,
-      status: k.statuses.every((x) => x === "complete") ? "healthy" : "degraded",
+      // `.every()` on an empty array is true, so a connector that has never run
+      // reported "healthy" — health computed over nothing. Absence of failure is
+      // not success; it is absence of information.
+      status: k.checks === 0 ? "unknown" : k.statuses.every((x) => x === "complete") ? "healthy" : "degraded",
       findings: k.findings,
       passRate: k.findings ? Math.round((k.pass / k.findings) * 100) : null,
       coverage: `${k.coverageOk}/${k.checks} checks complete`,
@@ -1014,7 +1017,9 @@ export async function buildApp() {
       type: "doc" as any,
       checks: docs.length,
       lastRun: docs.reduce<Date | null>((m, e) => (!m || e.collectedAt > m ? e.collectedAt : m), null),
-      status: docs.some((e) => e.drifted) ? "degraded" : "healthy",
+      // Same shape of bug: `.some()` on an empty array is false, so zero
+      // documents read as healthy.
+      status: docs.length === 0 ? "unknown" : docs.some((e) => e.drifted) ? "degraded" : "healthy",
       findings: docs.length,
       passRate: docs.length ? Math.round(((docs.length - docs.filter((e) => e.drifted).length) / docs.length) * 100) : null,
       coverage: `${docs.filter((e) => e.drifted).length} drifted`,

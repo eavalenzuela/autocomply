@@ -73,7 +73,13 @@ Requires Docker and Node.
 docker compose up -d          # PostgreSQL (host port 5433)
 npm install                   # frontend deps
 npm install --prefix server   # backend deps
-npm run db:setup              # push schema + seed + collect + docs + monitor
+npm run db:setup              # apply migrations + load the control catalog + create the admin
+
+# Optional, and only for a throwaway database: fabricate a populated instance.
+# This invents AWS findings, evidence documents and attestations so the screens
+# have something in them. None of it is collected from anything — do not run it
+# on an instance whose numbers anyone will read.
+npm run db:demo
 npm run dev:all              # web (:5173) + api (:3001)
 ```
 
