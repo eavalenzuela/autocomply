@@ -199,7 +199,43 @@ async function controlScoreMap(): Promise<Map<string, number | null>> {
 }
 
 export async function buildApp() {
-  const app = Fastify({ logger: false, trustProxy: true });
+  // Logging was off entirely, which made every other failure in this service
+  // invisible: no request line, no error, no trace of a rejected login. Set
+  // LOG_LEVEL=silent to opt out (the test suite does).
+  const app = Fastify({
+    logger:
+      process.env.LOG_LEVEL === "silent"
+        ? false
+        : {
+            level: process.env.LOG_LEVEL ?? "info",
+            // Never log the things that would turn the log into a credential store.
+            redact: {
+              paths: [
+                "req.headers.cookie",
+                "req.headers.authorization",
+                'res.headers["set-cookie"]',
+              ],
+              remove: true,
+            },
+          },
+    trustProxy: true,
+  });
+
+  // Unhandled throws previously fell through to Fastify's default, which returns
+  // the error message to the caller. Drizzle's messages embed the full statement
+  // and its bound parameters, so a malformed id handed the caller the query. Log
+  // the detail; return a generic body.
+  app.setErrorHandler((err: any, req, reply) => {
+    const status = err?.statusCode ?? 500;
+    if (status >= 500) {
+      req.log.error({ err, method: req.method, url: req.url }, "request failed");
+      return reply.code(500).send({ error: "internal error" });
+    }
+    // 4xx raised by Fastify itself (bad JSON, validation) — safe to pass through,
+    // still worth recording.
+    req.log.warn({ method: req.method, url: req.url, status, msg: err?.message }, "request rejected");
+    return reply.code(status).send({ error: err?.message ?? "bad request" });
+  });
   // Same-origin in production (frontend + API both behind Caddy). Reflect the
   // configured origin when set, else any origin (dev). Cookies need credentials.
   const corsOrigin = process.env.OAUTH_BASE_URL ? [process.env.OAUTH_BASE_URL] : true;
