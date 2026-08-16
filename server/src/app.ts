@@ -1003,6 +1003,11 @@ export async function buildApp() {
   app.post<{ Body: { name: string; role?: string; expiresAt?: string } }>("/api/tokens", async (req, reply) => {
     const me = await currentUser(req);
     if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can manage API tokens" });
+    // Minting a credential is at least as sensitive as the actions that credential
+    // can perform, so it carries the same step-up requirement. Without this, a
+    // hijacked session could mint a token and use it to act indefinitely.
+    if (!(await hasFreshStepUp(req)))
+      return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
     const roles = ["admin", "compliance_manager", "control_owner", "auditor", "viewer"];
     const role = req.body.role && roles.includes(req.body.role) ? req.body.role : "viewer";
     if (!req.body.name?.trim()) return reply.code(400).send({ error: "name required" });

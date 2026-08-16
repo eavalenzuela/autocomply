@@ -87,7 +87,13 @@ export async function recordStepUp(token: string): Promise<void> {
 //   - session callers must have re-authenticated within STEP_UP_TTL_MS.
 export async function hasFreshStepUp(req: FastifyRequest): Promise<boolean> {
   const token = sessionToken(req);
-  if (!token) return true; // dev/script path — no interactive session to step up
+  // Fail CLOSED. This used to return true when there was no interactive session,
+  // which meant every non-cookie caller — any Bearer API token — passed the
+  // step-up check without ever re-authenticating, on exactly the actions
+  // step-up exists to protect (attest, approve, export). A machine credential
+  // cannot re-enter a password, so it cannot satisfy step-up; the honest answer
+  // is that it does not get these actions, not that the check is waived.
+  if (!token) return false;
   const row = (
     await db.select({ at: s.sessions.steppedUpAt }).from(s.sessions).where(eq(s.sessions.token, token)).limit(1)
   )[0];
