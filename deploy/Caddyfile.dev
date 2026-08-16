@@ -1,0 +1,18 @@
+# Local, no TLS. Same routing as the prod Caddyfile, but bound to a bare :80
+# inside the container (published on the host as 8082) instead of a public
+# hostname -- so Caddy never attempts Let's Encrypt issuance.
+:80 {
+	encode gzip
+
+	# API -> Fastify container (same origin, so cookies just work).
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+
+	# Static SPA with history-API fallback.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

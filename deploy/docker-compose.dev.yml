@@ -1,0 +1,51 @@
+# Local all-in-Docker stack: the same three services as prod, minus TLS and the
+# public hostname, plus a published DB port for poking at it.
+#
+#   docker compose -f deploy/docker-compose.dev.yml up -d --build
+#   docker compose -f deploy/docker-compose.dev.yml run --rm api npm --prefix server run db:push
+#   docker compose -f deploy/docker-compose.dev.yml run --rm api npm --prefix server run db:seed
+#
+# Mutually exclusive with the repo-root docker-compose.yml -- both bind 5433.
+services:
+  db:
+    image: postgres:16
+    container_name: autocomply-dev-db
+    restart: unless-stopped
+    env_file: .env.local
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autocomply"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    container_name: autocomply-dev-api
+    restart: unless-stopped
+    env_file: .env.local
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    container_name: autocomply-dev-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8082:80"
+    volumes:
+      # Override the image's public-hostname Caddyfile with the bare :80 one.
+      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
+
+volumes:
+  pgdata_dev:
