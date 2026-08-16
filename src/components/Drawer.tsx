@@ -2,7 +2,7 @@
 // shows the maturity ladder, crosswalk, evidence, attestation history, an inline
 // attest form that writes back through /api/attest, and a risk-acceptance
 // request form (POST /api/exception).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Control, Domain, GlyphStyle } from "../types";
 import { GlyphCell } from "./Glyph";
 import { MATURITY_COLS } from "../data";
@@ -65,6 +65,24 @@ export function Drawer({
   }, [controlId]);
 
   const open = !!controlId;
+  const panelRef = useRef<HTMLElement | null>(null);
+  // Where focus was before the drawer opened, so it can be handed back. A
+  // dialog that dumps focus at the top of the document on close makes a
+  // keyboard user retrace their whole path to get back to the row they opened.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open) {
+      returnFocusRef.current = document.activeElement as HTMLElement | null;
+      // Move focus into the panel so the next Tab stays inside it.
+      requestAnimationFrame(() => {
+        const target = panelRef.current?.querySelector<HTMLElement>(".drawer-close");
+        target?.focus();
+      });
+    } else {
+      returnFocusRef.current?.focus?.();
+      returnFocusRef.current = null;
+    }
+  }, [open]);
 
   async function doAttest(rating: "nc" | "sc" | "pc" | "mc" | "fc") {
     if (!controlId) return;
@@ -106,7 +124,38 @@ export function Drawer({
   return (
     <>
       <div className={`drawer-backdrop ${open ? "open" : ""}`} onClick={onClose} />
-      <aside className={`drawer ${open ? "open" : ""}`}>
+      {/* A dialog needs to announce itself, keep focus inside while it is open,
+          and hand focus back where it came from on close. Without that, a
+          screen reader user is not told anything opened and a keyboard user
+          tabs straight out of it into the page behind. */}
+      <aside
+        ref={panelRef}
+        className={`drawer ${open ? "open" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={control ? `${control.id} — ${control.name}` : "Control detail"}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            onClose();
+            return;
+          }
+          if (e.key !== "Tab" || !panelRef.current) return;
+          const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          );
+          if (focusable.length === 0) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }}
+      >
         {control && (
           <>
             <div className="drawer-head">

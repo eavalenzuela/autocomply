@@ -579,3 +579,29 @@ hand-edit.** The `data/*.yaml` files are the seam.
 5. **Maturity build-out** — the other four maturity columns, non-technical/document
    evidence, full maturity scoring across all three baselines.
 6. **Reporting** — auditor evidence packages, Type II period support, per-baseline views.
+
+
+## Accessibility target (DECIDED)
+
+**WCAG 2.2 AA**, enforced where it can be. This is a product whose buyers are
+frequently subject to accessibility procurement requirements, so this is a
+commercial constraint as well as an ethical one — and a compliance tool that
+cannot itself be operated without a mouse is an awkward thing to sell.
+
+Enforced automatically:
+
+- **Contrast.** `src/contrast.test.ts` parses the real stylesheet and fails the
+  build if any ink token drops below 4.5:1 against its background, in either
+  theme. `--ink-4` shipped at 3.28:1 light / 3.50:1 dark and is used for meta
+  lines and units — small text, where the ratio matters most.
+
+Enforced by review, not yet by test:
+
+- **Keyboard operability.** Anything clickable is reachable and actuatable from
+  the keyboard. Table rows that behave like buttons carry `tabIndex`, `role` and
+  Enter/Space handlers; the control drawer is a `role="dialog"` with a focus
+  trap that restores focus to whatever opened it.
+- **Focus visibility.** One global `:focus-visible` token. Suppressing outlines
+  is not permitted — a keyboard user with no focus ring is navigating blind.
+- **Labels.** Every form control has a programmatic label, not just adjacent
+  text.

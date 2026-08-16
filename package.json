@@ -12,7 +12,7 @@
     "db:push": "npm --prefix server run db:push",
     "db:seed": "npm --prefix server run db:seed",
     "db:setup": "npm --prefix server run db:push && npm --prefix server run db:seed && npm --prefix server run db:collect && npm --prefix server run db:docs && npm --prefix server run db:monitor",
-    "test": "node --import tsx --test src/router.test.ts"
+    "test": "node --import tsx --test src/router.test.ts src/contrast.test.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

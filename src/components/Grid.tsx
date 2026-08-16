@@ -134,6 +134,20 @@ function ControlRow({
     <tr
       className={`row-control ${selected ? "selected" : ""} ${control.inScope === false ? "out-of-scope" : ""}`}
       onClick={() => onSelect(control.id)}
+      // A click handler on a <tr> is invisible to the keyboard: opening a
+      // control was mouse-only, which means the product could not be operated
+      // without one at all. tabIndex + role + key handlers is the accessible
+      // form for a row that behaves like a button.
+      tabIndex={0}
+      role="button"
+      aria-pressed={selected}
+      aria-label={`${control.id} — ${control.name}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault(); // Space would otherwise scroll the page
+          onSelect(control.id);
+        }
+      }}
       title={control.inScope === false ? "Out of the active baseline scope" : undefined}
     >
       <td className="col-control">
@@ -178,7 +192,20 @@ function DomainRow({
   showOwners: boolean;
 }) {
   return (
-    <tr className="row-domain" onClick={() => onToggle(domain.id)}>
+    <tr
+      className="row-domain"
+      onClick={() => onToggle(domain.id)}
+      tabIndex={0}
+      role="button"
+      aria-expanded={!!domain.open}
+      aria-label={`${domain.name} — ${domain.open ? "collapse" : "expand"} family`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle(domain.id);
+        }
+      }}
+    >
       <td className="col-control">
         <div className="domain-toggle">
           <span className={`caret ${domain.open ? "open" : ""}`}>
