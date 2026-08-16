@@ -114,7 +114,21 @@ export async function computeRequirements(fw: string) {
     const mc = byReq.get(r.id) ?? [];
     if (mc.length === 0) {
       summary.gaps++;
-      return { code: r.code, title: r.title, kind: r.kind, status: "gap", score: null as number | null, mapped: 0, mappedControls: [] as any[] };
+      // requirementId is needed HERE most of all: a gap row is exactly where
+      // someone maps a control to close it, and omitting the id from this branch
+      // meant the "map a control" affordance silently did nothing — the client
+      // had no id to send.
+      return {
+        requirementId: r.id,
+        code: r.code,
+        title: r.title,
+        kind: r.kind,
+        status: "gap",
+        score: null as number | null,
+        mapped: 0,
+        assessed: 0,
+        mappedControls: [] as any[],
+      };
     }
     summary.covered++;
     let num = 0;
