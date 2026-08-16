@@ -19,7 +19,8 @@
     "db:migrate": "tsx src/migrate.ts",
     "db:generate": "drizzle-kit generate",
     "db:baseline": "tsx src/baseline.ts",
-    "test:http": "LOG_LEVEL=silent node --import tsx --test src/http.test.ts"
+    "test:http": "LOG_LEVEL=silent node --import tsx --test src/http.test.ts",
+    "db:fk-check": "tsx src/fk-check.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

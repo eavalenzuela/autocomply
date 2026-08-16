@@ -45,6 +45,8 @@ export function loadAll(): LoadedData {
   const soc2 = load("frameworks/soc2-tsc.yaml");
   const iso = load("frameworks/iso27001-2022.yaml");
   const crosswalk = load("mappings/ccf-crosswalk.yaml");
+  const csf2 = load("frameworks/csf2.yaml");
+  const csfCrosswalk = load("mappings/csf2-crosswalk.yaml");
 
   const categories: LoadedCategory[] = controlsDoc.categories.map((c: any) => ({ id: c.id, title: c.title }));
 
@@ -72,6 +74,25 @@ export function loadAll(): LoadedData {
     requirements.push({ frameworkId: "iso27001", code: cl.code, title: cl.title, kind: "iso-clause", extra: null });
   for (const a of iso.annex_a)
     requirements.push({ frameworkId: "iso27001", code: a.code, title: a.title, kind: "iso-annexa", extra: { theme: a.theme, new_2022: a.new_2022 ?? false } });
+  // CSF's assessable unit is the Subcategory; Functions and Categories are
+  // grouping, carried as metadata so the UI can nest without another table.
+  const csfCatTitle = new Map<string, string>((csf2.categories ?? []).map((c: any) => [c.code, c.title]));
+  const csfFnTitle = new Map<string, string>((csf2.functions ?? []).map((f: any) => [f.id, f.title]));
+  for (const sc of csf2.subcategories ?? []) {
+    const fnId = String(sc.category).split(".")[0];
+    requirements.push({
+      frameworkId: "csf2",
+      code: sc.code,
+      title: sc.title,
+      kind: "csf-subcategory",
+      extra: {
+        function: fnId,
+        functionTitle: csfFnTitle.get(fnId) ?? fnId,
+        category: sc.category,
+        categoryTitle: csfCatTitle.get(sc.category) ?? sc.category,
+      },
+    });
+  }
 
   const fw = (id: string, doc: any, fallbackName: string): LoadedFramework => ({
     id,
@@ -87,6 +108,7 @@ export function loadAll(): LoadedData {
   const frameworks: LoadedFramework[] = [
     fw("soc2", soc2, "SOC 2"),
     fw("iso27001", iso, "ISO/IEC 27001"),
+    fw("csf2", csf2, "NIST Cybersecurity Framework"),
   ];
 
   const mapFor = (frameworkId: string, rows: any[] = []): LoadedMapping[] =>
@@ -102,6 +124,7 @@ export function loadAll(): LoadedData {
   const mappings: LoadedMapping[] = [
     ...mapFor("soc2", crosswalk.soc2),
     ...mapFor("iso27001", crosswalk.iso27001),
+    ...mapFor("csf2", csfCrosswalk.csf2),
   ];
 
   return { categories, objectives, controls, baselines, frameworks, requirements, mappings };

@@ -123,7 +123,10 @@ export const assignBody = {
 export const frameworkQuery = {
   type: "object" as const,
   properties: {
-    framework: { type: "string", enum: [...FRAMEWORKS] },
+    // Not an enum: frameworks are data, and adding a fourth catalog should not
+    // require a schema edit. The route checks the framework is enabled, which
+    // is the question that actually matters.
+    framework: { type: "string", maxLength: 32 },
     export: { type: "string", maxLength: 8 },
   },
 };

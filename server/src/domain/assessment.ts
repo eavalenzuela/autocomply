@@ -92,7 +92,9 @@ export async function currentPeriod() {
 }
 
 // Reverse roll-up: framework requirements ← mapped controls' scores, + gap report.
-export async function computeRequirements(fw: "soc2" | "iso27001") {
+// Generic over framework id — it was typed to two while the query was always
+// generic, which is how a third framework silently became soc2 at the route.
+export async function computeRequirements(fw: string) {
   const [reqs, maps, scoreMap] = await Promise.all([
     db.select().from(s.requirements).where(eq(s.requirements.frameworkId, fw)).orderBy(asc(s.requirements.code)),
     db

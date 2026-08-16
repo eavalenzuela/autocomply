@@ -53,13 +53,22 @@ async function main() {
   const data = loadAll();
 
   // Clear in FK-safe order.
+  //
+  // Keep this list complete. It has now broken twice — api_tokens, then
+  // user_invites — each time leaving a half-wiped database, because a table
+  // gained a foreign key to `users` and nobody added it here. The rule: if a
+  // table references users, controls or requirements, it is deleted BEFORE
+  // them. `npm run db:fk-check` verifies that mechanically.
+  await db.delete(s.attestationEvidence); // pins attestations + snapshots
   await db.delete(s.automatedFindings);
   await db.delete(s.checkRuns);
   await db.delete(s.checks);
   await db.delete(s.exceptions);
   await db.delete(s.assessmentPeriods);
   await db.delete(s.attestations);
+  await db.delete(s.snapshots); // references evidence_items and users
   await db.delete(s.evidenceItems);
+  await db.delete(s.soaEntries); // references requirements and users
   // audit_log is deliberately NOT cleared. It is append-only in the database
   // (server/sql/audit_append_only.sql) and this delete would now fail — but the
   // point is not that it fails, it is that a reseed has no business erasing the
@@ -70,6 +79,11 @@ async function main() {
   // delete below -- otherwise this cascade dies on a foreign-key violation part
   // way through, leaving the database half-wiped.
   await db.delete(s.apiTokens);
+  // user_invites references users twice (user_id and created_by). Same trap as
+  // api_tokens above, and I walked into it again when adding invites: without
+  // this the cascade dies on a constraint violation part way through and leaves
+  // the database half-wiped. Any table gaining an FK to users belongs here.
+  await db.delete(s.userInvites);
   await db.delete(s.controlAssignments);
   await db.delete(s.mappings);
   await db.delete(s.requirements);

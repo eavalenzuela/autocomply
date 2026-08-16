@@ -683,7 +683,10 @@ export async function buildApp() {
 
   // Reverse roll-up: framework requirements ← mapped controls' status, + gap report.
   app.get<{ Querystring: { framework?: string } }>("/api/requirements", async (req, reply) => {
-    const fw = req.query.framework === "iso27001" ? "iso27001" : "soc2";
+    // Take the framework as given rather than collapsing anything unrecognised
+    // to soc2 — a third catalog turned that ternary into "csf2 means soc2",
+    // answering a question nobody asked with another framework's numbers.
+    const fw = (req.query.framework ?? "soc2").trim();
     // Refuse rather than answer: a readiness figure for a framework this
     // organisation has not adopted is a number nobody asked for and everybody
     // would read as meaningful.
@@ -897,8 +900,11 @@ export async function buildApp() {
   // requires auth + a fresh step-up and is audit-logged.
   app.get<{ Querystring: { framework?: string; export?: string } }>("/api/report", { schema: { querystring: frameworkQuery } }, async (req, reply) => {
     const me = await currentUser(req);
-    const fw = req.query.framework === "iso27001" ? "iso27001" : "soc2";
-    const fwName = fw === "iso27001" ? "ISO/IEC 27001:2022" : "SOC 2 (TSC 2017)";
+    const fw = (req.query.framework ?? "soc2").trim();
+    if (!(await isFrameworkEnabled(fw)))
+      return reply.code(404).send({ error: `${fw} is not enabled for this organisation`, code: "framework_disabled" });
+    const fwRow = (await db.select().from(s.frameworks).where(eq(s.frameworks.id, fw)).limit(1))[0];
+    const fwName = fwRow ? `${fwRow.name}${fwRow.version ? ` ${fwRow.version}` : ""}` : fw;
     const isExport = req.query.export === "1" || req.query.export === "true";
     // Gate the DATA, not the ceremony. All of this used to sit inside
     // `if (isExport)`, so dropping the query parameter returned a byte-identical
