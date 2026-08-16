@@ -64,9 +64,53 @@ async function request(path: string, init: RequestInit): Promise<Response> {
 
 // Same-origin (Vite proxies /api), so the session cookie rides along; include
 // credentials explicitly to be safe.
+
+// Nothing handled a 401. A session expires after 12 hours, so the ordinary case
+// — leave a tab open overnight, come back, click something — left every request
+// failing with "HTTP 401" and no route back to the sign-in screen. The app now
+// hears about it once and returns the user to login.
+let onSessionLost: (() => void) | null = null;
+export function setSessionLostHandler(fn: (() => void) | null) {
+  onSessionLost = fn;
+}
+let sessionLostFired = false;
+function noteSessionLost() {
+  if (sessionLostFired) return; // one banner, not one per in-flight request
+  sessionLostFired = true;
+  onSessionLost?.();
+}
+/** Called after a successful login so a later expiry is reported again. */
+export function resetSessionLost() {
+  sessionLostFired = false;
+}
+
+/** Turn a failed response into something a person can act on. */
+async function describe(path: string, r: Response): Promise<string> {
+  const j = await r.json().catch(() => ({} as any));
+  if (j?.error) return j.error;
+  switch (r.status) {
+    case 403:
+      return "You do not have permission to do that.";
+    case 404:
+      return "That is no longer there — it may have been removed.";
+    case 409:
+      return "Someone else changed this first. Reload and try again.";
+    case 429:
+      return "Too many attempts. Wait a few minutes and try again.";
+    case 500:
+      return "Something went wrong on the server. It has been logged.";
+    default:
+      return `That request failed (${r.status}).`;
+  }
+}
+
 async function get(path: string) {
   const r = await request(path, {});
-  if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+  if (r.status === 401) {
+    noteSessionLost();
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+  if (!r.ok) throw new Error(await describe(path, r));
   return r.json();
 }
 async function post(path: string, body?: unknown) {
@@ -75,10 +119,12 @@ async function post(path: string, body?: unknown) {
     headers: { "content-type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) {
-    const j = await r.json().catch(() => ({}));
-    throw new Error(j.error || `${path}: HTTP ${r.status}`);
+  // /api/login answering 401 is a wrong password, not an expired session.
+  if (r.status === 401 && path !== "/api/login") {
+    noteSessionLost();
+    throw new Error("Your session has expired. Please sign in again.");
   }
+  if (!r.ok) throw new Error(await describe(path, r));
   return r.json().catch(() => ({}));
 }
 
@@ -86,7 +132,9 @@ export type Role = "admin" | "compliance_manager" | "control_owner" | "auditor" 
 export interface CurrentUser { id: number; email: string; name: string; role: Role; authProvider?: string; }
 
 export async function login(email: string, password: string): Promise<CurrentUser> {
-  return post("/api/login", { email, password });
+  const u = await post("/api/login", { email, password });
+  resetSessionLost(); // so a later expiry is reported again
+  return u;
 }
 export async function logout(): Promise<void> {
   await post("/api/logout");
@@ -140,7 +188,7 @@ export interface WorklistTask {
   reason: string;
   priority: number;
 }
-export async function fetchWorklist(): Promise<{ count: number; tasks: WorklistTask[] }> {
+export async function fetchWorklist(): Promise<{ count: number; returned?: number; truncated?: boolean; tasks: WorklistTask[] }> {
   return get("/api/worklist");
 }
 

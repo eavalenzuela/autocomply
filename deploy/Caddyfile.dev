@@ -4,6 +4,26 @@
 :80 {
 	encode gzip
 
+	# Security headers. The app served none: no CSP, so a single injected script
+	# would run with the session; no X-Frame-Options, so attest and approve were
+	# clickjackable; no nosniff; no Referrer-Policy, so control codes in the URL
+	# leaked to anything the page linked to.
+	#
+	# The CSP is deliberately tight because this SPA needs nothing exotic: its
+	# own scripts, its own styles, its own origin for XHR. 'unsafe-inline' is
+	# permitted for style only, which Vite's extracted CSS does not need but the
+	# inline attribute styles in the app currently do — removing those is the
+	# next step, and then this can drop to 'self'.
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		Cross-Origin-Opener-Policy "same-origin"
+		Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()"
+		-Server
+	}
+
 	# API -> Fastify container (same origin, so cookies just work).
 	handle /api/* {
 		reverse_proxy api:3001

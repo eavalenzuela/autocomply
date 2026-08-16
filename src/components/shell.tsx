@@ -106,7 +106,7 @@ export function Alerts() {
 }
 
 export function WorklistPage({ onOpenControl }: { onOpenControl?: (code: string) => void }) {
-  const [data, setData] = useState<{ count: number; tasks: WorklistTask[] } | null>(null);
+  const [data, setData] = useState<{ count: number; returned?: number; truncated?: boolean; tasks: WorklistTask[] } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     fetchWorklist().then(setData).catch((e) => setErr(String(e.message ?? e)));
@@ -137,6 +137,13 @@ export function WorklistPage({ onOpenControl }: { onOpenControl?: (code: string)
           </div>
         ))}
         {data && data.tasks.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>Nothing outstanding.</div>}
+        {/* Say when the list is cut. Showing 80 of 289 with no indication means
+            everything below the cut does not exist as far as the user knows. */}
+        {data?.truncated && (
+          <div className="stub-sub" style={{ padding: "10px 20px" }}>
+            Showing the {data.returned} highest-priority of {data.count} open items.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -842,20 +849,32 @@ export function IntegrationsPage() {
           <div key={c.name} className="conn-card">
             <div className="conn-top">
               <span className="conn-name">{c.name}</span>
-              <span className={`conn-status cs-${c.status}`}>{c.status}</span>
+              {/* A connector that has never run is not healthy — it is unknown.
+                  Reporting the absence of failures as a pass is how a dashboard
+                  ends up green over nothing. */}
+              {c.lastRun ? (
+                <span className={`conn-status cs-${c.status}`}>{c.status}</span>
+              ) : (
+                <span className="conn-status cs-unknown" title="This connector has never run — there is nothing to report on yet">
+                  never run
+                </span>
+              )}
             </div>
             <div className="conn-stats">
               <div><b>{c.checks}</b><span>checks</span></div>
               <div><b>{c.passRate ?? "—"}%</b><span>pass</span></div>
               <div><b>{c.findings}</b><span>findings</span></div>
             </div>
-            <div className="conn-foot">{c.coverage}{c.lastRun ? ` · last ${new Date(c.lastRun).toLocaleDateString()}` : ""}</div>
+            <div className="conn-foot">
+              {c.lastRun ? `${c.coverage} · last ${new Date(c.lastRun).toLocaleDateString()}` : "no collection yet"}
+            </div>
           </div>
         ))}
       </div>
       <div className="stub-note" style={{ marginTop: 14, textAlign: "left" }}>
         AWS connectors use assume-role (no stored keys) in production; here they're the simulated collector
-        (<code>npm run db:collect</code>). Status reflects CheckRun completeness; document sources flag drift.
+        — no cloud credentials are configured, so its findings are generated, not
+        collected. Status reflects CheckRun completeness; document sources flag drift.
       </div>
     </div>
   );

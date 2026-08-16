@@ -9,7 +9,7 @@ import {
   type Section,
 } from "./router";
 import type { Domain, GlyphStyle } from "./types";
-import { fetchMatrix, fetchMe, logout, type MatrixSummary, type CurrentUser, type AssessmentPeriodInfo } from "./api";
+import { fetchMatrix, fetchMe, logout, type MatrixSummary, type CurrentUser, type AssessmentPeriodInfo , setSessionLostHandler} from "./api";
 import { GlyphCell } from "./components/Glyph";
 import { Grid } from "./components/Grid";
 import { Drawer } from "./components/Drawer";
@@ -261,6 +261,16 @@ export default function App() {
   const [route, setRoute] = useState<Route>(() =>
     parseLocation(window.location.pathname, window.location.search),
   );
+  // An expired session sends the user back to sign-in with an explanation,
+  // rather than leaving them on a page where nothing works.
+  useEffect(() => {
+    setSessionLostHandler(() => {
+      setMe(null);
+      setStepupMsg({ text: "Your session expired — please sign in again.", bad: true });
+    });
+    return () => setSessionLostHandler(null);
+  }, []);
+
   useEffect(() => {
     const onPop = () => setRoute(parseLocation(window.location.pathname, window.location.search));
     window.addEventListener("popstate", onPop);
@@ -477,7 +487,8 @@ export default function App() {
                 <Legend glyphStyle={t.glyphStyle} />
                 {load.state === "error" && (
                   <div className="api-banner error">
-                    API unreachable ({load.msg}). Start it with <code>docker compose up -d</code>, then <code>npm run dev:all</code>.
+                    Cannot reach the server ({load.msg}). This is usually a connection problem —
+                    check your network, then reload. If it persists, the service may be down.
                   </div>
                 )}
                 {load.state === "loading" && <div className="api-banner">Loading control matrix…</div>}

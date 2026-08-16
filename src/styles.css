@@ -1425,3 +1425,10 @@ tr:focus-visible {
 .row-domain {
   cursor: pointer;
 }
+
+/* A connector that has never run is unknown, not healthy — neutral, not green. */
+.conn-status.cs-unknown {
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}

@@ -485,7 +485,17 @@ export async function buildApp() {
         tasks.push({ control: e.controlCode, name: `Exception lapsed: ${e.reason.slice(0, 60)}`, type: "exception-lapsed", reason: `Risk acceptance expired ${e.expiresAt?.toISOString().slice(0, 10) ?? ""} — remediate or file a new request`, priority: 82 });
     }
     tasks.sort((a, b) => b.priority - a.priority);
-    return { count: tasks.length, tasks: tasks.slice(0, 80) };
+    // The cap stays — 289 rows is not a useful page — but it is now declared.
+    // Returning 80 of 289 under a `count` of 289, with no other signal, is how
+    // a worklist quietly becomes a lie: everything below the cut simply does
+    // not exist as far as the user can tell.
+    const LIMIT = 80;
+    return {
+      count: tasks.length,
+      returned: Math.min(LIMIT, tasks.length),
+      truncated: tasks.length > LIMIT,
+      tasks: tasks.slice(0, LIMIT),
+    };
   });
 
   // Evidence library.
