@@ -646,11 +646,23 @@ export async function buildApp() {
     const fw = req.query.framework === "iso27001" ? "iso27001" : "soc2";
     const fwName = fw === "iso27001" ? "ISO/IEC 27001:2022" : "SOC 2 (TSC 2017)";
     const isExport = req.query.export === "1" || req.query.export === "true";
-    if (isExport) {
-      if (!me) return reply.code(401).send({ error: "unauthenticated" });
-      if (!(await hasFreshStepUp(req))) return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
-      await db.insert(s.auditLog).values({ actorId: me.id, action: "report-export", targetType: "framework", targetId: fw });
-    }
+    // Gate the DATA, not the ceremony. All of this used to sit inside
+    // `if (isExport)`, so dropping the query parameter returned a byte-identical
+    // 165KB report — readiness, every requirement, every control, gaps and
+    // exceptions — with no step-up and no audit entry. The flag decided whether
+    // the caller was recorded, not whether they were entitled, which made the
+    // trail a record of who asked politely.
+    if (!me) return reply.code(401).send({ error: "unauthenticated" });
+    if (!(await hasFreshStepUp(req)))
+      return reply.code(403).send({ error: "re-authentication required", code: "step_up_required" });
+    // Every detailed response is recorded; the flag now only distinguishes a
+    // download from an on-screen read.
+    await db.insert(s.auditLog).values({
+      actorId: me.id,
+      action: isExport ? "report-export" : "report-view",
+      targetType: "framework",
+      targetId: fw,
+    });
     const reqData = await computeRequirements(fw);
     const [att, scoreMap, ctrls, evidence, maps, excs, period] = await Promise.all([
       latestAttestations(),
