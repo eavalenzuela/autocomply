@@ -1,0 +1,190 @@
+# CIS Critical Security Controls v8 — descriptions authored for this project.
+# ----------------------------------------------------------------------------
+# HAND-WRITTEN. Not generated, and deliberately not derived from CIS wording.
+#
+# CIS Controls v8 are licensed CC BY-NC-ND 4.0: redistribution of the material
+# is non-commercial only, and transformed versions may not be distributed. The
+# identifiers below are facts and referenceable; CIS's Safeguard titles and
+# normative statements are NOT reproduced anywhere in this repository.
+#
+# Each line is an independent description of what the safeguard requires,
+# written from an understanding of the control rather than by rewording CIS's
+# text. They are intended to be recognisable to someone who knows CIS v8, and
+# are ours, not CIS's — if they are wrong, that is our error and not a
+# misquotation of CIS.
+#
+# Review these before relying on them. Consult the CIS Controls themselves for
+# the authoritative requirement.
+controls:
+  "1": Know what hardware is connected to the enterprise, and control it
+  "2": Know what software is installed, and control it
+  "3": Identify, classify and protect data through its lifecycle
+  "4": Configure assets and software securely, and keep them that way
+  "5": Manage the lifecycle of accounts and their credentials
+  "6": Grant, review and revoke access based on need
+  "7": Find and fix vulnerabilities on a continuous cycle
+  "8": Collect, retain and review logs that would evidence an attack
+  "9": Protect the browser and email paths attackers most often use
+  "10": Prevent and detect malicious code on assets
+  "11": Be able to restore the enterprise from backups that survive an attack
+  "12": Design, run and monitor the network securely
+  "13": Detect and alert on suspicious activity across the estate
+  "14": Build workforce security awareness appropriate to each role
+  "15": Manage the security of third parties who hold or process your data
+  "16": Build and run software securely across its lifecycle
+  "17": Be ready to respond to an incident before one happens
+  "18": Test defences adversarially and act on what the tests find
+safeguards:
+  "1.1": Maintain a current, detailed record of every enterprise asset that stores or processes data
+  "1.2": Have a defined weekly process for dealing with assets found on the network that are not authorised
+  "1.3": Run an active discovery tool that scans for assets rather than relying on records alone
+  "1.4": Use DHCP server logging to keep the asset record current
+  "1.5": Run a passive discovery tool that identifies assets from observed traffic
+  "2.1": Maintain a current record of software authorised to run in the enterprise
+  "2.2": Ensure authorised software is still supported by its vendor, and remove or document what is not
+  "2.3": Have a defined process for removing or authorising software found that is not on the inventory
+  "2.4": Use tooling to keep the software inventory current automatically
+  "2.5": Permit only explicitly approved software to execute
+  "2.6": Permit only explicitly approved code libraries to load
+  "2.7": Permit only explicitly approved scripts to execute
+  "3.1": Maintain a documented process governing how data is handled across its lifecycle
+  "3.2": Maintain a record of the data the enterprise holds, including its sensitivity and location
+  "3.3": Restrict access to data so that reaching it requires an explicit grant
+  "3.4": Retain data for defined periods and no longer
+  "3.5": Dispose of data so that it cannot be recovered afterwards
+  "3.6": Encrypt data at rest on end-user devices
+  "3.7": Maintain a scheme that classifies data by sensitivity, and apply it
+  "3.8": Document how data moves between systems, services and third parties
+  "3.9": Encrypt data written to removable media
+  "3.10": Encrypt sensitive data while it is in transit
+  "3.11": Encrypt sensitive data while it is at rest on servers and storage
+  "3.12": Separate processing and storage so that sensitivity levels are not co-mingled
+  "3.13": Deploy tooling that identifies and prevents unauthorised movement of sensitive data
+  "3.14": Log access to sensitive data so that it can be reviewed afterwards
+  "4.1": Maintain a documented process for establishing and keeping secure configurations
+  "4.2": Maintain a documented secure configuration process specific to network infrastructure
+  "4.3": Lock sessions automatically after a period of inactivity
+  "4.4": Run and manage a host firewall on servers
+  "4.5": Run and manage a host firewall on end-user devices
+  "4.6": Administer assets and software over secure, managed channels
+  "4.7": Remove, disable or rename default accounts, and change default credentials
+  "4.8": Remove or disable services, ports and features that are not needed
+  "4.9": Point assets at DNS resolvers the enterprise controls or trusts
+  "4.10": Lock portable devices automatically after repeated failed authentication attempts
+  "4.11": Be able to wipe enterprise data from a portable device remotely
+  "4.12": Keep enterprise data on mobile devices separated from personal data
+  "5.1": Maintain a current record of all accounts, including who owns each one
+  "5.2": Require credentials to be unique per account rather than shared or reused
+  "5.3": Disable accounts that have gone unused for a defined period
+  "5.4": Perform administrative work from dedicated admin accounts, not everyday ones
+  "5.5": Maintain a current record of service accounts and their purpose
+  "5.6": Manage accounts from a central directory rather than per system
+  "6.1": Have a defined process for granting access when someone joins or changes role
+  "6.2": Have a defined process for revoking access promptly when it is no longer needed
+  "6.3": Require multi-factor authentication for applications exposed to the internet
+  "6.4": Require multi-factor authentication for remote access to the network
+  "6.5": Require multi-factor authentication for administrative access
+  "6.6": Maintain a record of the systems that perform authentication and authorisation
+  "6.7": Manage authorisation centrally rather than per system
+  "6.8": Define and enforce access on a role basis, reviewing grants periodically
+  "7.1": Maintain a documented process for managing vulnerabilities on a defined cycle
+  "7.2": Maintain a documented process for prioritising and tracking remediation
+  "7.3": Apply operating system patches automatically on a defined cadence
+  "7.4": Apply application patches automatically on a defined cadence
+  "7.5": Scan internal assets for vulnerabilities automatically and regularly
+  "7.6": Scan internet-facing assets for vulnerabilities automatically and regularly
+  "7.7": Remediate the vulnerabilities that scanning finds, on a defined timeline
+  "8.1": Maintain a documented process covering what is logged, where and for how long
+  "8.2": Collect audit logs from assets and services across the estate
+  "8.3": Provision enough storage that logs are not lost to capacity limits
+  "8.4": Synchronise clocks so that events from different sources can be correlated
+  "8.5": Log enough detail that an event can be reconstructed, not merely noticed
+  "8.6": Record the DNS lookups assets make
+  "8.7": Record the web addresses assets request
+  "8.8": Record the commands executed on assets, not merely that a session occurred
+  "8.9": Aggregate logs centrally rather than leaving them on originating hosts
+  "8.10": Retain logs long enough to investigate an intrusion discovered late
+  "8.11": Review logs on a defined cadence rather than only after an incident
+  "8.12": Collect logs from service providers who host enterprise data or services
+  "9.1": Use only browsers and email clients that are still supported by their vendor
+  "9.2": Filter DNS resolution to block known-malicious domains
+  "9.3": Filter web requests against URL categories and known-bad destinations
+  "9.4": Permit only approved browser and email client extensions
+  "9.5": Publish DMARC records, having deployed SPF and DKIM
+  "9.6": Block inbound file types that the enterprise has no need to receive
+  "9.7": Scan inbound mail at the server for malicious content
+  "10.1": Deploy anti-malware software to assets
+  "10.2": Update anti-malware signatures automatically
+  "10.3": Prevent removable media from executing content automatically on insertion
+  "10.4": Scan removable media for malicious content automatically when connected
+  "10.5": Enable operating system and application anti-exploitation protections
+  "10.6": Manage anti-malware software centrally rather than per host
+  "10.7": Use anti-malware that detects on behaviour, not only on signatures
+  "11.1": Maintain a documented process for recovering data, with defined objectives
+  "11.2": Back up data automatically on a defined schedule
+  "11.3": Protect backups with the same rigour as the data they contain
+  "11.4": Keep at least one copy of recovery data isolated from the production network
+  "11.5": Test restoration regularly, so that recovery is known to work rather than assumed
+  "12.1": Keep network infrastructure patched and on supported versions
+  "12.2": Design the network so that segmentation and trust boundaries are deliberate
+  "12.3": Administer network infrastructure over secure, managed channels
+  "12.4": Maintain current network diagrams, and keep them accurate as the estate changes
+  "12.5": Centralise network authentication, authorisation and accounting
+  "12.6": Use protocols that authenticate and encrypt network management traffic
+  "12.7": Require remote devices to connect through a VPN into enterprise infrastructure
+  "12.8": Perform administrative work from dedicated devices, separated from general use
+  "13.1": Aggregate security alerts centrally so that they are seen in one place
+  "13.2": Deploy host-based intrusion detection on assets
+  "13.3": Deploy network-based intrusion detection
+  "13.4": Filter traffic between network segments rather than permitting it by default
+  "13.5": Control what remote assets may reach, based on their posture
+  "13.6": Collect network flow records across the estate
+  "13.7": Deploy host-based intrusion prevention on assets
+  "13.8": Deploy network-based intrusion prevention
+  "13.9": Authenticate devices at the network port before granting access
+  "13.10": Filter traffic at the application layer, not only by port and address
+  "13.11": Tune alert thresholds so that real events are not lost in noise
+  "14.1": Run a security awareness programme, refreshed on a defined cadence
+  "14.2": Train people to recognise social engineering, including phishing
+  "14.3": Train people on authentication practice, including credential handling and MFA
+  "14.4": Train people on handling data according to its classification
+  "14.5": Train people on the ways data is exposed accidentally
+  "14.6": Train people to recognise a security incident and to report it
+  "14.7": Train people to notice and report assets that are missing patches or protections
+  "14.8": Train people on the risks of untrusted networks and unencrypted transmission
+  "14.9": Provide additional training specific to roles that carry more risk
+  "15.1": Maintain a record of service providers who hold or process enterprise data
+  "15.2": Maintain a documented policy governing how service providers are managed
+  "15.3": Classify service providers by the risk they represent
+  "15.4": Ensure provider contracts state the security requirements they must meet
+  "15.5": Assess providers against those requirements before and during the relationship
+  "15.6": Monitor providers on an ongoing basis, not only at onboarding
+  "15.7": Decommission providers deliberately, ensuring data is returned or destroyed
+  "16.1": Maintain a documented secure development process, reviewed periodically
+  "16.2": Maintain a process for receiving and acting on reported vulnerabilities
+  "16.3": Analyse the root cause of security defects rather than only the symptom
+  "16.4": Maintain a record of third-party components used in software the enterprise builds
+  "16.5": Use third-party components that are current and from trusted sources
+  "16.6": Maintain a severity rating scheme, and use it to prioritise application defects
+  "16.7": Harden application infrastructure from standard templates rather than ad hoc
+  "16.8": Keep production and non-production environments separated
+  "16.9": Train developers in secure design and secure coding
+  "16.10": Apply secure design principles when designing application architecture
+  "16.11": Use vetted, shared components for security functions rather than writing them again
+  "16.12": Check code for security defects as part of development, not after it
+  "16.13": Test applications adversarially, at a depth matched to their risk
+  "16.14": Model threats against applications so that design decisions answer real risks
+  "17.1": Name the people accountable for handling incidents
+  "17.2": Maintain current contact details for everyone needed during an incident
+  "17.3": Maintain a process by which anyone can report a suspected incident
+  "17.4": Maintain a documented incident response process, reviewed periodically
+  "17.5": Assign the roles and responsibilities the response process depends on
+  "17.6": Define how people will communicate during an incident, including out-of-band
+  "17.7": Exercise the response process regularly rather than first using it in anger
+  "17.8": Review incidents afterwards and feed what is learned back into the process
+  "17.9": Define the thresholds at which an event becomes a declared incident
+  "18.1": Maintain a penetration testing programme with defined scope and cadence
+  "18.2": Conduct external penetration tests periodically
+  "18.3": Remediate what penetration testing finds, on a defined timeline
+  "18.4": Validate that deployed defences actually detect and block what they should
+  "18.5": Conduct internal penetration tests periodically

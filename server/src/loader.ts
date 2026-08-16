@@ -49,6 +49,7 @@ export function loadAll(): LoadedData {
   const csfCrosswalk = load("mappings/csf2-crosswalk.yaml");
   const sp171 = load("frameworks/sp800-171.yaml");
   const sp171Crosswalk = load("mappings/sp800-171-crosswalk.yaml");
+  const cis = load("frameworks/cis-v8.yaml");
 
   const categories: LoadedCategory[] = controlsDoc.categories.map((c: any) => ({ id: c.id, title: c.title }));
 
@@ -78,6 +79,25 @@ export function loadAll(): LoadedData {
     requirements.push({ frameworkId: "iso27001", code: a.code, title: a.title, kind: "iso-annexa", extra: { theme: a.theme, new_2022: a.new_2022 ?? false } });
   // CSF's assessable unit is the Subcategory; Functions and Categories are
   // grouping, carried as metadata so the UI can nest without another table.
+  // CIS's assessable unit is the Safeguard; the 18 Controls are grouping.
+  //
+  // No crosswalk ships for CIS. CIS publishes an 800-53 mapping, but that
+  // mapping is their editorial work under the same CC BY-NC-ND licence as the
+  // Safeguard text, so it is not reproduced here. Deriving one transitively
+  // through CSF would mean asserting correspondences nobody published. The
+  // honest result is that CIS arrives unmapped and an organisation maps it in
+  // the product, which is what POST /api/mappings exists for.
+  const cisControlTitle = new Map<string, string>((cis.controls ?? []).map((c: any) => [c.code, c.title]));
+  for (const sg of cis.safeguards ?? []) {
+    requirements.push({
+      frameworkId: "cis-v8",
+      code: sg.code,
+      title: sg.title,
+      kind: "cis-safeguard",
+      extra: { control: sg.control, controlTitle: cisControlTitle.get(sg.control) ?? sg.control },
+    });
+  }
+
   // 800-171's assessable unit is the requirement; families are grouping.
   for (const r of sp171.requirements ?? []) {
     requirements.push({
@@ -123,6 +143,7 @@ export function loadAll(): LoadedData {
     fw("iso27001", iso, "ISO/IEC 27001"),
     fw("csf2", csf2, "NIST Cybersecurity Framework"),
     fw("sp800-171", sp171, "NIST SP 800-171"),
+    fw("cis-v8", cis, "CIS Critical Security Controls"),
   ];
 
   const mapFor = (frameworkId: string, rows: any[] = []): LoadedMapping[] =>
