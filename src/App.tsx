@@ -15,6 +15,7 @@ import { Grid } from "./components/Grid";
 import { Drawer } from "./components/Drawer";
 import { TweaksPanel, useTweaks } from "./components/Tweaks";
 import { LoginPage, InvitePage, ChangePasswordModal } from "./components/auth";
+import { useEnabledFrameworks } from "./components/FrameworkTabs";
 import { StepUpGate } from "./components/StepUp";
 import { Sidebar, WorklistPage, EvidencePage, ExceptionsPage, RequirementsPage, DashboardPage, AdminPage, ReportsPage, IntegrationsPage, ControlsPage, PeriodsPage, SoaPage } from "./components/shell";
 
@@ -55,7 +56,7 @@ function Topbar({ me, onLogout, onChangePassword, period }: { me: CurrentUser; o
       <div className="crumbs">
         <span>Programs</span>
         <span className="sep">/</span>
-        <span>{period?.frameworkLabel ?? "NIST 800-53"}</span>
+        <span>{period ? period.frameworkLabel : "no active period"}</span>
         <span className="sep">/</span>
         <strong>{cycle}</strong>
       </div>
@@ -151,11 +152,25 @@ function Header({
     <div className="header">
       <div className="header-top">
         <div className="header-title">
-          <span className="eyebrow">Assessment · {period ? `${period.days}d period` : "no active period"}</span>
+          {/* This page always shows the CCF — the 800-53 control set — whatever
+              framework the active period targets. Titling it with the period's
+              framework made it look like a per-framework view that had somehow
+              switched, and offered no way to switch back because there was
+              never anything to switch. The period is context, not the subject. */}
+          <span className="eyebrow">Common control framework</span>
           <h1 className="h1">
-            {period?.frameworkLabel ?? "NIST 800-53"}{" "}
-            <span className="frame">{period?.tier ? `${cap(period.tier)} control matrix` : "control matrix"}</span>
+            Control Matrix <span className="frame">· NIST 800-53 Rev 5</span>
           </h1>
+          <div className="header-context">
+            {period ? (
+              <>
+                Assessing against <strong>{period.frameworkLabel}</strong> — {period.name}
+                {period.tier ? <> · scoped to the {cap(period.tier)} baseline</> : <> · no baseline scoping, all controls in scope</>}
+              </>
+            ) : (
+              <>No active assessment period — all controls in scope. Set one on Assessment periods.</>
+            )}
+          </div>
         </div>
         <KpiStrip summary={summary} domains={domains} />
       </div>
@@ -296,6 +311,11 @@ export default function App() {
     [route],
   );
 
+  // The SoA is ISO-specific. Offering it when ISO is not adopted leads to an
+  // error the user cannot act on; better not to offer it.
+  const enabledFws = useEnabledFrameworks();
+  const hiddenNav = enabledFws.length && !enabledFws.some((f) => f.id === "iso27001") ? ["soa"] : [];
+
   const selectedId = route.code;
   const setSelectedId = useCallback((code: string | null) => navigate({ code }), [navigate]);
   const filters = route.filters;
@@ -335,6 +355,13 @@ export default function App() {
   useEffect(() => {
     if (me) loadMatrix();
   }, [me, loadMatrix]);
+
+  // Refetch when the matrix is opened. Period status, scope and assignments all
+  // change on other pages, and the matrix was loaded once at login — so
+  // switching the active period appeared to do nothing until a full reload.
+  useEffect(() => {
+    if (me && active === "matrix") loadMatrix();
+  }, [me, active, loadMatrix]);
 
   useEffect(() => {
     fetchMe().then((u) => {
@@ -456,7 +483,7 @@ export default function App() {
     <div className="app-shell">
       <Topbar me={me} onLogout={handleLogout} onChangePassword={() => setPwOpen(true)} period={summary?.period ?? null} />
       <div className="shell-body">
-        <Sidebar active={active} onNav={setActive} />
+        <Sidebar active={active} onNav={setActive} hide={hiddenNav} />
         <div className="content">
           {/* An unknown path says so. It used to render the Control Matrix with
               a 200, so a mistyped or stale deep link looked like it worked and

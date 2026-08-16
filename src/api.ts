@@ -297,7 +297,7 @@ export interface RequirementsResponse {
   };
   requirements: RequirementRow[];
 }
-export async function fetchRequirements(framework: "soc2" | "iso27001"): Promise<RequirementsResponse> {
+export async function fetchRequirements(framework: string): Promise<RequirementsResponse> {
   return get(`/api/requirements?framework=${framework}`);
 }
 
@@ -341,7 +341,7 @@ export interface ReportResponse {
 }
 // `forExport` requests the downloadable artifact — a sensitive action that
 // requires a fresh step-up re-auth and is audit-logged server-side.
-export async function fetchReport(framework: "soc2" | "iso27001", forExport = false): Promise<ReportResponse> {
+export async function fetchReport(framework: string, forExport = false): Promise<ReportResponse> {
   return get(`/api/report?framework=${framework}${forExport ? "&export=1" : ""}`);
 }
 

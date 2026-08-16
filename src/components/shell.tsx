@@ -48,6 +48,7 @@ import {
   type FrameworkInfo,
 } from "../api";
 import { ControlPicker } from "./ControlPicker";
+import { FrameworkTabs, useEnabledFrameworks } from "./FrameworkTabs";
 
 const ROLES: Role[] = ["admin", "compliance_manager", "control_owner", "auditor", "viewer"];
 
@@ -72,11 +73,11 @@ export const NAV: NavItem[] = [
   { key: "admin", label: "Admin" },
 ];
 
-export function Sidebar({ active, onNav }: { active: string; onNav: (k: string) => void }) {
+export function Sidebar({ active, onNav, hide = [] }: { active: string; onNav: (k: string) => void; hide?: string[] }) {
   let lastGroup: string | undefined;
   return (
     <nav className="sidebar">
-      {NAV.map((item) => {
+      {NAV.filter((item) => !hide.includes(item.key)).map((item) => {
         const showGroup = item.group && item.group !== lastGroup;
         lastGroup = item.group;
         return (
@@ -253,7 +254,14 @@ export function ExceptionsPage({ role }: { role: string }) {
 }
 
 export function RequirementsPage({ role }: { role?: string }) {
-  const [fw, setFw] = useState<"soc2" | "iso27001">("soc2");
+  // Whatever is enabled, not a hardcoded pair.
+  const frameworks = useEnabledFrameworks();
+  const [fw, setFw] = useState<string>("soc2");
+  useEffect(() => {
+    // If the default is not enabled, land on the first one that is rather than
+    // asking for a framework the organisation has not adopted.
+    if (frameworks.length && !frameworks.some((f) => f.id === fw)) setFw(frameworks[0].id);
+  }, [frameworks, fw]);
   const [data, setData] = useState<RequirementsResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [gapsOnly, setGapsOnly] = useState(false);
@@ -304,8 +312,7 @@ export function RequirementsPage({ role }: { role?: string }) {
       </div>
       <div className="req-toolbar">
         <div className="seg">
-          <button className={fw === "soc2" ? "on" : ""} onClick={() => setFw("soc2")}>SOC 2</button>
-          <button className={fw === "iso27001" ? "on" : ""} onClick={() => setFw("iso27001")}>ISO 27001</button>
+          <FrameworkTabs value={fw} onChange={setFw} frameworks={frameworks} />
         </div>
         <button className={`chip ${gapsOnly ? "active" : ""}`} onClick={() => setGapsOnly((g) => !g)}>
           gaps only {s ? <span className="count">{s.gaps}</span> : null}
@@ -929,7 +936,11 @@ export function AdminPage({ me }: { me: { role: string } }) {
 const RATING_LABEL: Record<string, string> = { fc: "Fully", mc: "Mostly", pc: "Partially", sc: "Somewhat", nc: "Non-compliant" };
 
 export function ReportsPage() {
-  const [fw, setFw] = useState<"soc2" | "iso27001">("soc2");
+  const frameworks = useEnabledFrameworks();
+  const [fw, setFw] = useState<string>("soc2");
+  useEffect(() => {
+    if (frameworks.length && !frameworks.some((f) => f.id === fw)) setFw(frameworks[0].id);
+  }, [frameworks, fw]);
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -962,8 +973,7 @@ export function ReportsPage() {
       </div>
       <div className="req-toolbar no-print">
         <div className="seg">
-          <button className={fw === "soc2" ? "on" : ""} onClick={() => setFw("soc2")}>SOC 2</button>
-          <button className={fw === "iso27001" ? "on" : ""} onClick={() => setFw("iso27001")}>ISO 27001</button>
+          <FrameworkTabs value={fw} onChange={setFw} frameworks={frameworks} />
         </div>
         <button className="btn primary" disabled={busy} onClick={generate}>{busy ? "Generating…" : "Generate report"}</button>
         {report && <button className="btn" onClick={downloadJson}>Download JSON</button>}
