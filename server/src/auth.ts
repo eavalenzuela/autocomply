@@ -129,10 +129,31 @@ export async function currentUser(req: FastifyRequest): Promise<CurrentUser | nu
   return null;
 }
 
+/**
+ * Whether session cookies carry the Secure flag.
+ *
+ * Derived from the public origin rather than NODE_ENV. A Secure cookie is
+ * silently discarded by the browser over plain HTTP, so keying this off
+ * NODE_ENV made every non-TLS deployment impossible to log into -- the login
+ * request succeeded, the cookie was dropped, and nothing logged an error.
+ * OAUTH_BASE_URL already declares the origin users actually reach (it drives
+ * OAuth redirects and CORS), so it decides this too.
+ *
+ * Falls back to the NODE_ENV check when OAUTH_BASE_URL is unset or unparseable,
+ * which keeps the safe default for deployments that never set it.
+ */
+export function useSecureCookies(): boolean {
+  const base = process.env.OAUTH_BASE_URL;
+  if (!base) return process.env.NODE_ENV === "production";
+  try {
+    return new URL(base).protocol === "https:";
+  } catch {
+    return process.env.NODE_ENV === "production";
+  }
+}
+
 export function setSessionCookie(reply: FastifyReply, token: string) {
-  // Secure flag in production (served over HTTPS behind the Caddy proxy).
-  const secure = process.env.NODE_ENV === "production";
-  (reply as any).setCookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", secure, maxAge: SESSION_TTL_MS / 1000 });
+  (reply as any).setCookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", secure: useSecureCookies(), maxAge: SESSION_TTL_MS / 1000 });
 }
 export function clearSessionCookie(reply: FastifyReply) {
   (reply as any).clearCookie(SESSION_COOKIE, { path: "/" });

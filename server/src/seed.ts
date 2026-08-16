@@ -30,26 +30,38 @@ async function main() {
   await db.delete(s.controlCategories);
   await db.delete(s.users);
 
-  // Users. Default: a single strong admin from ADMIN_EMAIL/ADMIN_PASSWORD (safe to
-  // expose publicly). SEED_DEMO_USERS=true seeds the five shared-password
-  // quick-login users for local dev/demos.
+  // Users. The admin ALWAYS comes from ADMIN_EMAIL/ADMIN_PASSWORD, in both modes.
+  // Previously demo mode substituted its own hardcoded admin and ignored both
+  // vars without saying so, so anyone following deploy/README.md (which tells
+  // you to set ADMIN_PASSWORD) while leaving SEED_DEMO_USERS=true got five
+  // accounts sharing the password "autocomply" and no indication of it.
+  // The defaults below reproduce the old demo admin exactly, so an unconfigured
+  // demo seed is unchanged.
+  //
+  // SEED_DEMO_USERS=true now seeds the four *non-admin* role accounts on top.
   const demo = process.env.SEED_DEMO_USERS === "true";
   const auditorExpiry = new Date(Date.now() + 30 * 24 * 3600 * 1000);
   const adminEmail = process.env.ADMIN_EMAIL || "admin@autocomply.local";
   const adminHash = hashPassword(process.env.ADMIN_PASSWORD || "autocomply");
+  if (demo) {
+    console.warn(
+      "WARNING: SEED_DEMO_USERS=true seeds four extra accounts that all share the " +
+        "password \"autocomply\". Local development only -- never seed these on a " +
+        "host anyone else can reach.",
+    );
+  }
+  const demoUsers = [
+    { email: "cm@autocomply.local", name: "Compliance Manager", role: "compliance_manager", passwordHash: PW },
+    { email: "owner@autocomply.local", name: "Control Owner", role: "control_owner", passwordHash: PW },
+    { email: "auditor@autocomply.local", name: "External Auditor", role: "auditor", passwordHash: PW, expiresAt: auditorExpiry },
+    { email: "viewer@autocomply.local", name: "Exec Viewer", role: "viewer", passwordHash: PW },
+  ];
   const userRows = await db
     .insert(s.users)
-    .values(
-      demo
-        ? [
-            { email: "admin@autocomply.local", name: "Admin", role: "admin", passwordHash: PW },
-            { email: "cm@autocomply.local", name: "Compliance Manager", role: "compliance_manager", passwordHash: PW },
-            { email: "owner@autocomply.local", name: "Control Owner", role: "control_owner", passwordHash: PW },
-            { email: "auditor@autocomply.local", name: "External Auditor", role: "auditor", passwordHash: PW, expiresAt: auditorExpiry },
-            { email: "viewer@autocomply.local", name: "Exec Viewer", role: "viewer", passwordHash: PW },
-          ]
-        : [{ email: adminEmail, name: "Admin", role: "admin", passwordHash: adminHash }],
-    )
+    .values([
+      { email: adminEmail, name: "Admin", role: "admin", passwordHash: adminHash },
+      ...(demo ? demoUsers : []),
+    ])
     .returning();
   const admin = userRows[0];
   const owner = userRows.find((u) => u.role === "control_owner");
@@ -97,7 +109,7 @@ async function main() {
     `seeded: ${data.categories.length} categories, ${data.objectives.length} objectives, ` +
       `${data.controls.length} controls, ${data.frameworks.length} frameworks, ` +
       `${reqRows.length} requirements, ${mappingRows.length} mappings, ` +
-      `${userRows.length} user(s) [${demo ? "demo, pw: autocomply" : `admin: ${adminEmail}`}]`,
+      `${userRows.length} user(s) [admin: ${adminEmail}${demo ? " + 4 demo users, pw: autocomply" : ""}]`,
   );
   await pool.end();
 }
