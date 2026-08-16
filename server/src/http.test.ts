@@ -750,41 +750,6 @@ test("an open period's report DOES follow the live data", async () => {
   }
 });
 
-test("a period closed before snapshots existed says so rather than claiming to be frozen", async () => {
-  // v1 snapshots were control codes only, so a framework period closed under the
-  // old code froze nothing. Reporting those as "frozen" would be a worse claim
-  // than the gap itself.
-  const cookie = await loginStepped(U.admin);
-  const fw = "iso27001";
-  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
-  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
-  const priorPeriods = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.framework, fw));
-  for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: `${fw}-parked` }).where(eq(s.assessmentPeriods.id, p.id));
-
-  let id: number | null = null;
-  try {
-    const [row] = await db
-      .insert(s.assessmentPeriods)
-      .values({
-        name: "legacy-close", framework: fw,
-        startDate: new Date("2052-01-01"), endDate: new Date("2052-12-31"),
-        status: "closed", closedAt: new Date("2053-01-01"),
-        scopeSnapshot: ["AC-1", "AC-2"], // the v1 shape
-      })
-      .returning();
-    id = row.id;
-    const res = await app.inject({ method: "GET", url: `/api/report?framework=${fw}`, headers: auth(cookie) });
-    assert.equal(res.statusCode, 200, res.body);
-    const basis = res.json().meta.basis;
-    assert.equal(basis.kind, "partially-frozen");
-    assert.match(basis.note, /closed before scope snapshots/i);
-    assert.ok(basis.asOf, "ratings are still pinned to the close date");
-  } finally {
-    if (id) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
-    for (const p of priorPeriods) await db.update(s.assessmentPeriods).set({ framework: fw }).where(eq(s.assessmentPeriods.id, p.id));
-    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Attestation ↔ period membership.

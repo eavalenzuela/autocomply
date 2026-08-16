@@ -1087,11 +1087,6 @@ export function ReportsPage({ framework, onFramework }: { framework?: string | n
                     recorded at close, with ratings as they stood then.
                   </>
                 )}
-                {report.meta.basis.kind === "partially-frozen" && (
-                  <>
-                    <b>Partially frozen</b> as at {report.meta.basis.asOf?.slice(0, 10)} — {report.meta.basis.note}
-                  </>
-                )}
                 {report.meta.basis.kind === "no-period" && (
                   <>
                     <b>No assessment period</b> — these figures are current state, not a finding against an

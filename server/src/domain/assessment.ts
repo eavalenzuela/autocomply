@@ -285,10 +285,8 @@ export async function currentPeriod(framework?: string | null) {
  * assessment had found, and a report reprinted a year later would not match the
  * one that was issued.
  *
- * v1 snapshots were a bare array of in-scope control codes, which only ever
- * populated for baseline periods (a tier is an 800-53 concept), so a closed
- * SOC 2 period froze nothing at all. v2 captures the framework's requirements
- * and their mappings as well, and is read back below.
+ * The shape captures the framework's requirements and their mappings alongside
+ * the control set, and is read back below.
  */
 export interface ScopeSnapshot {
   version: 2;
@@ -300,13 +298,9 @@ export interface ScopeSnapshot {
   mappings: { requirementId: number; control: string; relationship: string }[];
 }
 
-/** Read a stored snapshot, tolerating the v1 bare-array form. */
+/** Read a stored snapshot. */
 export function parseSnapshot(raw: unknown): ScopeSnapshot | null {
-  if (!raw) return null;
-  if (Array.isArray(raw)) {
-    // v1: control codes only. Enough to freeze baseline scope, not requirements.
-    return { version: 2, closedAt: "", controls: raw as string[], framework: "", requirements: [], mappings: [] };
-  }
+  if (!raw || Array.isArray(raw)) return null;
   const o = raw as Partial<ScopeSnapshot>;
   if (!o || typeof o !== "object" || !Array.isArray(o.requirements)) return null;
   return {

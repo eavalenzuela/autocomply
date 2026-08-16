@@ -948,14 +948,17 @@ export async function buildApp() {
     const periodRow = (await activePeriodFor(fw)) ?? (await latestPeriodFor(fw));
     const isClosed = periodRow?.status === "closed";
     const snapshot = isClosed ? parseSnapshot(periodRow!.scopeSnapshot) : null;
-    // Only a snapshot that actually captured requirements can drive a frozen
-    // report. Periods closed before this existed hold the v1 form — control
-    // codes only, and empty for anything that is not an 800-53 baseline. Those
-    // cannot be frozen retroactively, and saying "frozen" over live data would
-    // be a worse lie than admitting the gap.
     const frozen = snapshot && snapshot.requirements.length ? snapshot : null;
-    // The attestation cut-off works from closedAt alone, so even a legacy period
-    // gets the half of the freeze that is still recoverable.
+    // A closed period always carries a usable snapshot, because closing writes
+    // one. If that is ever untrue the document cannot describe itself honestly —
+    // it would be built from live data while reporting on a finished
+    // assessment — so refuse rather than hand over a report that misrepresents
+    // what it is.
+    if (isClosed && !frozen)
+      return reply.code(500).send({
+        error: "this closed period has no usable scope snapshot, so a reproducible report cannot be built from it",
+        code: "snapshot_missing",
+      });
     const asOf = frozen?.closedAt ? new Date(frozen.closedAt) : isClosed ? periodRow!.closedAt : null;
     const reqData = await computeRequirements(fw, frozen);
     const [att, scoreMap, ctrls, evidence, maps, excs, period] = await Promise.all([
@@ -1022,13 +1025,7 @@ export async function buildApp() {
               mappings: frozen.mappings.length,
               controlsInScope: frozen.controls?.length ?? null,
             }
-          : isClosed
-            ? {
-                kind: "partially-frozen" as const,
-                asOf: periodRow?.closedAt?.toISOString() ?? null,
-                note: "This period closed before scope snapshots recorded requirements and mappings. Ratings are as at the close date, but the requirement set and crosswalk are read live and may have changed since.",
-              }
-            : periodRow
+          : periodRow
               ? { kind: "live" as const, asOf: null }
               : // No period at all — the state every new instance starts in.
                 // Calling that "live" claimed an open observation window that

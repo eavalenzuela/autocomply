@@ -336,9 +336,8 @@ export interface ReportResponse {
     generatedBy: string;
     /** Whether the figures reproduce (frozen at close) or move with the data. */
     basis?: {
-      kind: "frozen" | "partially-frozen" | "live" | "no-period";
+      kind: "frozen" | "live" | "no-period";
       asOf: string | null;
-      note?: string;
       requirements?: number;
       mappings?: number;
       controlsInScope?: number | null;

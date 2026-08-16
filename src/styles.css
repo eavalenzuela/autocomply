@@ -1532,7 +1532,7 @@ tr:focus-visible {
 .crumb-more { color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
 /* A report says whether it reproduces. Frozen is the reassuring case, so it is
-   the quiet one; live and partially-frozen carry a caution. */
+   the quiet one; the others carry a caution. */
 .report-basis {
   margin-top: 8px;
   padding: 7px 10px;
@@ -1543,6 +1543,6 @@ tr:focus-visible {
   color: var(--ink-2);
   background: var(--surface-2);
 }
-.report-basis.b-live, .report-basis.b-partially-frozen, .report-basis.b-reopened, .report-basis.b-coverage, .report-basis.b-no-period {
+.report-basis.b-live, .report-basis.b-reopened, .report-basis.b-coverage, .report-basis.b-no-period {
   border-color: var(--warn);
 }
