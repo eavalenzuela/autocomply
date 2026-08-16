@@ -1,5 +1,13 @@
 // autocomply — control matrix main view pane.
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import {
+  parseLocation,
+  buildUrl,
+  titleFor,
+  DEFAULT_SECTION,
+  type Route,
+  type Section,
+} from "./router";
 import type { Domain, GlyphStyle } from "./types";
 import { fetchMatrix, fetchMe, logout, type MatrixSummary, type CurrentUser, type AssessmentPeriodInfo } from "./api";
 import { GlyphCell } from "./components/Glyph";
@@ -247,12 +255,51 @@ export default function App() {
   const [t, setTweak] = useTweaks();
   const [me, setMe] = useState<CurrentUser | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [filters, setFilters] = useState<string[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Navigation lives in the URL. `active`, `selectedId` and `filters` are all
+  // derived from it, so a view can be bookmarked, pasted into a ticket, and
+  // reached with Back — none of which worked when these were useState.
+  const [route, setRoute] = useState<Route>(() =>
+    parseLocation(window.location.pathname, window.location.search),
+  );
+  useEffect(() => {
+    const onPop = () => setRoute(parseLocation(window.location.pathname, window.location.search));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useEffect(() => {
+    document.title = titleFor(route);
+  }, [route]);
+
+  const navigate = useCallback(
+    (next: { section?: Section; code?: string | null; filters?: string[]; framework?: string | null }, replace = false) => {
+      const merged = {
+        section: next.section ?? route.section ?? DEFAULT_SECTION,
+        code: next.code !== undefined ? next.code : route.code,
+        filters: next.filters ?? route.filters,
+        framework: next.framework !== undefined ? next.framework : route.framework,
+      };
+      const url = buildUrl(merged);
+      if (replace) window.history.replaceState(null, "", url);
+      else window.history.pushState(null, "", url);
+      setRoute(parseLocation(url.split("?")[0], url.includes("?") ? `?${url.split("?")[1]}` : ""));
+    },
+    [route],
+  );
+
+  const selectedId = route.code;
+  const setSelectedId = useCallback((code: string | null) => navigate({ code }), [navigate]);
+  const filters = route.filters;
+  const setFilters = useCallback(
+    (updater: string[] | ((f: string[]) => string[])) =>
+      navigate({ filters: typeof updater === "function" ? updater(route.filters) : updater }),
+    [navigate, route.filters],
+  );
   const [domains, setDomains] = useState<Domain[]>([]);
   const [summary, setSummary] = useState<MatrixSummary | null>(null);
   const [load, setLoad] = useState<{ state: "loading" | "ok" | "error"; msg?: string }>({ state: "loading" });
-  const [active, setActive] = useState("matrix");
+  // Changing section clears the drawer: /matrix/AC-2 -> /admin, not /admin/AC-2.
+  const active = route.section ?? DEFAULT_SECTION;
+  const setActive = useCallback((k: string) => navigate({ section: k as Section, code: null }), [navigate]);
   const [stepupMsg, setStepupMsg] = useState<{ text: string; bad: boolean } | null>(null);
   const [query, setQuery] = useState("");
   const [pwOpen, setPwOpen] = useState(false);
@@ -390,12 +437,30 @@ export default function App() {
       <div className="shell-body">
         <Sidebar active={active} onNav={setActive} />
         <div className="content">
+          {/* An unknown path says so. It used to render the Control Matrix with
+              a 200, so a mistyped or stale deep link looked like it worked and
+              showed you somebody else's page. */}
+          {route.section === null && (
+            <div className="page">
+              <div className="page-head">
+                <span className="eyebrow">Not found</span>
+                <h1 className="h1">No page at {route.path}</h1>
+              </div>
+              <p className="stub-sub" style={{ maxWidth: "60ch" }}>
+                That address does not match anything in this workspace. It may be from an
+                older version, or it may be a typo.
+              </p>
+              <button className="btn" onClick={() => setActive(DEFAULT_SECTION)}>
+                Go to the Control Matrix
+              </button>
+            </div>
+          )}
           {stepupMsg && (
             <div className={`api-banner ${stepupMsg.bad ? "error" : ""}`} onClick={() => setStepupMsg(null)}>
               {stepupMsg.text}
             </div>
           )}
-          {active === "matrix" && (
+          {route.section !== null && active === "matrix" && (
             <>
               <Header
                 filters={filters}
@@ -428,17 +493,17 @@ export default function App() {
               </main>
             </>
           )}
-          {active === "dashboard" && <DashboardPage onNav={setActive} />}
-          {active === "worklist" && <WorklistPage onOpenControl={setSelectedId} />}
-          {active === "evidence" && <EvidencePage onOpenControl={setSelectedId} />}
-          {active === "risks" && <ExceptionsPage role={me.role} />}
-          {active === "requirements" && <RequirementsPage />}
-          {active === "soa" && <SoaPage role={me.role} />}
-          {active === "reports" && <ReportsPage />}
-          {active === "integrations" && <IntegrationsPage />}
-          {active === "controls" && <ControlsPage onOpenControl={setSelectedId} />}
-          {active === "periods" && <PeriodsPage role={me.role} />}
-          {active === "admin" && <AdminPage me={me} />}
+          {route.section !== null && active === "dashboard" && <DashboardPage onNav={setActive} />}
+          {route.section !== null && active === "worklist" && <WorklistPage onOpenControl={setSelectedId} />}
+          {route.section !== null && active === "evidence" && <EvidencePage onOpenControl={setSelectedId} />}
+          {route.section !== null && active === "risks" && <ExceptionsPage role={me.role} />}
+          {route.section !== null && active === "requirements" && <RequirementsPage />}
+          {route.section !== null && active === "soa" && <SoaPage role={me.role} />}
+          {route.section !== null && active === "reports" && <ReportsPage />}
+          {route.section !== null && active === "integrations" && <IntegrationsPage />}
+          {route.section !== null && active === "controls" && <ControlsPage onOpenControl={setSelectedId} />}
+          {route.section !== null && active === "periods" && <PeriodsPage role={me.role} />}
+          {route.section !== null && active === "admin" && <AdminPage me={me} />}
         </div>
       </div>
       <Drawer
