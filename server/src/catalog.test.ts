@@ -69,7 +69,11 @@ test("requirement refs are unique and namespaced <fw>:<code>", async () => {
   const refs = catalog.frameworks.flatMap((f) => f.requirements.map((r) => r.ref));
   assert.ok(refs.length > 100, "expected >100 requirements");
   assert.equal(new Set(refs).size, refs.length, "requirement refs must be unique");
-  for (const r of refs) assert.match(r, /^[a-z0-9]+:/, `ref not namespaced: ${r}`);
+  // Hyphens allowed: the contract's `ref` is an unconstrained string, and real
+  // framework ids have them (sp800-171). This regex was stricter than the schema
+  // it exists to check, so adding a legitimately-named catalog failed a test
+  // that the contract itself was happy with.
+  for (const r of refs) assert.match(r, /^[a-z0-9][a-z0-9-]*:/, `ref not namespaced: ${r}`);
 });
 
 test("control satisfies edges only reference declared requirement refs (fail-closed)", async () => {
