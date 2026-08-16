@@ -6,6 +6,11 @@ import { db } from "./db/index";
 import * as s from "./db/schema";
 import { controlScore, ratingToGrade, COVERAGE_FLOOR, DIMENSIONS, type Dimension, type Rating } from "./scoring";
 import { recordAudit, recordSecurityEvent } from "./audit";
+import {
+  idParam, codeParam, loginBody, stepUpBody, passwordBody, attestBody, exceptionBody,
+  decideBody, soaBody, roleBody, tokenBody, assignBody, frameworkQuery, periodBody,
+  periodStatusBody,
+} from "./schemas";
 import { RateLimiter } from "./ratelimit";
 import {
   currentUser,
@@ -268,7 +273,7 @@ export async function buildApp() {
   });
 
   // ---- auth ----
-  app.post<{ Body: { email: string; password: string } }>("/api/login", async (req, reply) => {
+  app.post<{ Body: { email: string; password: string } }>("/api/login", { schema: { body: loginBody } }, async (req, reply) => {
     const { email, password } = req.body ?? {};
     // Denials are audited too. A trail that records only successful logins
     // cannot show a brute-force attempt, a credential-stuffing run, or an
@@ -318,7 +323,7 @@ export async function buildApp() {
   // Step-up re-auth: re-verify the signed-in user's password, stamping the
   // session so sensitive actions (attest / approve / export) are allowed for a
   // short window. MFA itself is delegated to the IdP for SSO accounts.
-  app.post<{ Body: { password: string } }>("/api/step-up", async (req, reply) => {
+  app.post<{ Body: { password: string } }>("/api/step-up", { schema: { body: stepUpBody } }, async (req, reply) => {
     if (!authLimiter.allow(`stepup:${req.ip}`))
       return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
     const user = await currentUser(req);
@@ -338,7 +343,7 @@ export async function buildApp() {
   // a stolen session elsewhere doesn't survive the rotation. SSO accounts manage
   // credentials at their IdP.
   const MIN_PASSWORD_LEN = 8;
-  app.post<{ Body: { currentPassword: string; newPassword: string } }>("/api/me/password", async (req, reply) => {
+  app.post<{ Body: { currentPassword: string; newPassword: string } }>("/api/me/password", { schema: { body: passwordBody } }, async (req, reply) => {
     if (!authLimiter.allow(`pwchange:${req.ip}`))
       return reply.code(429).send({ error: "too many attempts — try again in a few minutes" });
     const me = await currentUser(req);
@@ -497,7 +502,7 @@ export async function buildApp() {
 
   // Control detail for the drawer. The category/history/evidence/crosswalk
   // queries are independent of one another, so they run in parallel.
-  app.get<{ Params: { code: string } }>("/api/control/:code", async (req, reply) => {
+  app.get<{ Params: { code: string } }>("/api/control/:code", { schema: { params: codeParam } }, async (req, reply) => {
     const code = req.params.code;
     const ctrl = (await db.select().from(s.controls).where(eq(s.controls.code, code)).limit(1))[0];
     if (!ctrl) return reply.code(404).send({ error: "not found" });
@@ -522,6 +527,7 @@ export async function buildApp() {
   // It is server-derived: a human attestation carries no marker.
   app.post<{ Body: { control: string; dimension: Dimension; rating: Rating; justification?: string } }>(
     "/api/attest",
+    { schema: { body: attestBody } },
     async (req, reply) => {
       const user = await currentUser(req);
       if (!user) return reply.code(401).send({ error: "unauthenticated" });
@@ -602,7 +608,7 @@ export async function buildApp() {
   });
 
   // Request an exception.
-  app.post<{ Body: { control: string; dimension?: string; reason: string; expiresAt?: string } }>("/api/exception", async (req, reply) => {
+  app.post<{ Body: { control: string; dimension?: string; reason: string; expiresAt?: string } }>("/api/exception", { schema: { body: exceptionBody } }, async (req, reply) => {
     const user = await currentUser(req);
     if (!user) return reply.code(401).send({ error: "unauthenticated" });
     if (!canWrite(user.role)) return reply.code(403).send({ error: "forbidden" });
@@ -621,7 +627,7 @@ export async function buildApp() {
   });
 
   // Approve / reject an exception — SoD: approver must differ from requester.
-  app.post<{ Params: { id: string }; Body: { decision: "approve" | "reject" } }>("/api/exception/:id/decide", async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { decision: "approve" | "reject" } }>("/api/exception/:id/decide", { schema: { params: idParam("id"), body: decideBody } }, async (req, reply) => {
     const user = await currentUser(req);
     if (!user) return reply.code(401).send({ error: "unauthenticated" });
     if (user.role !== "admin" && user.role !== "compliance_manager") return reply.code(403).send({ error: "only admin/compliance_manager can decide exceptions" });
@@ -700,7 +706,7 @@ export async function buildApp() {
   });
 
   // Upsert one SoA entry (admin / compliance_manager).
-  app.post<{ Params: { reqId: string }; Body: { applicable?: boolean; status?: string; justification?: string } }>("/api/soa/:reqId", async (req, reply) => {
+  app.post<{ Params: { reqId: string }; Body: { applicable?: boolean; status?: string; justification?: string } }>("/api/soa/:reqId", { schema: { params: idParam("reqId"), body: soaBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     const reqId = Number(req.params.reqId);
@@ -726,7 +732,7 @@ export async function buildApp() {
   // Auditor evidence package — the report you hand an assessor. Viewing is open
   // (UI gates it behind login); exporting (?export=1) is a sensitive action:
   // requires auth + a fresh step-up and is audit-logged.
-  app.get<{ Querystring: { framework?: string; export?: string } }>("/api/report", async (req, reply) => {
+  app.get<{ Querystring: { framework?: string; export?: string } }>("/api/report", { schema: { querystring: frameworkQuery } }, async (req, reply) => {
     const me = await currentUser(req);
     const fw = req.query.framework === "iso27001" ? "iso27001" : "soc2";
     const fwName = fw === "iso27001" ? "ISO/IEC 27001:2022" : "SOC 2 (TSC 2017)";
@@ -986,7 +992,7 @@ export async function buildApp() {
   });
   const PERIOD_FRAMEWORKS = ["nist80053", "soc2", "iso27001"];
   const PERIOD_TIERS = ["low", "moderate", "high"];
-  app.post<{ Body: { name: string; framework: string; tier?: string; startDate: string; endDate: string; tscCategories?: string[] } }>("/api/periods", async (req, reply) => {
+  app.post<{ Body: { name: string; framework: string; tier?: string; startDate: string; endDate: string; tscCategories?: string[] } }>("/api/periods", { schema: { body: periodBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     const b = req.body;
@@ -1006,7 +1012,7 @@ export async function buildApp() {
     await recordAudit(db, req, me, { action: "period-create", targetType: "period", targetId: String(row.id) });
     return { ok: true, period: row };
   });
-  app.post<{ Params: { id: string }; Body: { status: string } }>("/api/periods/:id/status", async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { status: string } }>("/api/periods/:id/status", { schema: { params: idParam("id"), body: periodStatusBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     if (!["planning", "active", "closed"].includes(req.body.status)) return reply.code(400).send({ error: "bad status" });
@@ -1038,7 +1044,7 @@ export async function buildApp() {
     };
   });
 
-  app.post<{ Params: { id: string }; Body: { role: string } }>("/api/users/:id/role", async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { role: string } }>("/api/users/:id/role", { schema: { params: idParam("id"), body: roleBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can change roles" });
     const roles = ["admin", "compliance_manager", "control_owner", "auditor", "viewer"];
@@ -1048,7 +1054,7 @@ export async function buildApp() {
     return { ok: true, user: { id: row.id, role: row.role } };
   });
 
-  app.post<{ Body: { userId: number; control: string } }>("/api/assign", async (req, reply) => {
+  app.post<{ Body: { userId: number; control: string } }>("/api/assign", { schema: { body: assignBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     const { userId, control } = req.body;
@@ -1061,7 +1067,7 @@ export async function buildApp() {
     return { ok: true };
   });
 
-  app.post<{ Body: { userId: number; control: string } }>("/api/unassign", async (req, reply) => {
+  app.post<{ Body: { userId: number; control: string } }>("/api/unassign", { schema: { body: assignBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     const { userId, control } = req.body;
@@ -1109,7 +1115,7 @@ export async function buildApp() {
     const rows = await db.select().from(s.apiTokens).orderBy(desc(s.apiTokens.createdAt));
     return { tokens: rows.map((t) => ({ id: t.id, name: t.name, role: t.role, createdAt: t.createdAt, lastUsedAt: t.lastUsedAt, expiresAt: t.expiresAt, revoked: t.revoked })) };
   });
-  app.post<{ Body: { name: string; role?: string; expiresAt?: string } }>("/api/tokens", async (req, reply) => {
+  app.post<{ Body: { name: string; role?: string; expiresAt?: string } }>("/api/tokens", { schema: { body: tokenBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can manage API tokens" });
     // Minting a credential is at least as sensitive as the actions that credential
@@ -1129,7 +1135,7 @@ export async function buildApp() {
     // Plaintext is returned ONCE — only the sha256 hash is stored.
     return { ok: true, token, id: row.id, name: row.name, role: row.role };
   });
-  app.post<{ Params: { id: string } }>("/api/tokens/:id/revoke", async (req, reply) => {
+  app.post<{ Params: { id: string } }>("/api/tokens/:id/revoke", { schema: { params: idParam("id") } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || me.role !== "admin") return reply.code(403).send({ error: "only admin can manage API tokens" });
     await db.update(s.apiTokens).set({ revoked: true }).where(eq(s.apiTokens.id, Number(req.params.id)));
