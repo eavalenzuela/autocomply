@@ -47,6 +47,8 @@ export function loadAll(): LoadedData {
   const crosswalk = load("mappings/ccf-crosswalk.yaml");
   const csf2 = load("frameworks/csf2.yaml");
   const csfCrosswalk = load("mappings/csf2-crosswalk.yaml");
+  const sp171 = load("frameworks/sp800-171.yaml");
+  const sp171Crosswalk = load("mappings/sp800-171-crosswalk.yaml");
 
   const categories: LoadedCategory[] = controlsDoc.categories.map((c: any) => ({ id: c.id, title: c.title }));
 
@@ -76,6 +78,17 @@ export function loadAll(): LoadedData {
     requirements.push({ frameworkId: "iso27001", code: a.code, title: a.title, kind: "iso-annexa", extra: { theme: a.theme, new_2022: a.new_2022 ?? false } });
   // CSF's assessable unit is the Subcategory; Functions and Categories are
   // grouping, carried as metadata so the UI can nest without another table.
+  // 800-171's assessable unit is the requirement; families are grouping.
+  for (const r of sp171.requirements ?? []) {
+    requirements.push({
+      frameworkId: "sp800-171",
+      code: r.code,
+      title: r.title,
+      kind: "sp800-171-requirement",
+      extra: { family: r.family, familyTitle: r.family_title },
+    });
+  }
+
   const csfCatTitle = new Map<string, string>((csf2.categories ?? []).map((c: any) => [c.code, c.title]));
   const csfFnTitle = new Map<string, string>((csf2.functions ?? []).map((f: any) => [f.id, f.title]));
   for (const sc of csf2.subcategories ?? []) {
@@ -109,6 +122,7 @@ export function loadAll(): LoadedData {
     fw("soc2", soc2, "SOC 2"),
     fw("iso27001", iso, "ISO/IEC 27001"),
     fw("csf2", csf2, "NIST Cybersecurity Framework"),
+    fw("sp800-171", sp171, "NIST SP 800-171"),
   ];
 
   const mapFor = (frameworkId: string, rows: any[] = []): LoadedMapping[] =>
@@ -125,6 +139,7 @@ export function loadAll(): LoadedData {
     ...mapFor("soc2", crosswalk.soc2),
     ...mapFor("iso27001", crosswalk.iso27001),
     ...mapFor("csf2", csfCrosswalk.csf2),
+    ...mapFor("sp800-171", sp171Crosswalk["sp800-171"]),
   ];
 
   return { categories, objectives, controls, baselines, frameworks, requirements, mappings };
