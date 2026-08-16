@@ -341,3 +341,302 @@ test("machine provenance cannot be forged through the attest body", async () => 
   assert.equal(row.source, "human");
   assert.equal(row.marker, null, "a human attestation must never carry machine provenance");
 });
+
+// ---------------------------------------------------------------------------
+// Assessment period lifecycle.
+//
+// Closing was terminal and the UI closed a period on one unconfirmed click of
+// its status badge, so the only mistake the product made easiest to commit was
+// also the only one it made impossible to undo. Reopening is now allowed, and
+// these tests pin the conditions that keep it honest rather than the mere fact
+// that it works.
+// ---------------------------------------------------------------------------
+
+/** A closed period to experiment on, created fresh so tests do not share state. */
+async function makeClosedPeriod(name: string): Promise<number> {
+  const cookie = await login(U.admin);
+  const created = await app.inject({
+    method: "POST",
+    url: "/api/periods",
+    headers: auth(cookie),
+    payload: { name, framework: "soc2", startDate: "2030-01-01", endDate: "2030-12-31" },
+  });
+  assert.equal(created.statusCode, 200, created.body);
+  const id = created.json().period.id as number;
+  const closed = await app.inject({
+    method: "POST",
+    url: `/api/periods/${id}/status`,
+    headers: auth(cookie),
+    payload: { status: "closed" },
+  });
+  assert.equal(closed.statusCode, 200, closed.body);
+  return id;
+}
+
+test("a period can be scoped to any adopted catalog, not a hardcoded three", async () => {
+  const cookie = await login(U.admin);
+  // The schema enum was ["soc2","iso27001"] while the form offered nist80053,
+  // so the baseline-only option could never actually be created.
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/periods",
+    headers: auth(cookie),
+    payload: { name: "baseline probe", framework: "nist80053", tier: "moderate", startDate: "2031-01-01", endDate: "2031-12-31" },
+  });
+  assert.equal(res.statusCode, 200, res.body);
+  await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, res.json().period.id));
+});
+
+test("a framework that is not adopted is refused with a reason, not an enum error", async () => {
+  const cookie = await login(U.admin);
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/periods",
+    headers: auth(cookie),
+    payload: { name: "nope", framework: "not-a-framework", startDate: "2031-01-01", endDate: "2031-12-31" },
+  });
+  assert.equal(res.statusCode, 400);
+  assert.match(res.json().error, /not adopted/);
+});
+
+test("reopening a closed period requires a reason", async () => {
+  const id = await makeClosedPeriod("reopen-needs-reason");
+  const cookie = await login(U.admin);
+  for (const payload of [{ status: "active" }, { status: "active", reason: "   " }, { status: "active", reason: "oops" }]) {
+    const res = await app.inject({ method: "POST", url: `/api/periods/${id}/status`, headers: auth(cookie), payload });
+    assert.equal(res.statusCode, 400, `should refuse ${JSON.stringify(payload)}`);
+  }
+  const still = (await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id)))[0];
+  assert.equal(still.status, "closed", "a refused reopen must not change the period");
+  await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+});
+
+test("a compliance manager can close a period but not reopen one", async () => {
+  const id = await makeClosedPeriod("reopen-is-admin-only");
+  const cm = await login(U.cm);
+  const res = await app.inject({
+    method: "POST",
+    url: `/api/periods/${id}/status`,
+    headers: auth(cm),
+    payload: { status: "active", reason: "closed the wrong period by mistake" },
+  });
+  assert.equal(res.statusCode, 403, "reopening is narrower than closing");
+  await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+});
+
+test("a reopen is recorded on the period and does not erase the close", async () => {
+  const id = await makeClosedPeriod("reopen-leaves-a-trace");
+  const before = (await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id)))[0];
+  assert.ok(before.closedAt, "closing should stamp closedAt");
+
+  // One active period at a time still holds, so clear the way first.
+  const others = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const o of others) {
+    if (o.id !== id) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, o.id));
+  }
+
+  const cookie = await login(U.admin);
+  const res = await app.inject({
+    method: "POST",
+    url: `/api/periods/${id}/status`,
+    headers: auth(cookie),
+    payload: { status: "active", reason: "closed a month early by mistake" },
+  });
+  assert.equal(res.statusCode, 200, res.body);
+
+  const after = (await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id)))[0];
+  assert.equal(after.status, "active");
+  assert.equal(after.reopenCount, 1);
+  assert.match(after.reopenReason ?? "", /closed a month early/);
+  assert.ok(after.reopenedAt, "the reopen should be stamped");
+  assert.deepEqual(after.closedAt, before.closedAt, "the close must survive the reopen");
+  assert.deepEqual(after.scopeSnapshot, before.scopeSnapshot, "the frozen scope must survive the reopen");
+
+  const logged = await db
+    .select()
+    .from(s.auditLog)
+    .where(eq(s.auditLog.action, "period-reopen"))
+    .orderBy(s.auditLog.id);
+  const entry = logged.at(-1);
+  assert.ok(entry, "a reopen must appear in the audit log under its own action name");
+  assert.equal(entry!.targetId, String(id));
+
+  for (const o of others) {
+    if (o.id !== id) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, o.id));
+  }
+  await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+});
+
+test("a closed period still cannot be returned to planning", async () => {
+  const id = await makeClosedPeriod("no-un-running-history");
+  const cookie = await login(U.admin);
+  const res = await app.inject({
+    method: "POST",
+    url: `/api/periods/${id}/status`,
+    headers: auth(cookie),
+    payload: { status: "planning", reason: "pretend it never happened" },
+  });
+  assert.equal(res.statusCode, 409, "a period that ran cannot become one that never ran");
+  await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+});
+
+test("reopening cannot smuggle in a second active period for the same framework", async () => {
+  // Uniqueness is per framework, so the rival here shares soc2 with the period
+  // being reopened. Two concurrent SOC 2 windows are meaningless; a SOC 2 window
+  // beside a CSF one is not, and is covered by the test below.
+  const id = await makeClosedPeriod("reopen-respects-one-active");
+  const cookie = await login(U.admin);
+  const rival = await app.inject({
+    method: "POST",
+    url: "/api/periods",
+    headers: auth(cookie),
+    payload: { name: "reopen-rival", framework: "soc2", startDate: "2033-01-01", endDate: "2033-12-31" },
+  });
+  const rivalId = rival.json().period.id as number;
+
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+  await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, rivalId));
+
+  const res = await app.inject({
+    method: "POST",
+    url: `/api/periods/${id}/status`,
+    headers: auth(cookie),
+    payload: { status: "active", reason: "reopening while another period runs" },
+  });
+  assert.equal(res.statusCode, 409, "a reopen must not create a second active period");
+  const untouched = (await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id)))[0];
+  assert.equal(untouched.status, "closed");
+  assert.equal(untouched.reopenCount, 0, "a refused reopen must not be counted");
+
+  await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, rivalId));
+  await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+});
+
+test("assessment windows for different frameworks can overlap", async () => {
+  // The rule used to be one active period in total, so starting a CSF
+  // assessment meant closing a SOC 2 observation window that was still running.
+  // Real programmes overlap; only same-framework windows are exclusive.
+  const cookie = await login(U.admin);
+  const made: number[] = [];
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+
+  const adopted = (await db.select({ id: s.frameworks.id }).from(s.frameworks).where(eq(s.frameworks.enabled, true))).map((f) => f.id);
+  assert.ok(adopted.length >= 2, "this test needs two adopted frameworks");
+  const [fwA, fwB] = adopted;
+
+  try {
+    for (const fw of [fwA, fwB]) {
+      const created = await app.inject({
+        method: "POST",
+        url: "/api/periods",
+        headers: auth(cookie),
+        payload: { name: `overlap-${fw}`, framework: fw, startDate: "2034-01-01", endDate: "2034-12-31" },
+      });
+      assert.equal(created.statusCode, 200, created.body);
+      const id = created.json().period.id as number;
+      made.push(id);
+      const act = await app.inject({
+        method: "POST",
+        url: `/api/periods/${id}/status`,
+        headers: auth(cookie),
+        payload: { status: "active" },
+      });
+      assert.equal(act.statusCode, 200, `${fw} should be able to run alongside the others: ${act.body}`);
+    }
+
+    const active = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+    assert.equal(active.length, 2, "both windows should be open at once");
+
+    // ...but a second window for a framework that already has one is refused,
+    // and the message should say the restriction is per framework.
+    const dupe = await app.inject({
+      method: "POST",
+      url: "/api/periods",
+      headers: auth(cookie),
+      payload: { name: "overlap-again", framework: fwA, startDate: "2035-01-01", endDate: "2035-12-31" },
+    });
+    const dupeId = dupe.json().period.id as number;
+    made.push(dupeId);
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/periods/${dupeId}/status`,
+      headers: auth(cookie),
+      payload: { status: "active" },
+    });
+    assert.equal(res.statusCode, 409);
+    assert.match(res.json().error, /other frameworks can run at the same time/i);
+  } finally {
+    for (const id of made) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});
+
+test("the database refuses two active windows for one framework, not just the route", async () => {
+  // The route check is read-then-write and two concurrent requests could both
+  // pass it. The partial unique index is the actual guarantee.
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+  const ids: number[] = [];
+  try {
+    for (const n of ["idx-a", "idx-b"]) {
+      const [row] = await db
+        .insert(s.assessmentPeriods)
+        .values({ name: n, framework: "iso27001", startDate: new Date("2036-01-01"), endDate: new Date("2036-12-31"), status: "planning" })
+        .returning();
+      ids.push(row.id);
+    }
+    await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, ids[0]));
+    let rejected: any = null;
+    try {
+      await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, ids[1]));
+    } catch (e) {
+      rejected = e;
+    }
+    assert.ok(rejected, "the index, not the route, is what makes this impossible");
+    // The driver wraps the failure, so the constraint name is on the cause.
+    const detail = `${rejected?.cause?.message ?? ""} ${rejected?.cause?.constraint ?? ""}`;
+    assert.match(detail, /one_active_per_framework|unique/i, `unexpected rejection: ${detail}`);
+    const still = (await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, ids[1])))[0];
+    assert.equal(still.status, "planning", "the refused row must be unchanged");
+  } finally {
+    for (const id of ids) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});
+
+test("a report is stamped with its own framework's window, not whichever is active", async () => {
+  // With one active period this was harmless. With overlapping windows it meant
+  // a SOC 2 report could carry a CSF observation period in its meta block — a
+  // wrong date range on the document an auditor is handed.
+  const cookie = await loginStepped(U.admin);
+  const parked = await db.select().from(s.assessmentPeriods).where(eq(s.assessmentPeriods.status, "active"));
+  for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "planning" }).where(eq(s.assessmentPeriods.id, p.id));
+
+  const windows = [
+    { fw: "soc2", start: "2040-01-01", end: "2040-06-30" },
+    { fw: "iso27001", start: "2041-02-01", end: "2041-11-30" },
+  ];
+  const ids: number[] = [];
+  try {
+    for (const w of windows) {
+      const [row] = await db
+        .insert(s.assessmentPeriods)
+        .values({ name: `stamp-${w.fw}`, framework: w.fw, startDate: new Date(w.start), endDate: new Date(w.end), status: "active" })
+        .returning();
+      ids.push(row.id);
+    }
+    for (const w of windows) {
+      const res = await app.inject({ method: "GET", url: `/api/report?framework=${w.fw}`, headers: auth(cookie) });
+      assert.equal(res.statusCode, 200, res.body);
+      const meta = res.json().meta;
+      assert.equal(meta.period.start, w.start, `${w.fw} report should carry the ${w.fw} window`);
+      assert.equal(meta.period.end, w.end, `${w.fw} report should carry the ${w.fw} window`);
+    }
+  } finally {
+    for (const id of ids) await db.delete(s.assessmentPeriods).where(eq(s.assessmentPeriods.id, id));
+    for (const p of parked) await db.update(s.assessmentPeriods).set({ status: "active" }).where(eq(s.assessmentPeriods.id, p.id));
+  }
+});

@@ -26,7 +26,6 @@ export const codeParam = {
 export const DIMENSIONS = ["pol", "proc", "impl", "meas", "mang"] as const;
 export const RATINGS = ["nc", "sc", "pc", "mc", "fc"] as const;
 export const ROLES = ["admin", "compliance_manager", "control_owner", "auditor", "viewer"] as const;
-export const FRAMEWORKS = ["soc2", "iso27001"] as const;
 
 export const loginBody = {
   type: "object" as const,
@@ -136,7 +135,10 @@ export const periodBody = {
   required: ["name"],
   properties: {
     name: { type: "string", minLength: 1, maxLength: 128 },
-    framework: { type: "string", enum: [...FRAMEWORKS] },
+    // Deliberately not an enum: catalogs are data, and the handler checks the
+    // value against what is actually loaded. As a fixed list this rejected
+    // nist80053 — an option the periods form has offered since it was written.
+    framework: { type: "string", minLength: 1, maxLength: 32 },
     tier: { type: "string", maxLength: 32 },
     startDate: { type: "string", maxLength: 64 },
     endDate: { type: "string", maxLength: 64 },
@@ -147,7 +149,11 @@ export const periodBody = {
 export const periodStatusBody = {
   type: "object" as const,
   required: ["status"],
-  properties: { status: { type: "string", enum: ["planning", "active", "closed"] } },
+  properties: {
+    status: { type: "string", enum: ["planning", "active", "closed"] },
+    // Required by the handler only for reopening a closed period.
+    reason: { type: "string", maxLength: 500 },
+  },
 };
 
 export const evidenceBody = {

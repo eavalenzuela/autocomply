@@ -44,6 +44,9 @@ import {
   computeRequirements,
   controlScoreMap,
   activePeriodId,
+  baselinePeriod,
+  activePeriodViews,
+  resetFrameworkLabels,
   isFrameworkEnabled,
   enabledFrameworkIds,
   REL_W,
@@ -262,7 +265,11 @@ export async function buildApp() {
       db.select({ id: s.users.id, name: s.users.name }).from(s.users),
     ]);
     const att = await latestAttestations();
-    const scope = await inScopeCodes(period?.tier); // null = no tier scoping
+    // Tier scoping comes from the baseline (CCF) assessment specifically. Taking
+    // it from "the active period" was order-dependent once several frameworks
+    // can run at once: a SOC 2 period carries no tier, so whichever row sorted
+    // first decided between a moderate baseline and the whole catalog.
+    const scope = await inScopeCodes((await baselinePeriod())?.tier); // null = no tier scoping
 
     const xwalk = new Map<string, string[]>();
     for (const m of maps) {
@@ -380,6 +387,11 @@ export async function buildApp() {
         frameworks: fw.map((f) => f.id),
         mappingLinks: maps.length,
         period,
+        // Every open window, not just the headline one. Overlapping programmes
+        // are normal, and a topbar that shows one of three active periods with
+        // no hint that the others exist is the sort of half-truth that gets
+        // noticed during an audit rather than before it.
+        activePeriods: await activePeriodViews(),
       },
       domains,
     };
@@ -461,7 +473,7 @@ export async function buildApp() {
       db.select().from(s.exceptions),
       currentPeriod(),
     ]);
-    const scope = await inScopeCodes(period?.tier);
+    const scope = await inScopeCodes((await baselinePeriod())?.tier);
     const tasks: any[] = [];
     // Only the active period's in-scope controls generate assessment work — an
     // out-of-scope control isn't part of this assessment, so it isn't a task.
@@ -731,6 +743,9 @@ export async function buildApp() {
           .set({ enabled: req.body.enabled })
           .where(eq(s.frameworks.id, id))
           .returning();
+        // Any write to the frameworks table invalidates the cached display
+        // names, so drop them here rather than relying on a restart.
+        resetFrameworkLabels();
         // Adopting or dropping a framework changes what the organisation is
         // measured against — squarely an audit-trail event.
         await recordAudit(tx, req, me, {
@@ -932,7 +947,10 @@ export async function buildApp() {
         .innerJoin(s.requirements, eq(s.mappings.requirementId, s.requirements.id))
         .where(eq(s.requirements.frameworkId, fw)),
       db.select().from(s.exceptions),
-      currentPeriod(),
+      // The report is for one framework, so it must carry that framework's
+      // window. It previously took whichever period was active, which with
+      // overlapping windows stamps a SOC 2 report with a CSF observation period.
+      currentPeriod(fw),
     ]);
     const xwalk = new Map<string, string[]>();
     for (const m of maps) {
@@ -1164,14 +1182,19 @@ export async function buildApp() {
     const rows = await db.select().from(s.assessmentPeriods).orderBy(desc(s.assessmentPeriods.startDate));
     return { periods: rows };
   });
-  const PERIOD_FRAMEWORKS = ["nist80053", "soc2", "iso27001"];
+  // An assessment can be scoped to any loaded catalog, plus the CCF itself
+  // ("nist80053") for a baseline-only assessment. This used to be a fixed list
+  // of three sitting behind a schema enum of two, so the third was unreachable.
+  const periodFrameworkAllowed = async (id: string) =>
+    id === "nist80053" || (await enabledFrameworkIds()).includes(id);
   const PERIOD_TIERS = ["low", "moderate", "high"];
   app.post<{ Body: { name: string; framework: string; tier?: string; startDate: string; endDate: string; tscCategories?: string[] } }>("/api/periods", { schema: { body: periodBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     const b = req.body;
     if (!b.name?.trim() || !b.framework || !b.startDate || !b.endDate) return reply.code(400).send({ error: "missing fields" });
-    if (!PERIOD_FRAMEWORKS.includes(b.framework)) return reply.code(400).send({ error: "unknown framework" });
+    if (!(await periodFrameworkAllowed(b.framework)))
+      return reply.code(400).send({ error: `framework "${b.framework}" is not adopted — enable it in Admin first` });
     if (b.tier && !PERIOD_TIERS.includes(b.tier)) return reply.code(400).send({ error: "bad tier" });
     // The active period drives scoping + reporting, so garbage dates here would
     // silently corrupt everything downstream — validate before insert.
@@ -1186,7 +1209,7 @@ export async function buildApp() {
     await recordAudit(db, req, me, { action: "period-create", targetType: "period", targetId: String(row.id) });
     return { ok: true, period: row };
   });
-  app.post<{ Params: { id: string }; Body: { status: string } }>("/api/periods/:id/status", { schema: { params: idParam("id"), body: periodStatusBody } }, async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { status: string; reason?: string } }>("/api/periods/:id/status", { schema: { params: idParam("id"), body: periodStatusBody } }, async (req, reply) => {
     const me = await currentUser(req);
     if (!me || (me.role !== "admin" && me.role !== "compliance_manager")) return reply.code(403).send({ error: "forbidden" });
     if (!["planning", "active", "closed"].includes(req.body.status)) return reply.code(400).send({ error: "bad status" });
@@ -1198,37 +1221,80 @@ export async function buildApp() {
     // A real state machine. Any status could previously be set from any other,
     // including reopening a closed assessment — which is the one transition an
     // auditor would care most about, and it was silent.
+    //
+    // "closed" was then made fully terminal, which over-corrected: the UI closed
+    // a period on one unconfirmed click of its status badge, and the only remedy
+    // offered was to create a new period — which fragments the record rather than
+    // repairing it. An unrecoverable mistake that costs one click is a worse
+    // property than a recoverable one that is written down.
+    //
+    // So closed -> active is permitted, under conditions that keep the audit
+    // claim intact: admin only, a reason is required, and the reopen is recorded
+    // on the row as well as in the log. closed -> planning stays refused: a
+    // period that was assessed and closed cannot become one that never ran.
     const ALLOWED: Record<string, string[]> = {
       planning: ["active", "closed"],
       active: ["closed"],
-      closed: [], // terminal: a finished assessment does not reopen
+      closed: ["active"],
     };
     if (existing.status === to) return { ok: true, period: existing };
     if (!ALLOWED[existing.status]?.includes(to)) {
       return reply.code(409).send({
         error:
           existing.status === "closed"
-            ? "this period is closed — closed assessments do not reopen; create a new period"
+            ? "a closed period can be reopened but not returned to planning — it has already been assessed"
             : `cannot move a period from ${existing.status} to ${to}`,
       });
     }
 
-    // One active period at a time: scoping and reporting both read "the active
-    // period", and two of them makes that phrase meaningless.
+    const isReopen = existing.status === "closed" && to === "active";
+    if (isReopen) {
+      // Deliberately narrower than closing. A compliance manager can close a
+      // period; undoing one is an admin action, because the closed state is what
+      // reports and attestations were drawn against.
+      if (me.role !== "admin")
+        return reply.code(403).send({ error: "only an admin can reopen a closed period" });
+      if (!req.body.reason?.trim() || req.body.reason.trim().length < 8)
+        return reply.code(400).send({
+          error: "reopening a closed period requires a reason of at least 8 characters — it is recorded on the period",
+        });
+    }
+
+    // One active period PER FRAMEWORK. It used to be one globally, which does
+    // not match how assessments run: a SOC 2 observation window overlapping a
+    // CSF or HITRUST assessment is ordinary, and the global rule forced you to
+    // close a window that was still open to start one that had already started.
+    // Two concurrent windows for the SAME framework remain meaningless, and that
+    // is also enforced by a partial unique index — this check exists to return a
+    // useful message, not to be the guarantee.
     if (to === "active") {
       const others = await db
         .select({ id: s.assessmentPeriods.id, name: s.assessmentPeriods.name })
         .from(s.assessmentPeriods)
-        .where(and(eq(s.assessmentPeriods.status, "active"), ne(s.assessmentPeriods.id, id)));
+        .where(
+          and(
+            eq(s.assessmentPeriods.status, "active"),
+            eq(s.assessmentPeriods.framework, existing.framework),
+            ne(s.assessmentPeriods.id, id),
+          ),
+        );
       if (others.length) {
         return reply.code(409).send({
-          error: `"${others[0].name}" is already active — close it before activating another`,
+          error: `"${others[0].name}" is already the active ${existing.framework} period — close it first. Periods for other frameworks can run at the same time.`,
         });
       }
     }
 
     const row = await db.transaction(async (tx) => {
       const patch: Record<string, unknown> = { status: to };
+      if (isReopen) {
+        // closedAt and scopeSnapshot survive on purpose: they say what the close
+        // covered, and a reopened period that looks untouched is the failure mode
+        // this whole transition has to avoid.
+        patch.reopenedAt = new Date();
+        patch.reopenReason = req.body.reason!.trim();
+        patch.reopenCount = (existing.reopenCount ?? 0) + 1;
+      }
       if (to === "closed") {
         // Freeze the scope. Without this, editing a baseline later silently
         // rewrites what a finished assessment covered.
@@ -1238,12 +1304,22 @@ export async function buildApp() {
       }
       const [updated] = await tx.update(s.assessmentPeriods).set(patch).where(eq(s.assessmentPeriods.id, id)).returning();
       await recordAudit(tx, req, me, {
-        action: "period-status",
+        // Its own action name, not a generic status change: "this closed
+        // assessment was reopened" is the line an auditor scans the log for, and
+        // it should not have to be reconstructed from a from/to pair.
+        action: isReopen ? "period-reopen" : "period-status",
         targetType: "period",
         targetId: String(id),
         payload: {
           from: existing.status,
           to,
+          ...(isReopen
+            ? {
+                reason: patch.reopenReason,
+                closedAt: existing.closedAt,
+                reopenCount: patch.reopenCount,
+              }
+            : {}),
           ...(to === "closed" ? { frozenControls: (patch.scopeSnapshot as string[] | null)?.length ?? null } : {}),
         },
       });

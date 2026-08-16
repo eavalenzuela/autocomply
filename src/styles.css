@@ -1523,3 +1523,10 @@ tr:focus-visible {
 .list-state { padding: 20px; }
 .pill-btn { cursor: pointer; border: 1px solid var(--line); background: var(--surface); font: inherit; }
 .pill-btn:hover { border-color: var(--accent-3); color: var(--accent); }
+
+/* Period lifecycle: the status is a label again, and the transitions are
+   buttons that say what they do. */
+.period-actions { display: inline-flex; gap: 6px; align-items: center; margin-left: 8px; }
+.btn.small { padding: 3px 9px; font-size: 11px; }
+.reopened-mark { opacity: 0.85; }
+.crumb-more { color: var(--ink-3); font-variant-numeric: tabular-nums; }

@@ -1278,6 +1278,7 @@ const TSC_CATS = ["security", "availability", "confidentiality", "processing_int
 
 export function PeriodsPage({ role }: { role: string }) {
   const canEdit = role === "admin" || role === "compliance_manager";
+  const isAdmin = role === "admin";
   const [periods, setPeriods] = useState<Period[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -1297,14 +1298,44 @@ export function PeriodsPage({ role }: { role: string }) {
       setErr(String(e.message ?? e));
     }
   }
-  async function cycle(p: Period) {
-    const next = p.status === "planning" ? "active" : p.status === "active" ? "closed" : "planning";
+  // The status badge used to be a cycle button: one unconfirmed click on a badge
+  // reading "active" closed the whole assessment, and closing was irreversible.
+  // Worse, it cycled closed -> planning, a transition the server has always
+  // refused — so the one click that looked like an undo was the one that errored.
+  //
+  // Each transition is now its own labelled button, and the consequential ones
+  // ask first.
+  async function move(p: Period, next: string, reason?: string) {
     try {
-      await setPeriodStatus(p.id, next);
+      await setPeriodStatus(p.id, next, reason);
       await load();
     } catch (e: any) {
       setErr(String(e.message ?? e));
     }
+  }
+  async function closePeriod(p: Period) {
+    const ok = window.confirm(
+      `Close "${p.name}"?\n\n` +
+        "This ends the assessment: its scope is frozen and it stops being the period " +
+        "that scoping and reporting read.\n\n" +
+        "It can be reopened afterwards, but only by an admin and only with a reason, " +
+        "which is recorded on the period and in the audit log.",
+    );
+    if (ok) await move(p, "closed");
+  }
+  async function reopenPeriod(p: Period) {
+    const reason = window.prompt(
+      `Reopen "${p.name}"?\n\n` +
+        "The reopen is recorded on the period and in the audit log, and the close is " +
+        "not erased. Why is it being reopened?",
+      "",
+    );
+    if (reason === null) return;
+    if (reason.trim().length < 8) {
+      setErr("Reopening needs a reason of at least 8 characters — it goes on the permanent record.");
+      return;
+    }
+    await move(p, "active", reason.trim());
   }
   return (
     <div className="page">
@@ -1354,9 +1385,29 @@ export function PeriodsPage({ role }: { role: string }) {
             <span className="period-fw">{p.framework}{p.tier ? ` · ${p.tier}` : ""}</span>
             <span className="period-dates">{p.startDate.slice(0, 10)} → {p.endDate.slice(0, 10)}</span>
             <span className="period-tsc">{p.tscCategories ? p.tscCategories.map((c) => c[0].toUpperCase()).join("") : ""}</span>
-            <button className={`exc-status s-${p.status === "active" ? "approved" : p.status === "closed" ? "rejected" : "pending"}`} disabled={!canEdit} onClick={() => cycle(p)} title={canEdit ? "click to cycle status" : ""}>
+            <span
+              className={`exc-status s-${p.status === "active" ? "approved" : p.status === "closed" ? "rejected" : "pending"}`}
+              title={p.reopenedAt ? `Reopened ${p.reopenedAt.slice(0, 10)}: ${p.reopenReason ?? ""}` : undefined}
+            >
               {p.status}
-            </button>
+              {p.reopenCount ? <span className="reopened-mark" title={`Reopened ${p.reopenCount}×`}> ↺</span> : null}
+            </span>
+            {canEdit && (
+              <span className="period-actions">
+                {p.status === "planning" && (
+                  <button className="btn small" onClick={() => move(p, "active")}>Activate</button>
+                )}
+                {p.status !== "closed" && (
+                  <button className="btn small" onClick={() => closePeriod(p)}>Close…</button>
+                )}
+                {p.status === "closed" &&
+                  (isAdmin ? (
+                    <button className="btn small" onClick={() => reopenPeriod(p)}>Reopen…</button>
+                  ) : (
+                    <span className="stub-sub" title="Reopening a closed period is an admin action">admin only</span>
+                  ))}
+              </span>
+            )}
           </div>
         ))}
       </div>

@@ -16,7 +16,26 @@ import { controlScore, DIMENSIONS, type Dimension, type Rating } from "../scorin
 // control whose Implemented dimension is non-compliant (e.g. a coverage gap → NC).
 export const GATE_FLOOR = 50;
 
-export const FW_LABEL: Record<string, string> = { nist80053: "NIST 800-53 Rev 5", soc2: "SOC 2", iso27001: "ISO 27001" };
+// Display names come from the frameworks table, which is where catalogs are
+// loaded. As a hardcoded map this covered three ids, so every catalog added
+// since — CSF 2.0, 800-171, CIS v8 — rendered as its raw id ("csf2") anywhere a
+// period was shown. nist80053 is not a row in that table: it is the CCF itself,
+// so it keeps a literal.
+const FW_LABEL_STATIC: Record<string, string> = { nist80053: "NIST 800-53 Rev 5" };
+let fwLabelCache: Record<string, string> | null = null;
+
+export async function frameworkLabels(): Promise<Record<string, string>> {
+  if (fwLabelCache) return fwLabelCache;
+  const rows = await db.select({ id: s.frameworks.id, name: s.frameworks.name }).from(s.frameworks);
+  fwLabelCache = { ...FW_LABEL_STATIC };
+  for (const r of rows) fwLabelCache[r.id] = r.name;
+  return fwLabelCache;
+}
+
+/** Drop the cached labels — call after loading or renaming a catalog. */
+export function resetFrameworkLabels() {
+  fwLabelCache = null;
+}
 
 export const REL_W: Record<string, number> = { equivalent: 1, superset: 1, subset: 0.6, partial: 0.6, related: 0.3 };
 
@@ -65,30 +84,93 @@ export async function isFrameworkEnabled(id: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function activePeriodId(): Promise<number | null> {
-  const rows = await db
-    .select({ id: s.assessmentPeriods.id })
+/**
+ * Every active period, newest first.
+ *
+ * There used to be at most one. That was wrong about how assessments actually
+ * run: a SOC 2 observation window routinely overlaps a CSF or HITRUST
+ * assessment, and forcing them to be sequential means closing a period that is
+ * still open in order to start one that has already started. Uniqueness is now
+ * per framework — two concurrent SOC 2 windows are still meaningless — and is
+ * enforced by a partial unique index rather than by a read-then-write check.
+ */
+export async function activePeriods() {
+  return db
+    .select()
     .from(s.assessmentPeriods)
     .where(eq(s.assessmentPeriods.status, "active"))
-    .limit(1);
-  return rows[0]?.id ?? null;
+    .orderBy(desc(s.assessmentPeriods.startDate));
 }
 
-export async function currentPeriod() {
+/** The active period for one framework, or null. */
+export async function activePeriodFor(framework: string) {
+  const rows = await db
+    .select()
+    .from(s.assessmentPeriods)
+    .where(and(eq(s.assessmentPeriods.status, "active"), eq(s.assessmentPeriods.framework, framework)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * The baseline (CCF) period, whose tier is the only thing that scopes the
+ * control matrix. Reading "whatever is active" for that was fine when only one
+ * period could be active and became order-dependent the moment two could:
+ * a SOC 2 period carries no tier, so which of two active periods you happened
+ * to read decided whether the matrix showed a moderate baseline or everything.
+ */
+export async function baselinePeriod() {
+  return activePeriodFor("nist80053");
+}
+
+/**
+ * The period an attestation is stamped with. Nothing reads this column yet, so
+ * the aim is to be defensible rather than clever: a rating is made against a
+ * CCF control, so it belongs to the baseline assessment if one is running; with
+ * no baseline period but exactly one active period, that one is unambiguous;
+ * with several and no baseline, there is no single right answer and guessing is
+ * worse than recording nothing.
+ */
+export async function activePeriodId(): Promise<number | null> {
+  const baseline = await baselinePeriod();
+  if (baseline) return baseline.id;
+  const active = await activePeriods();
+  return active.length === 1 ? active[0].id : null;
+}
+
+const periodView = (p: typeof s.assessmentPeriods.$inferSelect, labels: Record<string, string>) => ({
+  id: p.id,
+  name: p.name,
+  framework: p.framework,
+  frameworkLabel: labels[p.framework] ?? p.framework,
+  tier: p.tier,
+  start: p.startDate.toISOString().slice(0, 10),
+  end: p.endDate.toISOString().slice(0, 10),
+  days: Math.max(0, Math.round((p.endDate.getTime() - p.startDate.getTime()) / 864e5)),
+  status: p.status,
+});
+
+/** Every active period, for surfaces that must not pretend there is only one. */
+export async function activePeriodViews() {
+  const [rows, labels] = await Promise.all([activePeriods(), frameworkLabels()]);
+  return rows.map((p) => periodView(p, labels));
+}
+
+/**
+ * A single headline period, for the places that show one. Prefers the framework
+ * asked for, then the baseline assessment, then the newest active one — so with
+ * overlapping windows the answer is at least deterministic.
+ */
+export async function currentPeriod(framework?: string | null) {
   const rows = await db.select().from(s.assessmentPeriods).orderBy(desc(s.assessmentPeriods.startDate));
   if (rows.length === 0) return null;
-  const p = rows.find((r) => r.status === "active") ?? rows[0];
-  const days = Math.max(0, Math.round((p.endDate.getTime() - p.startDate.getTime()) / 864e5));
-  return {
-    name: p.name,
-    framework: p.framework,
-    frameworkLabel: FW_LABEL[p.framework] ?? p.framework,
-    tier: p.tier,
-    start: p.startDate.toISOString().slice(0, 10),
-    end: p.endDate.toISOString().slice(0, 10),
-    days,
-    status: p.status,
-  };
+  const active = rows.filter((r) => r.status === "active");
+  const p =
+    (framework ? active.find((r) => r.framework === framework) : undefined) ??
+    active.find((r) => r.framework === "nist80053") ??
+    active[0] ??
+    rows[0];
+  return periodView(p, await frameworkLabels());
 }
 
 // Reverse roll-up: framework requirements ← mapped controls' scores, + gap report.

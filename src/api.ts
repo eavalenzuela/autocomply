@@ -2,6 +2,7 @@
 import type { Domain } from "./types";
 
 export interface AssessmentPeriodInfo {
+  id?: number;
   name: string;
   framework: string;
   frameworkLabel: string;
@@ -19,6 +20,8 @@ export interface MatrixSummary {
   frameworks: string[];
   mappingLinks: number;
   period: AssessmentPeriodInfo | null;
+  /** Every open window. Overlapping programmes across frameworks are normal. */
+  activePeriods?: AssessmentPeriodInfo[];
 }
 export interface MatrixResponse {
   summary: MatrixSummary;
@@ -356,15 +359,23 @@ export async function fetchControlsLibrary(): Promise<{ categories: { id: string
   return get("/api/controls");
 }
 
-export interface Period { id: number; name: string; framework: string; tier: string | null; startDate: string; endDate: string; status: string; tscCategories: string[] | null; }
+export interface Period {
+  id: number; name: string; framework: string; tier: string | null;
+  startDate: string; endDate: string; status: string; tscCategories: string[] | null;
+  closedAt?: string | null;
+  reopenedAt?: string | null;
+  reopenReason?: string | null;
+  reopenCount?: number;
+}
 export async function fetchPeriods(): Promise<{ periods: Period[] }> {
   return get("/api/periods");
 }
 export async function createPeriod(body: { name: string; framework: string; tier?: string; startDate: string; endDate: string; tscCategories?: string[] }): Promise<void> {
   await post("/api/periods", body);
 }
-export async function setPeriodStatus(id: number, status: string): Promise<void> {
-  await post(`/api/periods/${id}/status`, { status });
+/** `reason` is required by the server when reopening a closed period. */
+export async function setPeriodStatus(id: number, status: string, reason?: string): Promise<void> {
+  await post(`/api/periods/${id}/status`, reason ? { status, reason } : { status });
 }
 
 export interface Notification {

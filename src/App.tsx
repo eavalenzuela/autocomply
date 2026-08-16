@@ -44,8 +44,12 @@ function applyAccent(name: string) {
   r.setProperty("--accent-bg", v[3]);
 }
 
-function Topbar({ me, onLogout, onChangePassword, period, onSearch, route, onNav }: { me: CurrentUser; onLogout: () => void; onChangePassword: () => void; period: AssessmentPeriodInfo | null; onSearch: () => void; route: Route; onNav: (section: Section, code?: string | null) => void }) {
+function Topbar({ me, onLogout, onChangePassword, period, activePeriods, onSearch, route, onNav }: { me: CurrentUser; onLogout: () => void; onChangePassword: () => void; period: AssessmentPeriodInfo | null; activePeriods?: AssessmentPeriodInfo[]; onSearch: () => void; route: Route; onNav: (section: Section, code?: string | null) => void }) {
   const cycle = period ? `${period.tier ? cap(period.tier) + " · " : ""}${period.start.slice(0, 4)} cycle` : "no active period";
+  // Programmes overlap, so more than one window is routinely open. Showing one
+  // of them unqualified reads as "this is the assessment", which is wrong the
+  // moment a SOC 2 window runs alongside a CSF one.
+  const otherOpen = (activePeriods ?? []).filter((p) => p.name !== period?.name).length;
   return (
     <div className="topbar">
       <div className="brand">
@@ -60,8 +64,17 @@ function Topbar({ me, onLogout, onChangePassword, period, onSearch, route, onNav
           anywhere is furniture. It now follows the route and each ancestor is a
           link; only the current page is plain text. */}
       <nav className="crumbs" aria-label="Breadcrumb">
-        <button className="crumb-link" onClick={() => onNav("periods")} title="Assessment periods">
+        <button
+          className="crumb-link"
+          onClick={() => onNav("periods")}
+          title={
+            otherOpen
+              ? `${otherOpen + 1} assessment periods are open — click to see them all`
+              : "Assessment periods"
+          }
+        >
           {period ? `${period.frameworkLabel} · ${cycle}` : "No active period"}
+          {otherOpen > 0 && <span className="crumb-more"> +{otherOpen}</span>}
         </button>
         <span className="sep">/</span>
         {route.section && route.code ? (
@@ -505,6 +518,7 @@ export default function App() {
         onLogout={handleLogout}
         onChangePassword={() => setPwOpen(true)}
         period={summary?.period ?? null}
+        activePeriods={summary?.activePeriods}
         route={route}
         onNav={(section, code) => navigate({ section, code: code ?? null })}
         onSearch={() => {

@@ -287,6 +287,16 @@ export const assessmentPeriods = pgTable("assessment_periods", {
   // to mean the assessment stopped moving; without a frozen scope set, editing
   // a baseline later silently rewrites what a finished assessment covered.
   scopeSnapshot: jsonb("scope_snapshot"),
+  // Reopening a closed period is allowed but never invisible. closedAt and
+  // scopeSnapshot are deliberately NOT cleared on reopen: they are the record
+  // of what the close covered, and a reopened period that looks like it was
+  // never closed is worse than one that cannot reopen at all.
+  reopenedAt: timestamp("reopened_at", { withTimezone: true }),
+  reopenReason: text("reopen_reason"),
+  reopenCount: integer("reopen_count").notNull().default(0),
+  // NOTE: a partial unique index (framework) WHERE status = 'active' enforces
+  // one open window per framework — see 0007_periods_per_framework.sql. Drizzle
+  // cannot express a partial index here, so it lives in the migration only.
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
