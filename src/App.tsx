@@ -43,7 +43,7 @@ function applyAccent(name: string) {
   r.setProperty("--accent-bg", v[3]);
 }
 
-function Topbar({ me, onLogout, onChangePassword, period }: { me: CurrentUser; onLogout: () => void; onChangePassword: () => void; period: AssessmentPeriodInfo | null }) {
+function Topbar({ me, onLogout, onChangePassword, period, onSearch }: { me: CurrentUser; onLogout: () => void; onChangePassword: () => void; period: AssessmentPeriodInfo | null; onSearch: () => void }) {
   const cycle = period ? `${period.tier ? cap(period.tier) + " · " : ""}${period.start.slice(0, 4)} cycle` : "no active period";
   return (
     <div className="topbar">
@@ -61,7 +61,10 @@ function Topbar({ me, onLogout, onChangePassword, period }: { me: CurrentUser; o
         <strong>{cycle}</strong>
       </div>
       <div className="topbar-right">
-        <span className="pill">⌘K</span>
+        {/* Was decorative. It advertises a shortcut, so it should also be a
+            button that does the same thing — a hint you cannot click is worse
+            than no hint. */}
+        <button className="pill pill-btn" onClick={onSearch} title="Search controls (⌘K)">⌘K</button>
         <span>{period ? `Period: ${period.start} → ${period.end}` : "No active period"}</span>
         <span className="user-chip" title={me.email}>
           <span className="avatar">{initials(me.name)}</span>
@@ -481,7 +484,16 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Topbar me={me} onLogout={handleLogout} onChangePassword={() => setPwOpen(true)} period={summary?.period ?? null} />
+      <Topbar
+        me={me}
+        onLogout={handleLogout}
+        onChangePassword={() => setPwOpen(true)}
+        period={summary?.period ?? null}
+        onSearch={() => {
+          setActive("matrix");
+          requestAnimationFrame(() => searchRef.current?.focus());
+        }}
+      />
       <div className="shell-body">
         <Sidebar active={active} onNav={setActive} hide={hiddenNav} />
         <div className="content">
@@ -543,10 +555,16 @@ export default function App() {
             </>
           )}
           {route.section !== null && active === "dashboard" && <DashboardPage onNav={setActive} />}
-          {route.section !== null && active === "worklist" && <WorklistPage onOpenControl={setSelectedId} />}
+          {route.section !== null && active === "worklist" && <WorklistPage onOpenControl={setSelectedId} onNav={setActive} />}
           {route.section !== null && active === "evidence" && <EvidencePage onOpenControl={setSelectedId} />}
           {route.section !== null && active === "risks" && <ExceptionsPage role={me.role} />}
-          {route.section !== null && active === "requirements" && <RequirementsPage role={me.role} />}
+          {route.section !== null && active === "requirements" && (
+            <RequirementsPage
+              role={me.role}
+              framework={route.framework}
+              onFramework={(id) => navigate({ framework: id })}
+            />
+          )}
           {route.section !== null && active === "soa" && <SoaPage role={me.role} />}
           {route.section !== null && active === "reports" && <ReportsPage />}
           {route.section !== null && active === "integrations" && <IntegrationsPage />}

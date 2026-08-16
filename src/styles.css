@@ -1500,3 +1500,9 @@ tr:focus-visible {
 }
 .fw-tabs button:hover { border-color: var(--accent-3); }
 .fw-tabs button.on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+
+/* Loading / empty / error share one treatment so they read as states of the
+   same surface rather than three unrelated blank areas. */
+.list-state { padding: 20px; }
+.pill-btn { cursor: pointer; border: 1px solid var(--line); background: var(--surface); font: inherit; }
+.pill-btn:hover { border-color: var(--accent-3); color: var(--accent); }

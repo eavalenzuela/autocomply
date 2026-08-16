@@ -73,6 +73,29 @@ export const NAV: NavItem[] = [
   { key: "admin", label: "Admin" },
 ];
 
+
+/**
+ * Loading, empty and error are three different things and were rendering as one
+ * blank box: a page fetching, a page with nothing in it, and a page whose fetch
+ * failed all looked the same, so "is it broken or is it empty?" had no answer.
+ */
+export function ListState({
+  loading,
+  error,
+  empty,
+  emptyText,
+}: {
+  loading: boolean;
+  error?: string | null;
+  empty: boolean;
+  emptyText: string;
+}) {
+  if (error) return <div className="api-banner error">{error}</div>;
+  if (loading) return <div className="stub-sub list-state">Loading…</div>;
+  if (empty) return <div className="stub-sub list-state">{emptyText}</div>;
+  return null;
+}
+
 export function Sidebar({ active, onNav, hide = [] }: { active: string; onNav: (k: string) => void; hide?: string[] }) {
   let lastGroup: string | undefined;
   return (
@@ -115,7 +138,13 @@ export function Alerts() {
   );
 }
 
-export function WorklistPage({ onOpenControl }: { onOpenControl?: (code: string) => void }) {
+export function WorklistPage({
+  onOpenControl,
+  onNav,
+}: {
+  onOpenControl?: (code: string) => void;
+  onNav?: (section: string) => void;
+}) {
   const [data, setData] = useState<{ count: number; returned?: number; truncated?: boolean; tasks: WorklistTask[] } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -135,9 +164,23 @@ export function WorklistPage({ onOpenControl }: { onOpenControl?: (code: string)
         {data?.tasks.map((t) => (
           <div
             key={`${t.control}-${t.type}`}
-            className={`wl-row ${onOpenControl ? "clickable" : ""}`}
-            onClick={onOpenControl ? () => onOpenControl(t.control) : undefined}
-            title={onOpenControl ? `Open ${t.control}` : undefined}
+            className="wl-row clickable"
+            // Route by task type. Every task used to open the control drawer,
+            // including "approve this exception" — and an exception cannot be
+            // approved from the drawer, so the highest-priority items in the
+            // worklist led somewhere they could not be actioned.
+            onClick={() => {
+              if (t.type === "approve-exception" || t.type === "exception-expiring" || t.type === "exception-lapsed") {
+                onNav?.("risks");
+              } else {
+                onOpenControl?.(t.control);
+              }
+            }}
+            title={
+              t.type.startsWith("exception") || t.type === "approve-exception"
+                ? "Open Risks & Exceptions"
+                : `Open ${t.control}`
+            }
           >
             <span className={`wl-prio p${Math.round(t.priority / 10)}`}>{t.priority}</span>
             <span className="wl-ctrl">{t.control}</span>
@@ -146,7 +189,7 @@ export function WorklistPage({ onOpenControl }: { onOpenControl?: (code: string)
             <span className="wl-type">{t.type}</span>
           </div>
         ))}
-        {data && data.tasks.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>Nothing outstanding.</div>}
+        <ListState loading={!data && !err} error={err} empty={!!data && data.tasks.length === 0} emptyText="Nothing outstanding." />
         {/* Say when the list is cut. Showing 80 of 289 with no indication means
             everything below the cut does not exist as far as the user knows. */}
         {data?.truncated && (
@@ -190,7 +233,7 @@ export function EvidencePage({ onOpenControl }: { onOpenControl?: (code: string)
             {e.drifted ? <span className="tag drift">drift</span> : <span className="ev-ok">✓ current</span>}
           </div>
         ))}
-        {data && data.evidence.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>No evidence has been attached yet.</div>}
+        <ListState loading={!data && !err} error={err} empty={!!data && data.evidence.length === 0} emptyText="No evidence has been attached yet." />
       </div>
     </div>
   );
@@ -243,7 +286,7 @@ export function ExceptionsPage({ role }: { role: string }) {
             )}
           </div>
         ))}
-        {data && data.exceptions.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>No exceptions.</div>}
+        <ListState loading={!data && !err} error={err} empty={!!data && data.exceptions.length === 0} emptyText="No exceptions have been raised." />
       </div>
       <div className="stub-note" style={{ marginTop: 12, textAlign: "left" }}>
         SoD enforced: the requester cannot approve their own exception (the API returns 403). As the dev user is the
@@ -253,15 +296,26 @@ export function ExceptionsPage({ role }: { role: string }) {
   );
 }
 
-export function RequirementsPage({ role }: { role?: string }) {
+export function RequirementsPage({
+  role,
+  framework,
+  onFramework,
+}: {
+  role?: string;
+  /** From the URL, so a framework view can be bookmarked and shared. */
+  framework?: string | null;
+  onFramework?: (id: string) => void;
+}) {
   // Whatever is enabled, not a hardcoded pair.
   const frameworks = useEnabledFrameworks();
-  const [fw, setFw] = useState<string>("soc2");
+  // The URL is the source of truth when it names one.
+  const fw = framework || "soc2";
+  const setFw = (id: string) => onFramework?.(id);
   useEffect(() => {
-    // If the default is not enabled, land on the first one that is rather than
-    // asking for a framework the organisation has not adopted.
-    if (frameworks.length && !frameworks.some((f) => f.id === fw)) setFw(frameworks[0].id);
-  }, [frameworks, fw]);
+    // If the current selection is not enabled, land on the first one that is
+    // rather than asking for a framework the organisation has not adopted.
+    if (frameworks.length && !frameworks.some((f) => f.id === fw)) onFramework?.(frameworks[0].id);
+  }, [frameworks, fw, onFramework]);
   const [data, setData] = useState<RequirementsResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [gapsOnly, setGapsOnly] = useState(false);
@@ -526,12 +580,26 @@ export function SoaPage({ role }: { role: string }) {
 export function DashboardPage({ onNav }: { onNav: (k: string) => void }) {
   const [summary, setSummary] = useState<MatrixSummary | null>(null);
   const [domains, setDomains] = useState<Domain[]>([]);
-  const [soc2, setSoc2] = useState<RequirementsResponse | null>(null);
-  const [iso, setIso] = useState<RequirementsResponse | null>(null);
+  // Readiness per adopted framework, fetched for whichever are enabled.
+  const frameworks = useEnabledFrameworks();
+  const [readiness, setReadiness] = useState<Record<string, RequirementsResponse | null>>({});
+  useEffect(() => {
+    let alive = true;
+    Promise.all(
+      frameworks.map((f) =>
+        fetchRequirements(f.id)
+          .then((r) => [f.id, r] as const)
+          .catch(() => [f.id, null] as const),
+      ),
+    ).then((pairs) => {
+      if (alive) setReadiness(Object.fromEntries(pairs));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [frameworks]);
   useEffect(() => {
     fetchMatrix().then((r) => { setSummary(r.summary); setDomains(r.domains); }).catch(() => {});
-    fetchRequirements("soc2").then(setSoc2).catch(() => {});
-    fetchRequirements("iso27001").then(setIso).catch(() => {});
   }, []);
   const scored = domains.filter((d) => d.score != null);
   const gatesFailing = domains.filter((d) => d.gateFail);
@@ -554,14 +622,19 @@ export function DashboardPage({ onNav }: { onNav: (k: string) => void }) {
         <div className="kpi"><span className="kpi-label">Controls</span><span className="kpi-value">{summary?.controlsTotal ?? "—"}</span><span className="kpi-delta">{summary?.categories ?? "—"} categories</span></div>
         <div className="kpi"><span className="kpi-label">Domains scored</span><span className="kpi-value">{scored.length}<span className="unit">/{domains.length || "—"}</span></span><span className="kpi-delta">{gatesFailing.length} gates failing</span></div>
         <div className="kpi"><span className="kpi-label">Crosswalk</span><span className="kpi-value">{summary?.mappingLinks ?? "—"}</span><span className="kpi-delta">links</span></div>
-        <div className="kpi"><span className="kpi-label">Frameworks</span><span className="kpi-value">{(summary?.frameworks ?? []).length || "—"}</span><span className="kpi-delta">SOC 2 · ISO 27001</span></div>
+        <div className="kpi"><span className="kpi-label">Frameworks</span><span className="kpi-value">{frameworks.length || "—"}</span><span className="kpi-delta">{frameworks.map((f) => f.name).join(" · ") || "none adopted"}</span></div>
       </div>
       <div className="dash-grid">
         <div className="dash-panel">
           <div className="section-label">Framework readiness</div>
           <div className="dash-fws">
-            {fwCard("SOC 2", "soc2", soc2)}
-            {fwCard("ISO 27001", "iso27001", iso)}
+            {/* Every adopted framework, not a hardcoded pair. Two catalogs were
+                named here while five were enabled, so three had no readiness
+                figure anywhere in the product. */}
+            {frameworks.map((f) => fwCard(f.name, f.id, readiness[f.id] ?? null))}
+            {frameworks.length === 0 && (
+              <div className="stub-sub">No frameworks adopted yet — enable one under Admin.</div>
+            )}
           </div>
         </div>
         <div className="dash-panel">
@@ -648,7 +721,7 @@ function AuditLogPanel() {
             </span>
           </div>
         ))}
-        {data && data.entries.length === 0 && <div className="stub-sub" style={{ padding: 20 }}>No matching entries.</div>}
+        <ListState loading={!data && !err} error={err} empty={!!data && data.entries.length === 0} emptyText="No matching entries." />
       </div>
     </>
   );
@@ -1163,6 +1236,12 @@ export function ControlsPage({ onOpenControl }: { onOpenControl?: (code: string)
       </div>
       {err && <div className="api-banner error">{err}</div>}
       <div className="worklist">
+        <ListState
+          loading={!data && !err}
+          error={err}
+          empty={!!data && filtered.length === 0}
+          emptyText={q ? `No controls match “${q}”.` : "No controls loaded."}
+        />
         {filtered.map((c) => (
           <div
             key={c.code}
@@ -1189,6 +1268,7 @@ export function PeriodsPage({ role }: { role: string }) {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const frameworks = useEnabledFrameworks();
   const [form, setForm] = useState({ name: "", framework: "soc2", startDate: "2026-01-01", endDate: "2026-06-30", tsc: ["security"] as string[] });
   const load = () => fetchPeriods().then((d) => setPeriods(d.periods)).catch((e) => setErr(String(e.message ?? e)));
   useEffect(() => {
@@ -1228,7 +1308,14 @@ export function PeriodsPage({ role }: { role: string }) {
         <div className="period-form">
           <input className="login-input" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <select className="adm-role" value={form.framework} onChange={(e) => setForm({ ...form, framework: e.target.value })}>
-            <option value="nist80053">NIST 800-53 Rev 5</option><option value="soc2">SOC 2</option><option value="iso27001">ISO 27001</option>
+            {/* nist80053 is the CCF itself — an assessment scoped by baseline
+                rather than targeting a compliance framework. The rest come from
+                what has been adopted, so a new catalog is selectable without a
+                UI change. */}
+            <option value="nist80053">NIST 800-53 Rev 5 (baseline only)</option>
+            {frameworks.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
           </select>
           <input className="login-input" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
           <input className="login-input" type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
