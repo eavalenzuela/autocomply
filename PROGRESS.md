@@ -1,5 +1,13 @@
 # Build Progress — autonomous session (2026-05-22 night)
 
+> **Historical log, not current state.** This records what one build session did
+> on 2026-05-22. Read `README.md` and `ROADMAP.md` for where the project actually
+> stands. The "Current demo state" figures below were measured with a scoring
+> formula that has since been corrected: it divided only by what had been
+> assessed, so every score it produced was inflated by however much of the
+> catalog nobody had looked at. They are kept for the record, struck through,
+> rather than silently updated.
+
 Working through `ROADMAP.md` phases. Verified against a live Postgres (Docker).
 
 ## Environment note
@@ -64,10 +72,17 @@ neighbor project's Postgres on :5432.)
 - **Worklist page** — renders `/api/worklist` (priority, control, reason, type).
 - Frontend build clean (38 modules, strict tsc).
 
-## Current demo state (after seed + collect)
-- 1196 controls, 3 families scored: Access Control (AC) 38% (gate 1.9 — FAILING, due to an
-  AC coverage-gap→NC), Audit & Accountability (AU) 83% (gate 4.2), Config Management (CM) 88%
-  (gate 4.4). Worklist populated.
+## Current demo state (after seed + collect) — SUPERSEDED
+~~1196 controls, 3 families scored: Access Control (AC) 38% (gate 1.9), Audit &
+Accountability (AU) 83% (gate 4.2), Config Management (CM) 88% (gate 4.4).~~
+
+Those family scores were computed over assessed controls only. Counting every
+in-scope control — which is what the gate now does — the same database reads AU
+0.5 over 2 of 16 assessed, and AC 0 over 0 of 39. Roughly 7 of 287 in-scope
+controls carry any rating at all. The catalog figures elsewhere in this file
+(20 families / 324 objectives / 1196 controls / 184 requirements / 880 mappings)
+were re-measured and are accurate; the crosswalk reaches ~22% of the catalog.
+
 - 7 controls have AWS-fed Implemented ratings (markers visible on the matrix).
 
 ## Phase 2 — Continuous monitoring + remediation ✅ (added this session)

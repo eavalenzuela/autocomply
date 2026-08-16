@@ -19,17 +19,23 @@ SOC 2 is hand-authored (880 mappings total).
 
 ## Features
 
-- **Control matrix** — all 1,196 controls grouped by 800-53 family, with live
-  maturity scores, crosswalk badges, and a per-control detail drawer.
+- **Control matrix** — all 1,196 controls grouped by 800-53 family, with
+  coverage-adjusted maturity scores, crosswalk badges, and a per-control detail
+  drawer. Scores count unassessed controls as 0 and every surface states the
+  coverage it was computed from, so a number can never rise by assessing less.
+  Crosswalk badges presently cover ~22% of the catalog.
 - **Attestation + scoring** — append-only attestations across the five PRISMA
   maturity dimensions; normalized weighted scoring with family roll-ups and gates.
-- **Evidence store** — immutable, snapshot-hashed evidence with freshness/drift
-  tracking.
+- **Evidence store** — *not yet built.* The schema and read paths exist, but
+  there is no way to attach evidence: no upload endpoint, no UI, no ingress of
+  any kind. Every row is written by the seed scripts, and the `contentHash` on
+  those rows is a hash of the control's own code, not of any document.
 - **Collectors** — a simulated AWS collector (Check / CheckRun /
   AutomatedFinding → suggested ratings) exercising the real pipeline without
   cloud credentials.
-- **Continuous monitoring** — document drift detection, coverage-gap detection,
-  and a monitoring scheduler.
+- **Continuous monitoring** — *scaffold only.* The scheduler runs, but drift
+  detection operates on a single hardcoded fixture rather than any real source,
+  so nothing here observes the world.
 - **Exceptions / risk acceptance** — request → approve flow with enforced
   separation of duties (attestor ≠ approver) and expirations.
 - **Worklist + notifications** — prioritized, composed task feed (drift,
@@ -106,14 +112,17 @@ Built across the six roadmap phases (see `ROADMAP.md`) at MVP depth:
 |-------|------------------------------------|------------------------------------------|
 | 0     | Walking skeleton (schema/shell/auth) | Complete                               |
 | 1     | Low-baseline self-assessment slice | Core complete (AWS collector simulated)  |
-| 2     | Continuous monitoring + remediation | Complete                                |
+| 2     | Continuous monitoring + remediation | Exceptions/SoD complete; drift + monitoring are fixtures |
 | 3     | Enterprise auth + admin            | Local + OAuth SSO done; SCIM/MFA/SAML TODO |
 | 4     | Full maturity model (all baselines) | Gap report + dashboard done; per-family scoring roll-ups in progress |
 | 5     | Reporting + auditor + catalog export | Reporting, auditor role, and GRCen catalog export done |
 
-What runs today does so on **bootstrap and simulated data**. The deferred items
-(live AWS credentials, SCIM/MFA/SAML, and broader crosswalk coverage) are
-documented in `PROGRESS.md` and `ROADMAP.md`.
+What runs today does so on **bootstrap and simulated data**, and it cannot yet
+run on anything else: there is no evidence ingress and no way to create a user
+outside the seed script, so an empty deployment has no path to a first login.
+Treat this as a working model of the data and scoring, not as a tool an
+organisation can adopt. The deferred items (live AWS credentials, SCIM/MFA/SAML,
+and broader crosswalk coverage) are documented in `ROADMAP.md`.
 
 ## Documentation
 
