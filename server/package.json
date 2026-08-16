@@ -15,7 +15,9 @@
     "db:docs": "tsx src/collectors/simulate-docs.ts",
     "db:monitor": "tsx src/collectors/monitor.ts",
     "catalog:dump": "tsx src/catalog-dump.ts",
-    "loader:check": "tsx src/loader-check.ts"
+    "loader:check": "tsx src/loader-check.ts",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
